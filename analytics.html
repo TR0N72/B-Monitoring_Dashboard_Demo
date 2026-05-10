@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Water quality analytics and trend analysis for the B-Monitor IoT system.">
+    <title>Analytics - B-Monitor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Manrope:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div class="main-dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-brand">
+                    <div class="brand-logo">
+                        <p>SA</p>
+                    </div>
+                    <div class="brand-text">
+                        <div class="brand-title">
+                            <p>B-Monitor</p>
+                        </div>
+                        <div class="brand-subtitle">
+                            <p>Active Session: Unit 04</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="index.html" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/17d6b01bbfda0584d2308aa4f506bfe509938f0f.svg" alt="Dashboard">
+                    </div>
+                    <p>Dashboard</p>
+                </a>
+                <a href="sensor-nodes.html" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/af67b97eb2179670ffc08ddbb7d9cf1c70b126d9.svg" alt="Sensor Nodes">
+                    </div>
+                    <p>Sensor Nodes</p>
+                </a>
+                <a href="analytics.html" class="nav-item active">
+                    <div class="nav-icon">
+                        <img src="assets/a3cf9e83a6d2c6bae4c1e1b26c4f0b60ca53a101.svg" alt="Analytics">
+                    </div>
+                    <p>Analytics</p>
+                </a>
+                <a href="export-logs.html" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/9d40389f2a1880afd833b2f14daebc6e3ce6bbf0.svg" alt="Export Logs">
+                    </div>
+                    <p>Export Logs</p>
+                </a>
+                <a href="system-config.html" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/f2c53fa4859da524365e8bda2fd717f3946f2e8a.svg" alt="System Config">
+                    </div>
+                    <p>System Config</p>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <a href="#" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/c2f399cbc92673b4678734c1efe5796b00a9f725.svg" alt="Support">
+                    </div>
+                    <p>Support</p>
+                </a>
+                <a href="#" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/c64a15be25be00edb87b8a12e60383d8ea3306ce.svg" alt="Sign Out">
+                    </div>
+                    <p>Sign Out</p>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="main-canvas">
+                <!-- Header -->
+                <header class="top-app-bar">
+                    <div class="header-title">
+                        <p>B-Monitor</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="action-btn">
+                            <div class="action-icon">
+                                <img src="assets/ffa5e2bc3de37b0468bfca4dfb3cb27676bb36f1.svg" alt="Notifications">
+                            </div>
+                        </button>
+                        <button class="action-btn">
+                            <div class="action-icon">
+                                <img src="assets/7ed9ac62cbae16769d27d1e63b1feb45ae3e97ed.svg" alt="Alerts">
+                            </div>
+                        </button>
+                        <button class="action-btn">
+                            <div class="action-icon">
+                                <img src="assets/8f60a37f8bb6bc407fdd3dfb8a0649c83400b182.svg" alt="User">
+                            </div>
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Scrollable Content -->
+                <div class="scrollable-content">
+                    
+                    <!-- Page Header -->
+                    <div class="page-header-controls">
+                        <div class="page-title-section">
+                            <div class="heading-1">
+                                <h1>Analytics</h1>
+                            </div>
+                            <div class="status-indicator">
+                                <p>Aggregated water quality metrics and trend analysis.</p>
+                            </div>
+                        </div>
+                        <div class="page-controls">
+                            <div class="button-group">
+                                <button class="filter-btn active" onclick="setFilter(this)">24h</button>
+                                <button class="filter-btn" onclick="setFilter(this)">7 Days</button>
+                                <button class="filter-btn" onclick="setFilter(this)">30 Days</button>
+                                <button class="filter-btn" onclick="setFilter(this)">All Time</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Summary Stat Cards -->
+                    <div class="analytics-stat-row">
+                        <div class="analytics-stat-card">
+                            <div class="stat-card-label">AVG TEMPERATURE</div>
+                            <div class="stat-card-value">
+                                <span class="value">24.3</span>
+                                <span class="unit">°C</span>
+                            </div>
+                            <div class="stat-card-trend positive">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+                                +0.4% from last period
+                            </div>
+                        </div>
+                        <div class="analytics-stat-card">
+                            <div class="stat-card-label">AVG pH LEVEL</div>
+                            <div class="stat-card-value">
+                                <span class="value">7.2</span>
+                                <span class="unit">pH</span>
+                            </div>
+                            <div class="stat-card-trend stable">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="12" x2="23" y2="12"></line></svg>
+                                Stable
+                            </div>
+                        </div>
+                        <div class="analytics-stat-card">
+                            <div class="stat-card-label">AVG SALINITY</div>
+                            <div class="stat-card-value">
+                                <span class="value">22.8</span>
+                                <span class="unit">ppt</span>
+                            </div>
+                            <div class="stat-card-trend negative">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>
+                                -1.2% from last period
+                            </div>
+                        </div>
+                        <div class="analytics-stat-card">
+                            <div class="stat-card-label">AVG TURBIDITY</div>
+                            <div class="stat-card-value">
+                                <span class="value">12.4</span>
+                                <span class="unit">NTU</span>
+                            </div>
+                            <div class="stat-card-trend positive">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+                                +2.1% from last period
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Grid -->
+                    <div class="analytics-charts-grid">
+                        <!-- Water Quality Trends Chart -->
+                        <div class="chart-container analytics-chart-large">
+                            <div class="chart-header">
+                                <h2>Water Quality Trends</h2>
+                                <div class="chart-legend">
+                                    <span class="legend-item"><span class="legend-dot" style="background-color: #3b82f6;"></span> Temperature</span>
+                                    <span class="legend-item"><span class="legend-dot" style="background-color: #22c55e;"></span> pH</span>
+                                    <span class="legend-item"><span class="legend-dot" style="background-color: #f59e0b;"></span> Salinity</span>
+                                    <span class="legend-item"><span class="legend-dot" style="background-color: #ef4444;"></span> Turbidity</span>
+                                </div>
+                            </div>
+                            <div class="chart-area">
+                                <span class="chart-placeholder">[Grafana Embedded Chart — Water Quality Trends]</span>
+                            </div>
+                        </div>
+
+                        <!-- Parameter Correlation Chart -->
+                        <div class="chart-container analytics-chart-medium">
+                            <div class="chart-header">
+                                <h2>Parameter Correlation</h2>
+                            </div>
+                            <div class="chart-area">
+                                <span class="chart-placeholder">[Grafana Embedded Chart — Scatter/Heatmap]</span>
+                            </div>
+                        </div>
+
+                        <!-- Alert Frequency Chart -->
+                        <div class="chart-container analytics-chart-medium">
+                            <div class="chart-header">
+                                <h2>Alert Frequency</h2>
+                            </div>
+                            <div class="chart-area">
+                                <span class="chart-placeholder">[Grafana Embedded Chart — Bar Chart]</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Data Summary Table -->
+                    <div class="data-table-container">
+                        <div class="table-title-bar">
+                            <h2>Data Summary — By Node</h2>
+                        </div>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>NODE</th>
+                                    <th>AVG TEMP (°C)</th>
+                                    <th>AVG pH</th>
+                                    <th>AVG SALINITY (ppt)</th>
+                                    <th>AVG TURBIDITY (NTU)</th>
+                                    <th>ALERTS</th>
+                                    <th>STATUS</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="fw-500">Alpha-Node-01</td>
+                                    <td>24.2</td>
+                                    <td>7.1</td>
+                                    <td>22.5</td>
+                                    <td>11.3</td>
+                                    <td>2</td>
+                                    <td>
+                                        <div class="status-indicator">
+                                            <div class="status-dot active"></div>
+                                            <span>Normal</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-500">Beta-Node-04</td>
+                                    <td>25.1</td>
+                                    <td>7.3</td>
+                                    <td>23.1</td>
+                                    <td>14.7</td>
+                                    <td>5</td>
+                                    <td>
+                                        <div class="status-indicator">
+                                            <div class="status-dot active"></div>
+                                            <span>Normal</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-500">Delta-Node-09</td>
+                                    <td>—</td>
+                                    <td>—</td>
+                                    <td>—</td>
+                                    <td>—</td>
+                                    <td>12</td>
+                                    <td>
+                                        <div class="status-indicator">
+                                            <div class="status-dot offline"></div>
+                                            <span>Offline</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-500">Gamma-Node-02</td>
+                                    <td>23.8</td>
+                                    <td>7.0</td>
+                                    <td>21.9</td>
+                                    <td>10.1</td>
+                                    <td>0</td>
+                                    <td>
+                                        <div class="status-indicator">
+                                            <div class="status-dot active"></div>
+                                            <span>Normal</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function setFilter(btn) {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+    </script>
+</body>
+</html>

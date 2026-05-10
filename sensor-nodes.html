@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Manage and monitor IoT sensor nodes across the B-Monitor network.">
+    <title>Device Management - B-Monitor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Manrope:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div class="main-dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-brand">
+                    <div class="brand-logo">
+                        <p>SA</p>
+                    </div>
+                    <div class="brand-text">
+                        <div class="brand-title">
+                            <p>B-Monitor</p>
+                        </div>
+                        <div class="brand-subtitle">
+                            <p>Active Session: Unit 04</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="index.html" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/17d6b01bbfda0584d2308aa4f506bfe509938f0f.svg" alt="Dashboard">
+                    </div>
+                    <p>Dashboard</p>
+                </a>
+                <a href="sensor-nodes.html" class="nav-item active">
+                    <div class="nav-icon">
+                        <img src="assets/af67b97eb2179670ffc08ddbb7d9cf1c70b126d9.svg" alt="Sensor Nodes">
+                    </div>
+                    <p>Sensor Nodes</p>
+                </a>
+                <a href="analytics.html" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/a3cf9e83a6d2c6bae4c1e1b26c4f0b60ca53a101.svg" alt="Analytics">
+                    </div>
+                    <p>Analytics</p>
+                </a>
+                <a href="export-logs.html" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/9d40389f2a1880afd833b2f14daebc6e3ce6bbf0.svg" alt="Export Logs">
+                    </div>
+                    <p>Export Logs</p>
+                </a>
+                <a href="system-config.html" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/f2c53fa4859da524365e8bda2fd717f3946f2e8a.svg" alt="System Config">
+                    </div>
+                    <p>System Config</p>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <a href="#" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/c2f399cbc92673b4678734c1efe5796b00a9f725.svg" alt="Support">
+                    </div>
+                    <p>Support</p>
+                </a>
+                <a href="#" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/c64a15be25be00edb87b8a12e60383d8ea3306ce.svg" alt="Sign Out">
+                    </div>
+                    <p>Sign Out</p>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="main-canvas">
+                <!-- Header -->
+                <header class="top-app-bar">
+                    <div class="header-title">
+                        <p>B-Monitor</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="action-btn">
+                            <div class="action-icon">
+                                <img src="assets/ffa5e2bc3de37b0468bfca4dfb3cb27676bb36f1.svg" alt="Notifications">
+                            </div>
+                        </button>
+                        <button class="action-btn">
+                            <div class="action-icon">
+                                <img src="assets/7ed9ac62cbae16769d27d1e63b1feb45ae3e97ed.svg" alt="Alerts">
+                            </div>
+                        </button>
+                        <button class="action-btn">
+                            <div class="action-icon">
+                                <img src="assets/8f60a37f8bb6bc407fdd3dfb8a0649c83400b182.svg" alt="User">
+                            </div>
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Scrollable Content -->
+                <div class="scrollable-content">
+                    
+                    <!-- Page Header & Controls -->
+                    <div class="page-header-controls">
+                        <div class="page-title-section">
+                            <div class="heading-1">
+                                <h1>Device Management</h1>
+                            </div>
+                            <div class="status-indicator">
+                                <p>Monitor and configure hardware nodes across the network.</p>
+                            </div>
+                        </div>
+                        <div class="page-controls">
+                            <button class="control-btn solid">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                Add Device
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Device Table -->
+                    <div class="data-table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>DEVICE NAME</th>
+                                    <th>TYPE</th>
+                                    <th>MAC / ID</th>
+                                    <th>STATUS</th>
+                                    <th class="text-right">ACTIONS</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="clickable-row" onclick="window.location.href='node-details.html'">
+                                    <td class="fw-500">Alpha-Node-01</td>
+                                    <td class="text-secondary">ESP32 Sensor</td>
+                                    <td class="mono-text">24:6F:28:A1:B2:C3</td>
+                                    <td>
+                                        <div class="status-indicator">
+                                            <div class="status-dot active"></div>
+                                            <span>Active</span>
+                                        </div>
+                                    </td>
+                                    <td class="text-right">
+                                        <button class="icon-btn">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-500">Beta-Node-04</td>
+                                    <td class="text-secondary">ESP32 Sensor</td>
+                                    <td class="mono-text">24:6F:28:D4:E5:F6</td>
+                                    <td>
+                                        <div class="status-indicator">
+                                            <div class="status-dot active"></div>
+                                            <span>Active</span>
+                                        </div>
+                                    </td>
+                                    <td class="text-right">
+                                        <button class="icon-btn">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-500">Gateway-Main</td>
+                                    <td class="text-secondary">LoRaWAN GW</td>
+                                    <td class="mono-text">GW-8890-XYZ</td>
+                                    <td>
+                                        <div class="status-indicator">
+                                            <div class="status-dot active"></div>
+                                            <span>Active</span>
+                                        </div>
+                                    </td>
+                                    <td class="text-right">
+                                        <button class="icon-btn">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-500">Delta-Node-09</td>
+                                    <td class="text-secondary">ESP32 Sensor</td>
+                                    <td class="mono-text">24:6F:28:99:88:77</td>
+                                    <td>
+                                        <div class="status-indicator">
+                                            <div class="status-dot offline"></div>
+                                            <span>Offline</span>
+                                        </div>
+                                    </td>
+                                    <td class="text-right">
+                                        <button class="icon-btn">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-500">Gamma-Node-02</td>
+                                    <td class="text-secondary">ESP32 Sensor</td>
+                                    <td class="mono-text">24:6F:28:11:22:33</td>
+                                    <td>
+                                        <div class="status-indicator">
+                                            <div class="status-dot active"></div>
+                                            <span>Active</span>
+                                        </div>
+                                    </td>
+                                    <td class="text-right">
+                                        <button class="icon-btn">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="table-footer">
+                            <div>Showing 5 of 24 devices</div>
+                            <div class="button-group">
+                                <button class="pagination-btn">Prev</button>
+                                <button class="pagination-btn">Next</button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

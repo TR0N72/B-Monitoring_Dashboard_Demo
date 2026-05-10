@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Configure and export sensor telemetry logs from the B-Monitor system.">
+    <title>Export Logs - B-Monitor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Manrope:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div class="main-dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-brand">
+                    <div class="brand-logo">
+                        <p>SA</p>
+                    </div>
+                    <div class="brand-text">
+                        <div class="brand-title">
+                            <p>B-Monitor</p>
+                        </div>
+                        <div class="brand-subtitle">
+                            <p>Active Session: Unit 04</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="index.html" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/17d6b01bbfda0584d2308aa4f506bfe509938f0f.svg" alt="Dashboard">
+                    </div>
+                    <p>Dashboard</p>
+                </a>
+                <a href="sensor-nodes.html" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/af67b97eb2179670ffc08ddbb7d9cf1c70b126d9.svg" alt="Sensor Nodes">
+                    </div>
+                    <p>Sensor Nodes</p>
+                </a>
+                <a href="analytics.html" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/a3cf9e83a6d2c6bae4c1e1b26c4f0b60ca53a101.svg" alt="Analytics">
+                    </div>
+                    <p>Analytics</p>
+                </a>
+                <a href="export-logs.html" class="nav-item active">
+                    <div class="nav-icon">
+                        <img src="assets/9d40389f2a1880afd833b2f14daebc6e3ce6bbf0.svg" alt="Export Logs">
+                    </div>
+                    <p>Export Logs</p>
+                </a>
+                <a href="system-config.html" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/f2c53fa4859da524365e8bda2fd717f3946f2e8a.svg" alt="System Config">
+                    </div>
+                    <p>System Config</p>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <a href="#" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/c2f399cbc92673b4678734c1efe5796b00a9f725.svg" alt="Support">
+                    </div>
+                    <p>Support</p>
+                </a>
+                <a href="#" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/c64a15be25be00edb87b8a12e60383d8ea3306ce.svg" alt="Sign Out">
+                    </div>
+                    <p>Sign Out</p>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="main-canvas">
+                <!-- Header -->
+                <header class="top-app-bar">
+                    <div class="header-title">
+                        <p>B-Monitor</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="action-btn">
+                            <div class="action-icon">
+                                <img src="assets/ffa5e2bc3de37b0468bfca4dfb3cb27676bb36f1.svg" alt="Notifications">
+                            </div>
+                        </button>
+                        <button class="action-btn">
+                            <div class="action-icon">
+                                <img src="assets/7ed9ac62cbae16769d27d1e63b1feb45ae3e97ed.svg" alt="Alerts">
+                            </div>
+                        </button>
+                        <button class="action-btn">
+                            <div class="action-icon">
+                                <img src="assets/8f60a37f8bb6bc407fdd3dfb8a0649c83400b182.svg" alt="User">
+                            </div>
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Scrollable Content -->
+                <div class="scrollable-content">
+                    
+                    <!-- Page Header -->
+                    <div class="page-header-controls">
+                        <div class="page-title-section">
+                            <div class="heading-1">
+                                <h1>Export Logs</h1>
+                            </div>
+                            <div class="status-indicator">
+                                <p>Configure parameters and date range to export sensor telemetry logs.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-grid-3">
+                        <!-- Left Column (Controls) -->
+                        <div class="col-span-2">
+                            <!-- Temporal Range Card -->
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <h2>Temporal Range</h2>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">START DATE</label>
+                                        <div class="form-input-container">
+                                            <input type="text" value="Oct 01, 2023">
+                                            <div class="input-icon">
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">END DATE</label>
+                                        <div class="form-input-container">
+                                            <input type="text" value="Oct 31, 2023">
+                                            <div class="input-icon">
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="button-group">
+                                    <button class="filter-btn">Last 24h</button>
+                                    <button class="filter-btn">Last 7 Days</button>
+                                    <button class="filter-btn active">This Month</button>
+                                </div>
+                            </div>
+
+                            <!-- Telemetry Parameters Card -->
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <h2>Telemetry Parameters</h2>
+                                </div>
+                                <div class="checkbox-grid">
+                                    <div class="checkbox-item" onclick="this.querySelector('.checkbox-custom').classList.toggle('checked')">
+                                        <div class="checkbox-label">
+                                            <div class="checkbox-custom checked">
+                                                <svg class="checkbox-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                            </div>
+                                            <span>Water Temperature</span>
+                                        </div>
+                                        <span class="checkbox-unit">°C</span>
+                                    </div>
+                                    
+                                    <div class="checkbox-item" onclick="this.querySelector('.checkbox-custom').classList.toggle('checked')">
+                                        <div class="checkbox-label">
+                                            <div class="checkbox-custom checked">
+                                                <svg class="checkbox-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                            </div>
+                                            <span>Dissolved Oxygen (DO)</span>
+                                        </div>
+                                        <span class="checkbox-unit">mg/L</span>
+                                    </div>
+
+                                    <div class="checkbox-item" onclick="this.querySelector('.checkbox-custom').classList.toggle('checked')">
+                                        <div class="checkbox-label">
+                                            <div class="checkbox-custom">
+                                                <svg class="checkbox-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                            </div>
+                                            <span>pH Level</span>
+                                        </div>
+                                        <span class="checkbox-unit">pH</span>
+                                    </div>
+
+                                    <div class="checkbox-item" onclick="this.querySelector('.checkbox-custom').classList.toggle('checked')">
+                                        <div class="checkbox-label">
+                                            <div class="checkbox-custom checked">
+                                                <svg class="checkbox-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                            </div>
+                                            <span>Turbidity</span>
+                                        </div>
+                                        <span class="checkbox-unit">NTU</span>
+                                    </div>
+
+                                    <div class="checkbox-item" onclick="this.querySelector('.checkbox-custom').classList.toggle('checked')">
+                                        <div class="checkbox-label">
+                                            <div class="checkbox-custom">
+                                                <svg class="checkbox-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                            </div>
+                                            <span>Ammonia (NH3)</span>
+                                        </div>
+                                        <span class="checkbox-unit">mg/L</span>
+                                    </div>
+
+                                    <div class="checkbox-item" onclick="this.querySelector('.checkbox-custom').classList.toggle('checked')">
+                                        <div class="checkbox-label">
+                                            <div class="checkbox-custom">
+                                                <svg class="checkbox-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                            </div>
+                                            <span>Salinity</span>
+                                        </div>
+                                        <span class="checkbox-unit">PSU</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column (Summary) -->
+                        <div class="col-span-1">
+                            <div class="info-card">
+                                <div class="info-card-header">
+                                    <h2>Export Summary</h2>
+                                </div>
+                                <div class="info-list">
+                                    <div class="info-item">
+                                        <span class="info-label">Nodes Selected</span>
+                                        <span class="info-value">All Active (12)</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">Time Range</span>
+                                        <span class="info-value">31 Days</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">Parameters</span>
+                                        <span class="info-value">3 Selected</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">Est. Rows</span>
+                                        <span class="info-value">~44,640</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group export-format-group">
+                                    <label class="form-label">FORMAT</label>
+                                    <div class="form-input-container">
+                                        <input type="text" value="CSV (Comma Separated)" readonly class="format-input">
+                                        <div class="input-icon">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button class="primary-btn">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                    Download Log File
+                                </button>
+                                
+                                <div class="helper-text">
+                                    Large exports may take a few moments to compile.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>

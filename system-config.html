@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Configuration - B-Monitor</title>
+    <meta name="description" content="Configure water quality thresholds and alert settings for B-Monitor sensors.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Manrope:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div class="main-dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-brand">
+                    <div class="brand-logo">
+                        <p>SA</p>
+                    </div>
+                    <div class="brand-text">
+                        <div class="brand-title">
+                            <p>B-Monitor</p>
+                        </div>
+                        <div class="brand-subtitle">
+                            <p>Active Session: Unit 04</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="index.html" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/17d6b01bbfda0584d2308aa4f506bfe509938f0f.svg" alt="Dashboard">
+                    </div>
+                    <p>Dashboard</p>
+                </a>
+                <a href="sensor-nodes.html" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/af67b97eb2179670ffc08ddbb7d9cf1c70b126d9.svg" alt="Sensor Nodes">
+                    </div>
+                    <p>Sensor Nodes</p>
+                </a>
+                <a href="analytics.html" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/a3cf9e83a6d2c6bae4c1e1b26c4f0b60ca53a101.svg" alt="Analytics">
+                    </div>
+                    <p>Analytics</p>
+                </a>
+                <a href="export-logs.html" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/9d40389f2a1880afd833b2f14daebc6e3ce6bbf0.svg" alt="Export Logs">
+                    </div>
+                    <p>Export Logs</p>
+                </a>
+                <a href="system-config.html" class="nav-item active">
+                    <div class="nav-icon">
+                        <img src="assets/f2c53fa4859da524365e8bda2fd717f3946f2e8a.svg" alt="System Config">
+                    </div>
+                    <p>System Config</p>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <a href="#" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/c2f399cbc92673b4678734c1efe5796b00a9f725.svg" alt="Support">
+                    </div>
+                    <p>Support</p>
+                </a>
+                <a href="#" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/c64a15be25be00edb87b8a12e60383d8ea3306ce.svg" alt="Sign Out">
+                    </div>
+                    <p>Sign Out</p>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content system-config-main">
+            <div class="main-canvas flex-center">
+                <!-- Header -->
+                <header class="top-app-bar">
+                    <div class="header-title">
+                        <p>B-Monitor</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="action-btn">
+                            <div class="action-icon">
+                                <img src="assets/ffa5e2bc3de37b0468bfca4dfb3cb27676bb36f1.svg" alt="Action 1">
+                            </div>
+                        </button>
+                        <button class="action-btn">
+                            <div class="action-icon">
+                                <img src="assets/7ed9ac62cbae16769d27d1e63b1feb45ae3e97ed.svg" alt="Action 2">
+                            </div>
+                        </button>
+                        <button class="action-btn">
+                            <div class="action-icon">
+                                <img src="assets/8f60a37f8bb6bc407fdd3dfb8a0649c83400b182.svg" alt="Action 3">
+                            </div>
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Scrollable Content -->
+                <div class="scrollable-content flex-center">
+                    
+                    <div class="config-panel">
+                        <div class="config-header">
+                            <h2 class="config-title">Water Quality Thresholds</h2>
+                            <p class="config-description">Alerts will be triggered when sensor readings fall outside these configured ranges.</p>
+                        </div>
+
+                        <div class="config-grid">
+                            <!-- Temperature Card -->
+                            <div class="config-card">
+                                <div class="config-card-header">
+                                    <img src="assets/6f3510a1dbb99babca2e52252df845e0f6a7941e.svg" alt="Temperature Icon">
+                                    <h3>Temperature (°C)</h3>
+                                </div>
+                                <div class="config-inputs">
+                                    <div class="input-group">
+                                        <label>MIN LIMIT</label>
+                                        <div class="input-wrapper">
+                                            <input type="number" step="0.1" value="18.5" min="0" max="50" class="threshold-input">
+                                        </div>
+                                    </div>
+                                    <div class="input-group">
+                                        <label>MAX LIMIT</label>
+                                        <div class="input-wrapper">
+                                            <input type="number" step="0.1" value="28.0" min="0" max="50" class="threshold-input">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- pH Level Card -->
+                            <div class="config-card">
+                                <div class="config-card-header">
+                                    <img src="assets/7cbc8d37ade756484e345e40d2c92b51f08d8a1d.svg" alt="pH Icon">
+                                    <h3>pH Level</h3>
+                                </div>
+                                <div class="config-inputs">
+                                    <div class="input-group">
+                                        <label>MIN LIMIT</label>
+                                        <div class="input-wrapper">
+                                            <input type="number" step="0.1" value="6.5" min="0" max="14" class="threshold-input">
+                                        </div>
+                                    </div>
+                                    <div class="input-group">
+                                        <label>MAX LIMIT</label>
+                                        <div class="input-wrapper">
+                                            <input type="number" step="0.1" value="8.5" min="0" max="14" class="threshold-input">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Salinity Card -->
+                            <div class="config-card">
+                                <div class="config-card-header">
+                                    <img src="assets/8ceabc24f95c1ef1a379cf49d24d68a56493acb4.svg" alt="Salinity Icon">
+                                    <h3>Salinity (ppt)</h3>
+                                </div>
+                                <div class="config-inputs">
+                                    <div class="input-group">
+                                        <label>MIN LIMIT</label>
+                                        <div class="input-wrapper">
+                                            <input type="number" step="0.1" value="10.0" min="0" max="50" class="threshold-input">
+                                        </div>
+                                    </div>
+                                    <div class="input-group">
+                                        <label>MAX LIMIT</label>
+                                        <div class="input-wrapper">
+                                            <input type="number" step="0.1" value="35.0" min="0" max="50" class="threshold-input">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Turbidity Card -->
+                            <div class="config-card">
+                                <div class="config-card-header">
+                                    <img src="assets/90dd09ce6d6dcf0865ad04a71caf4c1138acf2b1.svg" alt="Turbidity Icon">
+                                    <h3>Turbidity (NTU)</h3>
+                                </div>
+                                <div class="config-inputs">
+                                    <div class="input-group">
+                                        <label>MIN LIMIT</label>
+                                        <div class="input-wrapper">
+                                            <input type="number" step="0.1" value="0.0" min="0" max="1000" class="threshold-input">
+                                        </div>
+                                    </div>
+                                    <div class="input-group">
+                                        <label>MAX LIMIT</label>
+                                        <div class="input-wrapper">
+                                            <input type="number" step="0.1" value="25.0" min="0" max="1000" class="threshold-input">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <div class="config-footer">
+                            <button class="save-config-btn" onclick="showToast()">
+                                <img src="assets/5a5d656219161cc693e96194e2cc39a73ff24e64.svg" alt="Save Icon">
+                                <span>Save Configuration</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Success Toast Notification -->
+                <div class="toast-notification" id="successToast">
+                    <img src="assets/4ab1597082c77be00e280fb7a6d7af284c4c8531.svg" alt="Success">
+                    <span>Thresholds saved successfully</span>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function showToast() {
+            const toast = document.getElementById('successToast');
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

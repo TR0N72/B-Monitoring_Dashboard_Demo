@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Node Details - B-Monitor</title>
+    <meta name="description" content="Detailed view of individual sensor node telemetry and configuration.">
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Manrope:wght@600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Liberation+Mono&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div class="main-dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-brand">
+                    <div class="brand-logo">SA</div>
+                    <div class="brand-text">
+                        <h1 class="brand-title">B-Monitor</h1>
+                        <span class="brand-subtitle">Active Session: Unit 04</span>
+                    </div>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="index.html" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/17d6b01bbfda0584d2308aa4f506bfe509938f0f.svg" alt="Dashboard Icon">
+                    </div>
+                    <span>Dashboard</span>
+                </a>
+                <a href="sensor-nodes.html" class="nav-item active">
+                    <div class="nav-icon">
+                        <img src="assets/af67b97eb2179670ffc08ddbb7d9cf1c70b126d9.svg" alt="Sensor Nodes Icon">
+                    </div>
+                    <span>Sensor Nodes</span>
+                </a>
+                <a href="analytics.html" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/a3cf9e83a6d2c6bae4c1e1b26c4f0b60ca53a101.svg" alt="Analytics Icon">
+                    </div>
+                    <span>Analytics</span>
+                </a>
+                <a href="export-logs.html" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/9d40389f2a1880afd833b2f14daebc6e3ce6bbf0.svg" alt="Export Logs Icon">
+                    </div>
+                    <span>Export Logs</span>
+                </a>
+                <a href="system-config.html" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/f2c53fa4859da524365e8bda2fd717f3946f2e8a.svg" alt="System Config Icon">
+                    </div>
+                    <span>System Config</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <a href="#" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/c2f399cbc92673b4678734c1efe5796b00a9f725.svg" alt="Support Icon">
+                    </div>
+                    <span>Support</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <div class="nav-icon">
+                        <img src="assets/c64a15be25be00edb87b8a12e60383d8ea3306ce.svg" alt="Sign Out Icon">
+                    </div>
+                    <span>Sign Out</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Top Header -->
+            <header class="top-app-bar">
+                <div class="header-title">B-Monitor</div>
+                <div class="header-actions">
+                    <button class="action-btn">
+                        <div class="action-icon">
+                            <img src="assets/ffa5e2bc3de37b0468bfca4dfb3cb27676bb36f1.svg" alt="Notifications">
+                        </div>
+                    </button>
+                    <button class="action-btn">
+                        <div class="action-icon">
+                            <img src="assets/7ed9ac62cbae16769d27d1e63b1feb45ae3e97ed.svg" alt="Alerts">
+                        </div>
+                    </button>
+                    <button class="action-btn">
+                        <div class="action-icon">
+                            <img src="assets/8f60a37f8bb6bc407fdd3dfb8a0649c83400b182.svg" alt="User Profile">
+                        </div>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Scrollable Page Content -->
+            <div class="scrollable-content">
+                
+                <!-- Page Header: Alpha-Node-01 -->
+                <div class="page-header-controls">
+                    <div class="page-title-section">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div class="heading-1">
+                                <h1>Alpha-Node-01</h1>
+                            </div>
+                            <div class="status-indicator-pill">
+                                <div class="status-dot"></div>
+                                <span>Online</span>
+                            </div>
+                        </div>
+                        <div class="status-indicator" style="margin-top: 4px;">
+                            ESP32 Environmental Sensor • Deployed Zone A
+                        </div>
+                    </div>
+                    
+                    <div class="page-controls">
+                        <button class="control-btn outline">
+                            <div class="btn-icon">
+                                <img src="assets/c5950deb9f6872362bdddf0842fbe46b95b2dcca.svg" alt="Edit">
+                            </div>
+                            EDIT NODE
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Dashboard Grid -->
+                <div class="dashboard-grid-12">
+                    
+                    <!-- Left Column (4 spans) -->
+                    <div class="col-span-4">
+                        
+                        <!-- Device Metadata -->
+                        <div class="info-card">
+                            <div class="info-card-header">
+                                <h2>Device Metadata</h2>
+                            </div>
+                            <div class="info-list">
+                                <div class="info-item">
+                                    <span class="info-label">MAC Address</span>
+                                    <span class="info-value mono">00:1B:44:11:3A:B7</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Firmware</span>
+                                    <span class="info-value">v2.4.1-stable</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Uptime</span>
+                                    <span class="info-value">42d 14h 22m</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Last Seen</span>
+                                    <span class="info-value">Just now</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Metric Cards -->
+                        <div class="metric-cards-2-col">
+                            <div class="metric-card">
+                                <div class="card-header">
+                                    AVG TEMP
+                                </div>
+                                <div class="card-value">
+                                    <span class="value">24.2</span>
+                                    <span class="unit">°C</span>
+                                </div>
+                            </div>
+                            
+                            <div class="metric-card">
+                                <div class="card-header" style="flex-direction: column;">
+                                    <span>SIGNAL</span>
+                                    <span>STRENGTH</span>
+                                </div>
+                                <div class="card-value">
+                                    <span class="value">-65</span>
+                                    <span class="unit">dBm</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Configuration Profile -->
+                        <div class="info-card">
+                            <div class="info-card-header">
+                                <h2>Configuration Profile</h2>
+                            </div>
+                            <div class="info-list">
+                                <div class="info-item">
+                                    <span class="info-label">Report Interval</span>
+                                    <span class="info-value">60s</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Deep Sleep</span>
+                                    <span class="info-value muted">Disabled</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">OTA Updates</span>
+                                    <span class="info-value success">Enabled</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Actions -->
+                        <div class="info-card">
+                            <div class="info-card-header">
+                                <h2>Quick Actions</h2>
+                            </div>
+                            <div class="info-list">
+                                <button class="quick-action-btn">
+                                    <span>Reboot Node</span>
+                                    <div class="btn-icon">
+                                        <img src="assets/3e64856e8bfd6326ac66edd772530478a0accadc.svg" alt="Reboot">
+                                    </div>
+                                </button>
+                                <button class="quick-action-btn">
+                                    <span>Calibrate Sensors</span>
+                                    <div class="btn-icon">
+                                        <img src="assets/ce7fb59404067c920b4ddbce254b374c2af18a5e.svg" alt="Calibrate">
+                                    </div>
+                                </button>
+                                <button class="quick-action-btn">
+                                    <span>View Raw Payload</span>
+                                    <div class="btn-icon">
+                                        <img src="assets/dab05f5c78fa58adae96e0b9e6b27a71bf6fb370.svg" alt="Code">
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Right Column (8 spans) -->
+                    <div class="col-span-8">
+                        
+                        <!-- Real-time Telemetry -->
+                        <div class="chart-container" style="height: 400px; padding: 25px;">
+                            <div class="chart-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: none; padding-bottom: 16px;">
+                                <h2 style="font-family: 'Manrope', sans-serif; font-size: 20px;">Real-time Telemetry</h2>
+                                <button class="action-btn" style="padding: 0;">
+                                    <div class="action-icon" style="width: 15px; height: 15px;">
+                                        <img src="assets/0a9f47de993403039b77ee8f84bde0b286d38616.svg" alt="Expand">
+                                    </div>
+                                </button>
+                            </div>
+                            <div class="chart-area" style="background-color: #f6f3f5; border-color: #e4e2e4;">
+                                <span class="chart-placeholder">[Grafana Stacked Chart Placeholder]</span>
+                            </div>
+                        </div>
+
+                        <!-- Recent Logs -->
+                        <div class="recent-logs-card">
+                            <div class="recent-logs-header">
+                                <h2>Recent Logs</h2>
+                                <a href="#" class="view-all-link">VIEW ALL</a>
+                            </div>
+                            
+                            <div class="recent-logs-table-container">
+                                <table class="recent-logs-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 199.97px;">TIMESTAMP</th>
+                                            <th style="width: 106.98px;">LEVEL</th>
+                                            <th style="width: auto;">MESSAGE</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>2023-10-27 14:32:01</td>
+                                            <td><span class="log-badge info">INFO</span></td>
+                                            <td>Telemetry payload sent successfully.</td>
+                                        </tr>
+                                        <tr>
+                                            <td>2023-10-27 14:31:01</td>
+                                            <td><span class="log-badge info">INFO</span></td>
+                                            <td>Telemetry payload sent successfully.</td>
+                                        </tr>
+                                        <tr>
+                                            <td>2023-10-27 14:28:45</td>
+                                            <td><span class="log-badge warn">WARN</span></td>
+                                            <td>Signal strength dropped below threshold (-75 dBm).</td>
+                                        </tr>
+                                        <tr>
+                                            <td>2023-10-27 14:25:01</td>
+                                            <td><span class="log-badge info">INFO</span></td>
+                                            <td>Telemetry payload sent successfully.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+</body>
+</html>
