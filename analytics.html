@@ -12,7 +12,6 @@
 </head>
 <body>
     <div class="main-dashboard">
-        <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-brand">
@@ -29,7 +28,6 @@
                     </div>
                 </div>
             </div>
-            
             <nav class="sidebar-nav">
                 <a href="index.html" class="nav-item">
                     <div class="nav-icon">
@@ -62,7 +60,6 @@
                     <p>System Config</p>
                 </a>
             </nav>
-
             <div class="sidebar-footer">
                 <a href="#" class="nav-item">
                     <div class="nav-icon">
@@ -78,11 +75,8 @@
                 </a>
             </div>
         </aside>
-
-        <!-- Main Content -->
         <main class="main-content">
             <div class="main-canvas">
-                <!-- Header -->
                 <header class="top-app-bar">
                     <div class="header-title">
                         <p>B-Monitor</p>
@@ -105,11 +99,7 @@
                         </button>
                     </div>
                 </header>
-
-                <!-- Scrollable Content -->
                 <div class="scrollable-content">
-                    
-                    <!-- Page Header -->
                     <div class="page-header-controls">
                         <div class="page-title-section">
                             <div class="heading-1">
@@ -128,8 +118,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- Summary Stat Cards -->
                     <div class="analytics-stat-row">
                         <div class="analytics-stat-card">
                             <div class="stat-card-label">AVG TEMPERATURE</div>
@@ -176,10 +164,7 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- Charts Grid -->
                     <div class="analytics-charts-grid">
-                        <!-- Water Quality Trends Chart -->
                         <div class="chart-container analytics-chart-large">
                             <div class="chart-header">
                                 <h2>Water Quality Trends</h2>
@@ -194,8 +179,6 @@
                                 <span class="chart-placeholder">[Grafana Embedded Chart — Water Quality Trends]</span>
                             </div>
                         </div>
-
-                        <!-- Parameter Correlation Chart -->
                         <div class="chart-container analytics-chart-medium">
                             <div class="chart-header">
                                 <h2>Parameter Correlation</h2>
@@ -204,8 +187,6 @@
                                 <span class="chart-placeholder">[Grafana Embedded Chart — Scatter/Heatmap]</span>
                             </div>
                         </div>
-
-                        <!-- Alert Frequency Chart -->
                         <div class="chart-container analytics-chart-medium">
                             <div class="chart-header">
                                 <h2>Alert Frequency</h2>
@@ -215,8 +196,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- Data Summary Table -->
                     <div class="data-table-container">
                         <div class="table-title-bar">
                             <h2>Data Summary — By Node</h2>
@@ -293,12 +272,10 @@
                             </tbody>
                         </table>
                     </div>
-
                 </div>
             </div>
         </main>
     </div>
-
     <script>
         function setFilter(btn) {
             document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));

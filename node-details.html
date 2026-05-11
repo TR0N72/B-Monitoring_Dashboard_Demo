@@ -5,17 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Node Details - B-Monitor</title>
     <meta name="description" content="Detailed view of individual sensor node telemetry and configuration.">
-    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Manrope:wght@600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Liberation+Mono&display=swap" rel="stylesheet">
-    
     <link rel="stylesheet" href="index.css">
 </head>
 <body>
     <div class="main-dashboard">
-        <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-brand">
@@ -26,7 +23,6 @@
                     </div>
                 </div>
             </div>
-
             <nav class="sidebar-nav">
                 <a href="index.html" class="nav-item">
                     <div class="nav-icon">
@@ -59,7 +55,6 @@
                     <span>System Config</span>
                 </a>
             </nav>
-
             <div class="sidebar-footer">
                 <a href="#" class="nav-item">
                     <div class="nav-icon">
@@ -75,10 +70,7 @@
                 </a>
             </div>
         </aside>
-
-        <!-- Main Content Area -->
         <main class="main-content">
-            <!-- Top Header -->
             <header class="top-app-bar">
                 <div class="header-title">B-Monitor</div>
                 <div class="header-actions">
@@ -99,11 +91,7 @@
                     </button>
                 </div>
             </header>
-
-            <!-- Scrollable Page Content -->
             <div class="scrollable-content">
-                
-                <!-- Page Header: Alpha-Node-01 -->
                 <div class="page-header-controls">
                     <div class="page-title-section">
                         <div style="display: flex; align-items: center; gap: 12px;">
@@ -119,7 +107,6 @@
                             ESP32 Environmental Sensor • Deployed Zone A
                         </div>
                     </div>
-                    
                     <div class="page-controls">
                         <button class="control-btn outline">
                             <div class="btn-icon">
@@ -129,14 +116,8 @@
                         </button>
                     </div>
                 </div>
-
-                <!-- Dashboard Grid -->
                 <div class="dashboard-grid-12">
-                    
-                    <!-- Left Column (4 spans) -->
                     <div class="col-span-4">
-                        
-                        <!-- Device Metadata -->
                         <div class="info-card">
                             <div class="info-card-header">
                                 <h2>Device Metadata</h2>
@@ -160,8 +141,6 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Metric Cards -->
                         <div class="metric-cards-2-col">
                             <div class="metric-card">
                                 <div class="card-header">
@@ -172,7 +151,6 @@
                                     <span class="unit">°C</span>
                                 </div>
                             </div>
-                            
                             <div class="metric-card">
                                 <div class="card-header" style="flex-direction: column;">
                                     <span>SIGNAL</span>
@@ -184,8 +162,6 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Configuration Profile -->
                         <div class="info-card">
                             <div class="info-card-header">
                                 <h2>Configuration Profile</h2>
@@ -205,8 +181,6 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Quick Actions -->
                         <div class="info-card">
                             <div class="info-card-header">
                                 <h2>Quick Actions</h2>
@@ -232,13 +206,8 @@
                                 </button>
                             </div>
                         </div>
-
                     </div>
-
-                    <!-- Right Column (8 spans) -->
                     <div class="col-span-8">
-                        
-                        <!-- Real-time Telemetry -->
                         <div class="chart-container" style="height: 400px; padding: 25px;">
                             <div class="chart-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: none; padding-bottom: 16px;">
                                 <h2 style="font-family: 'Manrope', sans-serif; font-size: 20px;">Real-time Telemetry</h2>
@@ -252,14 +221,11 @@
                                 <span class="chart-placeholder">[Grafana Stacked Chart Placeholder]</span>
                             </div>
                         </div>
-
-                        <!-- Recent Logs -->
                         <div class="recent-logs-card">
                             <div class="recent-logs-header">
                                 <h2>Recent Logs</h2>
                                 <a href="#" class="view-all-link">VIEW ALL</a>
                             </div>
-                            
                             <div class="recent-logs-table-container">
                                 <table class="recent-logs-table">
                                     <thead>
@@ -294,10 +260,8 @@
                                 </table>
                             </div>
                         </div>
-
                     </div>
                 </div>
-
             </div>
         </main>
     </div>

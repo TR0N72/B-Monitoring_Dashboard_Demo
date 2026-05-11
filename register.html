@@ -13,20 +13,13 @@
 <body>
     <div class="auth-page">
         <div class="auth-card register-card" id="registerCard">
-
-            <!-- Page Header -->
             <div class="register-header">
                 <h1 class="register-title">Worker Registration</h1>
                 <p class="register-subtitle">Add a new operational worker to the system and configure alert routing.</p>
             </div>
-
-            <!-- Registration Form -->
             <form class="auth-form" id="registerForm" onsubmit="handleRegister(event)">
-
-                <!-- ── Worker Details Section ── -->
                 <div class="form-section">
                     <p class="section-label">WORKER DETAILS</p>
-
                     <div class="form-group">
                         <label class="form-label" for="workerName">Full Name</label>
                         <input
@@ -38,7 +31,6 @@
                             autocomplete="name"
                         >
                     </div>
-
                     <div class="form-group">
                         <label class="form-label" for="workerEmail">Email Address</label>
                         <input
@@ -50,7 +42,6 @@
                             autocomplete="email"
                         >
                     </div>
-
                     <div class="form-group">
                         <label class="form-label" for="workerPassword">Temporary Password</label>
                         <div class="input-password-wrapper">
@@ -77,11 +68,8 @@
                         <p class="form-hint">User will be prompted to change this upon first login.</p>
                     </div>
                 </div>
-
-                <!-- ── Alert Routing Section ── -->
                 <div class="form-section">
                     <p class="section-label">ALERT ROUTING</p>
-
                     <div class="form-group">
                         <div class="form-label-row">
                             <label class="form-label" for="telegramId">Telegram ID</label>
@@ -103,7 +91,6 @@
                         >
                         <p class="form-hint">Required for critical system alerts and shift notifications.</p>
                     </div>
-
                     <div class="form-checkbox-group">
                         <label class="checkbox-label-row" for="sendInvite">
                             <input type="checkbox" id="sendInvite" checked>
@@ -116,8 +103,6 @@
                         </label>
                     </div>
                 </div>
-
-                <!-- Error Message -->
                 <div class="form-error" id="registerError" style="display: none;">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="10"></circle>
@@ -126,8 +111,6 @@
                     </svg>
                     <span id="registerErrorText">Registration failed. Please check the form and try again.</span>
                 </div>
-
-                <!-- Success Message -->
                 <div class="form-success" id="registerSuccess" style="display: none;">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
@@ -135,8 +118,6 @@
                     </svg>
                     <span id="registerSuccessText">Worker registered successfully. Redirecting to login…</span>
                 </div>
-
-                <!-- Action Buttons -->
                 <div class="form-actions">
                     <a href="login.html" class="auth-btn secondary" id="cancelBtn">Cancel</a>
                     <button type="submit" class="auth-btn primary" id="registerBtn">
@@ -151,18 +132,14 @@
                 </div>
             </form>
         </div>
-
-        <!-- Footer -->
         <p class="auth-footer">&copy; 2026 B-Monitor &middot; LoRa-BandengMon</p>
     </div>
-
     <script>
         // Toggle password visibility
         function togglePassword(inputId, btnEl) {
             const input = document.getElementById(inputId);
             const eyeOpen = btnEl.querySelector('.eye-open');
             const eyeClosed = btnEl.querySelector('.eye-closed');
-
             if (input.type === 'password') {
                 input.type = 'text';
                 eyeOpen.style.display = 'none';
@@ -173,47 +150,38 @@
                 eyeClosed.style.display = 'none';
             }
         }
-
         // Toggle tooltip
         function toggleTooltip(btn) {
             btn.classList.toggle('active');
         }
-
         // Close tooltips on outside click
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.info-tooltip')) {
                 document.querySelectorAll('.info-tooltip.active').forEach(t => t.classList.remove('active'));
             }
         });
-
         // Handle registration (frontend only — no backend wired)
         function handleRegister(e) {
             e.preventDefault();
             const btn = document.getElementById('registerBtn');
             const errorEl = document.getElementById('registerError');
             const successEl = document.getElementById('registerSuccess');
-
             errorEl.style.display = 'none';
             successEl.style.display = 'none';
-
             // Loading state
             btn.classList.add('loading');
             btn.disabled = true;
-
             setTimeout(() => {
                 btn.classList.remove('loading');
                 btn.disabled = false;
-
                 // Show success
                 successEl.style.display = 'flex';
-
                 // Redirect to login after brief delay
                 setTimeout(() => {
                     window.location.href = 'login.html';
                 }, 1800);
             }, 1400);
         }
-
         // Entrance animation
         document.addEventListener('DOMContentLoaded', () => {
             document.querySelector('.auth-card').classList.add('visible');

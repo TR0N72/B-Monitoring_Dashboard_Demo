@@ -12,7 +12,6 @@
 </head>
 <body>
     <div class="main-dashboard">
-        <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-brand">
@@ -29,7 +28,6 @@
                     </div>
                 </div>
             </div>
-            
             <nav class="sidebar-nav">
                 <a href="index.html" class="nav-item">
                     <div class="nav-icon">
@@ -62,7 +60,6 @@
                     <p>System Config</p>
                 </a>
             </nav>
-
             <div class="sidebar-footer">
                 <a href="#" class="nav-item">
                     <div class="nav-icon">
@@ -78,11 +75,8 @@
                 </a>
             </div>
         </aside>
-
-        <!-- Main Content -->
         <main class="main-content system-config-main">
             <div class="main-canvas flex-center">
-                <!-- Header -->
                 <header class="top-app-bar">
                     <div class="header-title">
                         <p>B-Monitor</p>
@@ -105,18 +99,13 @@
                         </button>
                     </div>
                 </header>
-
-                <!-- Scrollable Content -->
                 <div class="scrollable-content flex-center">
-                    
                     <div class="config-panel">
                         <div class="config-header">
                             <h2 class="config-title">Water Quality Thresholds</h2>
                             <p class="config-description">Alerts will be triggered when sensor readings fall outside these configured ranges.</p>
                         </div>
-
                         <div class="config-grid">
-                            <!-- Temperature Card -->
                             <div class="config-card">
                                 <div class="config-card-header">
                                     <img src="assets/6f3510a1dbb99babca2e52252df845e0f6a7941e.svg" alt="Temperature Icon">
@@ -137,8 +126,6 @@
                                     </div>
                                 </div>
                             </div>
-
-                            <!-- pH Level Card -->
                             <div class="config-card">
                                 <div class="config-card-header">
                                     <img src="assets/7cbc8d37ade756484e345e40d2c92b51f08d8a1d.svg" alt="pH Icon">
@@ -159,8 +146,6 @@
                                     </div>
                                 </div>
                             </div>
-
-                            <!-- Salinity Card -->
                             <div class="config-card">
                                 <div class="config-card-header">
                                     <img src="assets/8ceabc24f95c1ef1a379cf49d24d68a56493acb4.svg" alt="Salinity Icon">
@@ -181,8 +166,6 @@
                                     </div>
                                 </div>
                             </div>
-
-                            <!-- Turbidity Card -->
                             <div class="config-card">
                                 <div class="config-card-header">
                                     <img src="assets/90dd09ce6d6dcf0865ad04a71caf4c1138acf2b1.svg" alt="Turbidity Icon">
@@ -203,9 +186,7 @@
                                     </div>
                                 </div>
                             </div>
-
                         </div>
-
                         <div class="config-footer">
                             <button class="save-config-btn" onclick="showToast()">
                                 <img src="assets/5a5d656219161cc693e96194e2cc39a73ff24e64.svg" alt="Save Icon">
@@ -214,17 +195,13 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Success Toast Notification -->
                 <div class="toast-notification" id="successToast">
                     <img src="assets/4ab1597082c77be00e280fb7a6d7af284c4c8531.svg" alt="Success">
                     <span>Thresholds saved successfully</span>
                 </div>
-
             </div>
         </main>
     </div>
-
     <script>
         function showToast() {
             const toast = document.getElementById('successToast');

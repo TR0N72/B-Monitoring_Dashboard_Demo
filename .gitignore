@@ -1,2 +1,26 @@
+# Documents
 document/
+
+# Markdown planning files
 *.md
+
+# Environment variables
+.env
+
+# Node.js
+node_modules/
+npm-debug.log*
+
+# Docker volumes
+docker/mysql/data/
+docker/influxdb/data/
+docker/grafana/data/
+docker/rabbitmq/data/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

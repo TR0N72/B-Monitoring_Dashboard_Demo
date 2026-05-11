@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - B-Monitor</title>
     <meta name="description" content="Real-time water quality monitoring dashboard for B-Monitor IoT system.">
-    <!-- Use Google Fonts: Inter and Manrope -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Manrope:wght@600;700&display=swap" rel="stylesheet">
@@ -13,7 +12,6 @@
 </head>
 <body>
     <div class="main-dashboard">
-        <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-brand">
@@ -30,7 +28,6 @@
                     </div>
                 </div>
             </div>
-            
             <nav class="sidebar-nav">
                 <a href="index.html" class="nav-item active">
                     <div class="nav-icon">
@@ -63,7 +60,6 @@
                     <p>System Config</p>
                 </a>
             </nav>
-
             <div class="sidebar-footer">
                 <a href="#" class="nav-item">
                     <div class="nav-icon">
@@ -79,11 +75,8 @@
                 </a>
             </div>
         </aside>
-
-        <!-- Main Content -->
         <main class="main-content">
             <div class="main-canvas">
-                <!-- Critical Alert Banner -->
                 <div class="alert-banner critical" id="alertBanner">
                     <div class="alert-banner-content">
                         <svg class="alert-banner-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -119,11 +112,7 @@
                         </button>
                     </div>
                 </header>
-
-                <!-- Scrollable Content -->
                 <div class="scrollable-content">
-                    
-                    <!-- Page Header & Controls -->
                     <div class="page-header-controls">
                         <div class="page-title-section">
                             <div class="heading-1">
@@ -149,11 +138,7 @@
                             </button>
                         </div>
                     </div>
-
-                    <!-- Metric Cards Grid -->
                     <div class="metric-cards-grid">
-                        
-                        <!-- Temp Card -->
                         <div class="metric-card temp-card">
                             <div class="card-header">
                                 <p>TEMPERATURE</p>
@@ -171,8 +156,6 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- pH Card -->
                         <div class="metric-card ph-card">
                             <div class="card-header">
                                 <p>PH LEVEL</p>
@@ -189,8 +172,6 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Salinity Card -->
                         <div class="metric-card salinity-card">
                             <div class="card-header">
                                 <p>SALINITY</p>
@@ -208,8 +189,6 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Turbidity Card (DANGER STATE) -->
                         <div class="metric-card turbidity-card danger-state">
                             <div class="card-header">
                                 <p>TURBIDITY</p>
@@ -231,10 +210,7 @@
                                 </div>
                             </div>
                         </div>
-
                     </div>
-
-                    <!-- Chart Container -->
                     <div class="chart-container">
                         <div class="chart-header">
                             <h2>Live Telemetry (Last 24h)</h2>
@@ -245,8 +221,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- Data Table -->
                     <div class="data-table-container">
                         <div class="table-header-section">
                             <h2>Historical Logs</h2>
@@ -254,7 +228,6 @@
                                 <p>Showing last 5 entries</p>
                             </div>
                         </div>
-                        
                         <div class="table-wrapper">
                             <table class="data-table">
                                 <thead>
@@ -296,7 +269,6 @@
                             </table>
                         </div>
                     </div>
-
                 </div>
             </div>
         </main>

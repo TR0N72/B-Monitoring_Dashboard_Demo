@@ -12,7 +12,6 @@
 </head>
 <body>
     <div class="main-dashboard">
-        <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-brand">
@@ -29,7 +28,6 @@
                     </div>
                 </div>
             </div>
-            
             <nav class="sidebar-nav">
                 <a href="index.html" class="nav-item">
                     <div class="nav-icon">
@@ -62,7 +60,6 @@
                     <p>System Config</p>
                 </a>
             </nav>
-
             <div class="sidebar-footer">
                 <a href="#" class="nav-item">
                     <div class="nav-icon">
@@ -78,11 +75,8 @@
                 </a>
             </div>
         </aside>
-
-        <!-- Main Content -->
         <main class="main-content">
             <div class="main-canvas">
-                <!-- Header -->
                 <header class="top-app-bar">
                     <div class="header-title">
                         <p>B-Monitor</p>
@@ -105,11 +99,7 @@
                         </button>
                     </div>
                 </header>
-
-                <!-- Scrollable Content -->
                 <div class="scrollable-content">
-                    
-                    <!-- Page Header -->
                     <div class="page-header-controls">
                         <div class="page-title-section">
                             <div class="heading-1">
@@ -120,11 +110,8 @@
                             </div>
                         </div>
                     </div>
-
                     <div class="dashboard-grid-3">
-                        <!-- Left Column (Controls) -->
                         <div class="col-span-2">
-                            <!-- Temporal Range Card -->
                             <div class="info-card">
                                 <div class="info-card-header">
                                     <h2>Temporal Range</h2>
@@ -155,8 +142,6 @@
                                     <button class="filter-btn active">This Month</button>
                                 </div>
                             </div>
-
-                            <!-- Telemetry Parameters Card -->
                             <div class="info-card">
                                 <div class="info-card-header">
                                     <h2>Telemetry Parameters</h2>
@@ -171,7 +156,6 @@
                                         </div>
                                         <span class="checkbox-unit">°C</span>
                                     </div>
-                                    
                                     <div class="checkbox-item" onclick="this.querySelector('.checkbox-custom').classList.toggle('checked')">
                                         <div class="checkbox-label">
                                             <div class="checkbox-custom checked">
@@ -181,7 +165,6 @@
                                         </div>
                                         <span class="checkbox-unit">mg/L</span>
                                     </div>
-
                                     <div class="checkbox-item" onclick="this.querySelector('.checkbox-custom').classList.toggle('checked')">
                                         <div class="checkbox-label">
                                             <div class="checkbox-custom">
@@ -191,7 +174,6 @@
                                         </div>
                                         <span class="checkbox-unit">pH</span>
                                     </div>
-
                                     <div class="checkbox-item" onclick="this.querySelector('.checkbox-custom').classList.toggle('checked')">
                                         <div class="checkbox-label">
                                             <div class="checkbox-custom checked">
@@ -201,7 +183,6 @@
                                         </div>
                                         <span class="checkbox-unit">NTU</span>
                                     </div>
-
                                     <div class="checkbox-item" onclick="this.querySelector('.checkbox-custom').classList.toggle('checked')">
                                         <div class="checkbox-label">
                                             <div class="checkbox-custom">
@@ -211,7 +192,6 @@
                                         </div>
                                         <span class="checkbox-unit">mg/L</span>
                                     </div>
-
                                     <div class="checkbox-item" onclick="this.querySelector('.checkbox-custom').classList.toggle('checked')">
                                         <div class="checkbox-label">
                                             <div class="checkbox-custom">
@@ -224,8 +204,6 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Right Column (Summary) -->
                         <div class="col-span-1">
                             <div class="info-card">
                                 <div class="info-card-header">
@@ -249,7 +227,6 @@
                                         <span class="info-value">~44,640</span>
                                     </div>
                                 </div>
-                                
                                 <div class="form-group export-format-group">
                                     <label class="form-label">FORMAT</label>
                                     <div class="form-input-container">
@@ -259,12 +236,10 @@
                                         </div>
                                     </div>
                                 </div>
-
                                 <button class="primary-btn">
                                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                                     Download Log File
                                 </button>
-                                
                                 <div class="helper-text">
                                     Large exports may take a few moments to compile.
                                 </div>
@@ -275,7 +250,6 @@
             </div>
         </main>
     </div>
-
     <script>
         document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.addEventListener('click', function() {
