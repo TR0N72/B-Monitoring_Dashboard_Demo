@@ -12,6 +12,8 @@ const devicesRoutes = require('./routes/devices.routes');
 const thresholdsRoutes = require('./routes/thresholds.routes');
 const logsRoutes = require('./routes/logs.routes');
 const sensorsRoutes = require('./routes/sensors.routes');
+const notificationsRoutes = require('./routes/notifications.routes');
+const { verifyBot } = require('./config/telegram');
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3001;
@@ -25,6 +27,7 @@ app.use('/api/devices', devicesRoutes);
 app.use('/api/config/thresholds', thresholdsRoutes);
 app.use('/api/logs', logsRoutes);
 app.use('/api/sensors', sensorsRoutes);
+app.use('/api/notifications', notificationsRoutes);
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
@@ -52,9 +55,10 @@ async function start() {
     });
     initSocket(server);
     console.log('✓ Socket.io initialized');
+    verifyBot().catch(() => {});
     server.listen(PORT, () => {
-      console.log(`\n🐟 B-Monitor API running on http:
-      console.log(`   Health check: http:
+      console.log(`\n🐟 B-Monitor API running on http://localhost:${PORT}`);
+      console.log(`   Health check: http://localhost:${PORT}/api/health\n`);
     });
   } catch (err) {
     console.error('✗ Failed to start server:', err.message);

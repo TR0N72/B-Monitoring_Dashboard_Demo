@@ -28,7 +28,7 @@ async function closeMySQL() {
     pool = null;
   }
 }
-const influxURL = process.env.INFLUXDB_URL || 'http:
+const influxURL = process.env.INFLUXDB_URL || 'http://localhost:8086';
 const influxToken = process.env.INFLUXDB_TOKEN || '';
 const influxOrg = process.env.INFLUXDB_ORG || 'bmonitor';
 const influxBucket = process.env.INFLUXDB_BUCKET || 'sensor_data';

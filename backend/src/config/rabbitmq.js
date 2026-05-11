@@ -1,7 +1,7 @@
 const amqplib = require('amqplib');
 let connection = null;
 let channel = null;
-const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp:
+const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672';
 const SENSOR_QUEUE = process.env.RABBITMQ_QUEUE || 'sensor_data';
 const ALERT_QUEUE = 'alert_notifications';
 async function initRabbitMQ() {
