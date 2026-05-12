@@ -98,6 +98,18 @@ services:
         condition: service_healthy
       influxdb:
         condition: service_healthy
+  frontend:
+    build:
+      context: ./frontend
+    container_name: bmonitor-frontend
+    restart: unless-stopped
+    ports:
+      - "3002:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://backend:3001
+      NEXT_PUBLIC_GRAFANA_URL: http://grafana:3000
+    depends_on:
+      - backend
 volumes:
   mysql_data:
   influxdb_data:
