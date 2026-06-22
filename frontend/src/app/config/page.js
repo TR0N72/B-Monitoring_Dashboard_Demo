@@ -96,9 +96,9 @@ export default function SystemConfigPage() {
     <div className="main-dashboard">
       <Sidebar />
       <main className="main-content system-config-main">
-        <div className="main-canvas flex-center">
+        <div className="main-canvas">
           <TopAppBar />
-          <div className="scrollable-content flex-center">
+          <div className="scrollable-content">
             <div className="config-panel">
               <div className="config-header">
                 <h2 className="config-title">Water Quality Thresholds</h2>

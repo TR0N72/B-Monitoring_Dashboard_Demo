@@ -43,14 +43,14 @@ router.get('/:deviceId', async (req, res) => {
     res.status(500).json({ error: 'Internal server error.' });
   }
 });
-router.put('/:deviceId', authorize('administrator', 'operator'), async (req, res) => {
+router.put('/:deviceId', authorize('admin'), async (req, res) => {
   try {
     const { thresholds } = req.body;
     const deviceId = req.params.deviceId;
     if (!Array.isArray(thresholds) || thresholds.length === 0) {
       return res.status(400).json({ error: 'thresholds array is required.' });
     }
-    const validParams = ['suhu', 'ph', 'salinitas', 'kekeruhan'];
+    const validParams = ['suhu', 'salinitas'];
     const pool = getPool();
     const connection = await pool.getConnection();
     try {

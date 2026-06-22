@@ -18,43 +18,20 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-  influxdb:
-    image: influxdb:2
-    container_name: bmonitor-influxdb
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: bmonitor-mosquitto
     restart: unless-stopped
-    environment:
-      DOCKER_INFLUXDB_INIT_MODE: setup
-      DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUXDB_ADMIN_USER}
-      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUXDB_ADMIN_PASSWORD}
-      DOCKER_INFLUXDB_INIT_ORG: ${INFLUXDB_ORG}
-      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUXDB_BUCKET}
-      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUXDB_TOKEN}
     ports:
-      - "8086:8086"
+      - "1883:1883"
+      - "9001:9001"
     volumes:
-      - influxdb_data:/var/lib/influxdb2
-    healthcheck:
-      test: ["CMD", "influx", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: bmonitor-rabbitmq
-    restart: unless-stopped
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - ./docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./docker/mosquitto/passwd:/mosquitto/config/passwd:ro
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+
   grafana:
     image: grafana/grafana-oss:latest
     container_name: bmonitor-grafana
@@ -68,8 +45,9 @@ services:
       - grafana_data:/var/lib/grafana
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
-      influxdb:
+      mysql:
         condition: service_healthy
+
   backend:
     build:
       context: ./backend
@@ -83,21 +61,9 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-  consumer:
-    build:
-      context: ./consumer
-    container_name: bmonitor-consumer
-    restart: unless-stopped
-    env_file: .env
-    depends_on:
-      mysql:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      influxdb:
-        condition: service_healthy
+      mosquitto:
+        condition: service_started
+
   frontend:
     build:
       context: ./frontend
@@ -110,8 +76,9 @@ services:
       NEXT_PUBLIC_GRAFANA_URL: http://grafana:3000
     depends_on:
       - backend
+
 volumes:
   mysql_data:
-  influxdb_data:
-  rabbitmq_data:
+  mosquitto_data:
+  mosquitto_log:
   grafana_data:

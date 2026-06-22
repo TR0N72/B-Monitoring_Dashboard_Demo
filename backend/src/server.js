@@ -5,7 +5,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const { initMySQL, closeMySQL } = require('./config/db');
-const { initRabbitMQ, closeRabbitMQ } = require('./config/rabbitmq');
+const { initMQTT, closeMQTT } = require('./config/mqtt');
 const { initSocket } = require('./socket/alerts');
 const authRoutes = require('./routes/auth.routes');
 const devicesRoutes = require('./routes/devices.routes');
@@ -13,6 +13,8 @@ const thresholdsRoutes = require('./routes/thresholds.routes');
 const logsRoutes = require('./routes/logs.routes');
 const sensorsRoutes = require('./routes/sensors.routes');
 const notificationsRoutes = require('./routes/notifications.routes');
+const aiDetectionRoutes = require('./routes/ai-detection.routes');
+const actuatorRoutes = require('./routes/actuator.routes');
 const { verifyBot } = require('./config/telegram');
 const app = express();
 const server = http.createServer(app);
@@ -28,6 +30,8 @@ app.use('/api/config/thresholds', thresholdsRoutes);
 app.use('/api/logs', logsRoutes);
 app.use('/api/sensors', sensorsRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/ai-detection', aiDetectionRoutes);
+app.use('/api/actuator', actuatorRoutes);
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
@@ -46,12 +50,16 @@ app.use((err, req, res, next) => {
 });
 async function start() {
   try {
-    await initMySQL();
-    console.log('✓ MySQL connected');
-    initRabbitMQ().then(() => {
-      console.log('✓ RabbitMQ connected');
+    try {
+      await initMySQL();
+      console.log('✓ MySQL connected');
+    } catch (dbErr) {
+      console.warn('⚠ MySQL not available (Running in dummy mode):', dbErr.message);
+    }
+    initMQTT().then(() => {
+      // connected
     }).catch((err) => {
-      console.warn('⚠ RabbitMQ not available (will retry):', err.message);
+      console.warn('⚠ MQTT not available:', err.message);
     });
     initSocket(server);
     console.log('✓ Socket.io initialized');
@@ -67,7 +75,7 @@ async function start() {
 }
 async function shutdown() {
   console.log('\n⏻ Shutting down gracefully...');
-  await closeRabbitMQ();
+  await closeMQTT();
   await closeMySQL();
   server.close(() => {
     console.log('Server closed.');

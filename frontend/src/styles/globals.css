@@ -979,7 +979,10 @@ h1, h2, h3, .brand-title {
     gap: 8px;
 }
 .config-card-header img {
+    width: 20px;
     height: 20px;
+    flex-shrink: 0;
+    object-fit: contain;
 }
 .config-card-header h3 {
     font-family: 'Inter', sans-serif;
@@ -1043,6 +1046,12 @@ h1, h2, h3, .brand-title {
     gap: 8px;
     cursor: pointer;
     box-shadow: 0px 1px 1px rgba(0,0,0,0.05);
+}
+.save-config-btn img {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    object-fit: contain;
 }
 .save-config-btn:hover {
     background-color: #333;

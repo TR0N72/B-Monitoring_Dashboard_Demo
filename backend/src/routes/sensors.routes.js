@@ -1,94 +1,94 @@
 const express = require('express');
-const { getInfluxQueryApi, influxBucket } = require('../config/db');
+const { getPool } = require('../config/db');
 const { authenticate } = require('../middleware/auth');
 const router = express.Router();
+
 router.use(authenticate);
+
 router.get('/latest', async (req, res) => {
   try {
     const { device_id } = req.query;
-    const queryApi = getInfluxQueryApi();
-    const deviceFilter = device_id
-      ? `|> filter(fn: (r) => r["device_id"] == "${device_id}")`
-      : '';
-    const fluxQuery = `
-      from(bucket: "${influxBucket}")
-        |> range(start: -1h)
-        ${deviceFilter}
-        |> filter(fn: (r) => r["_measurement"] == "water_quality")
-        |> last()
-        |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+    const pool = getPool();
+    
+    let query = `
+      SELECT sd.*, d.node_id 
+      FROM sensor_data sd
+      JOIN devices d ON sd.device_id = d.id
+      WHERE sd.id IN (
+        SELECT MAX(id) FROM sensor_data GROUP BY device_id
+      )
     `;
-    const results = [];
-    await new Promise((resolve, reject) => {
-      queryApi.queryRows(fluxQuery, {
-        next(row, tableMeta) {
-          results.push(tableMeta.toObject(row));
-        },
-        error(err) {
-          reject(err);
-        },
-        complete() {
-          resolve();
-        },
-      });
-    });
-    res.json({ readings: results });
-  } catch (err) {
-    if (err.message && err.message.includes('ECONNREFUSED')) {
-      return res.json({ readings: [], warning: 'InfluxDB not available' });
+    const params = [];
+
+    if (device_id) {
+      // Allow searching by node_id (string) or internal id
+      query += ` AND (d.node_id = ? OR d.id = ?)`;
+      params.push(device_id, device_id);
     }
+
+    const [rows] = await pool.execute(query, params);
+    res.json({ readings: rows });
+  } catch (err) {
     console.error('[SENSORS] Latest error:', err.message);
     res.status(500).json({ error: 'Internal server error.' });
   }
 });
+
 router.get('/history', async (req, res) => {
   try {
     const {
       device_id,
       parameter,
-      range: timeRange = '24h',
-      interval = '5m',
+      start_date,
+      end_date
     } = req.query;
-    const queryApi = getInfluxQueryApi();
-    const deviceFilter = device_id
-      ? `|> filter(fn: (r) => r["device_id"] == "${device_id}")`
-      : '';
-    const paramFilter = parameter
-      ? `|> filter(fn: (r) => r["_field"] == "${parameter}")`
-      : '';
-    const fluxQuery = `
-      from(bucket: "${influxBucket}")
-        |> range(start: -${timeRange})
-        |> filter(fn: (r) => r["_measurement"] == "water_quality")
-        ${deviceFilter}
-        ${paramFilter}
-        |> aggregateWindow(every: ${interval}, fn: mean, createEmpty: false)
-        |> yield(name: "mean")
+    
+    const pool = getPool();
+    
+    let query = `
+      SELECT sd.id, sd.suhu, sd.salinitas, sd.baterai, sd.rssi, sd.recorded_at, d.node_id
+      FROM sensor_data sd
+      JOIN devices d ON sd.device_id = d.id
+      WHERE 1=1
     `;
-    const results = [];
-    await new Promise((resolve, reject) => {
-      queryApi.queryRows(fluxQuery, {
-        next(row, tableMeta) {
-          results.push(tableMeta.toObject(row));
-        },
-        error(err) {
-          reject(err);
-        },
-        complete() {
-          resolve();
-        },
-      });
-    });
+    const params = [];
+
+    if (device_id) {
+      query += ` AND (d.node_id = ? OR d.id = ?)`;
+      params.push(device_id, device_id);
+    }
+    if (start_date) {
+      query += ` AND sd.recorded_at >= ?`;
+      params.push(start_date);
+    }
+    if (end_date) {
+      query += ` AND sd.recorded_at <= ?`;
+      params.push(end_date);
+    }
+
+    query += ` ORDER BY sd.recorded_at DESC LIMIT 1000`;
+
+    const [rows] = await pool.execute(query, params);
+
+    // If a specific parameter is requested, map the data to match expected frontend structure
+    if (parameter && ['suhu', 'salinitas', 'baterai', 'rssi'].includes(parameter)) {
+      const mappedData = rows.map(r => ({
+        _time: r.recorded_at,
+        _value: r[parameter],
+        device_id: r.node_id,
+        _field: parameter
+      }));
+      return res.json({ data: mappedData, query: { device_id, parameter, start_date, end_date } });
+    }
+
     res.json({
-      data: results,
-      query: { device_id, parameter, range: timeRange, interval },
+      data: rows,
+      query: { device_id, parameter, start_date, end_date },
     });
   } catch (err) {
-    if (err.message && err.message.includes('ECONNREFUSED')) {
-      return res.json({ data: [], warning: 'InfluxDB not available' });
-    }
     console.error('[SENSORS] History error:', err.message);
     res.status(500).json({ error: 'Internal server error.' });
   }
 });
+
 module.exports = router;
