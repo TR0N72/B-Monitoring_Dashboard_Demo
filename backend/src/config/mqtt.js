@@ -93,6 +93,28 @@ async function handleSensorData(nodeId, payload) {
       const sensorDataId = insertResult.insertId;
 
       // TODO: Call Fuzzy DSS engine here in Session 4
+      if (suhu !== null && salinitas !== null) {
+        const { processFuzzy } = require('../services/fuzzyDSS');
+        const fuzzyResult = processFuzzy(suhu, salinitas);
+        
+        await connection.execute(
+          `INSERT INTO fuzzy_decisions 
+           (device_id, sensor_data_id, suhu_membership, salinitas_membership, dss_score, dss_recommendation, fired_rules) 
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [internalId, sensorDataId, fuzzyResult.suhu_membership, fuzzyResult.salinitas_membership, fuzzyResult.score, fuzzyResult.recommendation, JSON.stringify(fuzzyResult.fired_rules)]
+        );
+
+        const { getIo } = require('../socket/alerts');
+        const io = getIo();
+        if (io) {
+          io.emit('dss:update', {
+            device_id: internalId,
+            node_id: nodeId,
+            ...fuzzyResult,
+            created_at: new Date()
+          });
+        }
+      }
 
       // Check thresholds
       await checkThresholds(connection, internalId, sensorDataId, { suhu, salinitas });

@@ -15,6 +15,7 @@ const sensorsRoutes = require('./routes/sensors.routes');
 const notificationsRoutes = require('./routes/notifications.routes');
 const aiDetectionRoutes = require('./routes/ai-detection.routes');
 const actuatorRoutes = require('./routes/actuator.routes');
+const fuzzyRoutes = require('./routes/fuzzy.routes');
 const { verifyBot } = require('./config/telegram');
 const app = express();
 const server = http.createServer(app);
@@ -32,6 +33,7 @@ app.use('/api/sensors', sensorsRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/ai-detection', aiDetectionRoutes);
 app.use('/api/actuator', actuatorRoutes);
+app.use('/api/dss', fuzzyRoutes);
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
