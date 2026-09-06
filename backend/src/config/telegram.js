@@ -115,8 +115,77 @@ async function verifyBot() {
   }
 }
 
+
 module.exports = {
   sendTelegramAlert,
   sendTelegramMessage,
   verifyBot,
+  sendEmergencyAlert,
 };
+
+/**
+ * sendEmergencyAlert — Notifikasi Darurat Failsafe (Prioritas Maksimum)
+ * ======================================================================
+ * Tidak menggunakan throttle/cooldown.
+ * Mencoba mengirim hingga 3 kali jika gagal (retry for critical messages).
+ *
+ * @param {object} opts
+ * @param {string} opts.node_id - Hardware node ID
+ * @param {string} opts.message - Pesan darurat
+ * @param {number} [opts.retries=3] - Jumlah percobaan ulang
+ */
+async function sendEmergencyAlert({ node_id, message, retries = 3 }) {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+    console.warn('[Telegram] Emergency alert skipped — bot not configured');
+    return null;
+  }
+
+  const text = [
+    `🆘🆘🆘 <b>EMERGENCY FAILSAFE ALERT</b> 🆘🆘🆘`,
+    ``,
+    `⛽ <b>Node:</b> <code>${node_id}</code>`,
+    ``,
+    `${message}`,
+    ``,
+    `⚠️ <b>Tindakan yang diperlukan:</b>`,
+    `1. Periksa mesin diesel secara langsung`,
+    `2. Pastikan katup kuras terbuka`,
+    `3. Laporkan ke koordinator lapangan`,
+    `4. Reset via Dashboard Admin setelah kondisi aman`,
+    ``,
+    `🕐 ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`,
+    `🔴 <b>SEGERA TANGANI — RISIKO LUAPAN AIR!</b>`,
+  ].join('\n');
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(`${TELEGRAM_API_BASE}/sendMessage`, {
+        method : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body   : JSON.stringify({
+          chat_id                : TELEGRAM_CHAT_ID,
+          text,
+          parse_mode             : 'HTML',
+          disable_web_page_preview: true,
+        }),
+      });
+
+      const result = await response.json();
+      if (result.ok) {
+        console.log(`[Telegram] ✓ Emergency alert sent (attempt ${attempt}/${retries})`);
+        return result;
+      }
+      console.warn(`[Telegram] Emergency attempt ${attempt} failed: ${result.description}`);
+    } catch (err) {
+      console.error(`[Telegram] Emergency attempt ${attempt} error: ${err.message}`);
+    }
+
+    // Backoff sebelum retry (1s, 2s, 4s)
+    if (attempt < retries) {
+      await new Promise(r => setTimeout(r, Math.pow(2, attempt - 1) * 1000));
+    }
+  }
+
+  console.error(`[Telegram] ✗ Failed to send emergency alert after ${retries} attempts`);
+  return null;
+}
