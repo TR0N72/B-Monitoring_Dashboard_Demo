@@ -102,24 +102,38 @@ async function handleSensorData(nodeId, payload) {
       const sensorDataId = insertResult.insertId;
 
       if (suhu !== null && salinitas !== null) {
+        // Ambil visual_label dari hsv_metadata jika tersedia (dikirim bersama data sensor)
+        const visualLabel = (payload.hsv_metadata && payload.hsv_metadata.label)
+          ? payload.hsv_metadata.label
+          : 'Normal';
+
         const { processFuzzy } = require('../services/fuzzyDSS');
-        const fuzzyResult = processFuzzy(suhu, salinitas);
+        const fuzzyResult = processFuzzy(suhu, salinitas, visualLabel);
         
         await connection.execute(
           `INSERT INTO fuzzy_decisions 
-           (device_id, sensor_data_id, suhu_membership, salinitas_membership, dss_score, dss_recommendation, fired_rules) 
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [internalId, sensorDataId, fuzzyResult.suhu_membership, fuzzyResult.salinitas_membership, fuzzyResult.score, fuzzyResult.recommendation, JSON.stringify(fuzzyResult.fired_rules)]
+           (device_id, sensor_data_id, suhu_membership, salinitas_membership, visual_label, dss_score, dss_recommendation, fired_rules) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            internalId,
+            sensorDataId,
+            fuzzyResult.suhu_membership,
+            fuzzyResult.salinitas_membership,
+            fuzzyResult.visual_label,
+            fuzzyResult.score,
+            fuzzyResult.recommendation,
+            JSON.stringify(fuzzyResult.fired_rules),
+          ]
         );
 
         const { getIo } = require('../socket/alerts');
         const io = getIo();
         if (io) {
           io.emit('dss:update', {
-            device_id: internalId,
-            node_id: nodeId,
+            device_id : internalId,
+            node_id   : nodeId,
             ...fuzzyResult,
-            created_at: new Date()
+            created_at: new Date(),
           });
         }
       }
