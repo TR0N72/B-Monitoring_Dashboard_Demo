@@ -33,6 +33,7 @@
  */
 
 const db = require('../config/db');
+const tq = require('../config/telegramQueue');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants & State
@@ -178,9 +179,9 @@ async function executeSequence(steps, baseOpts) {
  * @param {object} opts.fuzzyResult - Hasil dari processFuzzy()
  * @param {object} opts.readings    - { suhu, salinitas }
  * @param {object} opts.io          - Socket.io instance untuk broadcast
- * @param {object} opts.telegramFns - { sendTelegramAlert, sendEmergencyAlert }
+ * Notifikasi Telegram ditangani oleh telegramQueue (dynamic routing + retry).
  */
-async function evaluateAndActuate({ mqttClient, deviceId, nodeId, fuzzyResult, readings, io, telegramFns }) {
+async function evaluateAndActuate({ mqttClient, deviceId, nodeId, fuzzyResult, readings, io }) {
   const score          = fuzzyResult.score;
   const recommendation = fuzzyResult.recommendation;
 
@@ -193,31 +194,27 @@ async function evaluateAndActuate({ mqttClient, deviceId, nodeId, fuzzyResult, r
   // ── Level: WASPADA — notifikasi dini tanpa aktivasi fisik ─────────────────
   if (score >= DSS_THRESHOLD_WASPADA && score < DSS_THRESHOLD_BAHAYA) {
     if (!isInCooldown(deviceId)) {
-      const msg = `⚠️ Status WASPADA pada node ${nodeId}. Suhu: ${readings.suhu}°C, Salinitas: ${readings.salinitas} ppt. DSS Score: ${score}/100. Pantau kondisi tambak secara berkala.`;
-
       console.log(`[AutoActuator] WASPADA on ${nodeId} (score: ${score}) — notifying only`);
 
-      if (telegramFns?.sendTelegramAlert) {
-        telegramFns.sendTelegramAlert({
-          device_id       : deviceId,
-          parameter       : 'dss_score',
-          measured_value  : score,
-          threshold_min   : 0,
-          threshold_max   : DSS_THRESHOLD_WASPADA,
-          level_peringatan: 'warning',
-          pesan_notifikasi: msg,
-        }).catch(console.error);
-      }
+      // Dynamic routing: kirim ke pekerja device + admin via queue
+      tq.sendDssAlert({
+        deviceId,
+        nodeId,
+        dssScore      : score,
+        recommendation,
+        readings,
+        level         : 'waspada',
+      });
 
       if (io) {
         io.emit('system:status', {
-          device_id  : deviceId,
-          node_id    : nodeId,
-          level      : 'waspada',
-          dss_score  : score,
+          device_id     : deviceId,
+          node_id       : nodeId,
+          level         : 'waspada',
+          dss_score     : score,
           recommendation,
-          message    : msg,
-          timestamp  : new Date(),
+          message       : `Status WASPADA pada node ${nodeId}. DSS Score: ${score}/100.`,
+          timestamp     : new Date(),
         });
       }
 
@@ -291,24 +288,15 @@ async function evaluateAndActuate({ mqttClient, deviceId, nodeId, fuzzyResult, r
       console.error(`[AutoActuator] Sequence execution error:`, err.message);
     });
 
-    // ── Kirim notifikasi Telegram Warning ────────────────────────────────
-    const alertMsg = `🚨 *BAHAYA* pada node \`${nodeId}\`!\n` +
-      `DSS Score: *${score}/100*\n` +
-      `Suhu: ${readings.suhu}°C | Salinitas: ${readings.salinitas} ppt\n` +
-      `Sistem mengaktifkan protokol darurat otomatis:\n` +
-      `1. Membuka katup kuras\n2. Mengisi air bersih\n3. Menghentikan mesin pompa`;
-
-    if (telegramFns?.sendTelegramAlert) {
-      telegramFns.sendTelegramAlert({
-        device_id       : deviceId,
-        parameter       : 'dss_bahaya',
-        measured_value  : score,
-        threshold_min   : 0,
-        threshold_max   : DSS_THRESHOLD_BAHAYA,
-        level_peringatan: 'critical',
-        pesan_notifikasi: alertMsg,
-      }).catch(console.error);
-    }
+    // ── Kirim notifikasi Telegram Bahaya — dynamic routing via queue ─────
+    tq.sendDssAlert({
+      deviceId,
+      nodeId,
+      dssScore      : score,
+      recommendation,
+      readings,
+      level         : 'bahaya',
+    });
   }
 }
 

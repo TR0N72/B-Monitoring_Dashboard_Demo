@@ -1,7 +1,8 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');
-const { getPool } = require('../config/db');
+const bcrypt  = require('bcryptjs');
+const { getPool }         = require('../config/db');
 const { authenticate, authorize } = require('../middleware/auth');
+const { invalidateRouteCache }    = require('../config/telegramQueue');
 const router = express.Router();
 
 router.get('/', authenticate, authorize('admin'), async (req, res) => {
@@ -32,6 +33,9 @@ router.post('/', authenticate, authorize('admin'), async (req, res) => {
       'INSERT INTO users (name, username, password_hash, role, kontak_telegram) VALUES (?, ?, ?, ?, ?)',
       [name, username, passwordHash, userRole, kontak_telegram || null]
     );
+    // Invalidasi cache routing Telegram agar pekerja baru langsung menerima alert
+    invalidateRouteCache();
+
     res.status(201).json({
       message: 'User created successfully',
       user: { id: result.insertId, name, username, role: userRole, kontak_telegram },
@@ -78,6 +82,9 @@ router.put('/:id', authenticate, authorize('admin'), async (req, res) => {
       );
     }
     
+    // Invalidasi cache routing Telegram agar perubahan kontak langsung berlaku
+    invalidateRouteCache();
+
     res.json({ message: 'User updated successfully' });
   } catch (err) {
     console.error('[USERS] Update error:', err.message);
@@ -100,6 +107,9 @@ router.delete('/:id', authenticate, authorize('admin'), async (req, res) => {
       return res.status(404).json({ error: 'User not found.' });
     }
     
+    // Invalidasi cache routing Telegram agar user yang dihapus tidak lagi menerima alert
+    invalidateRouteCache();
+
     res.json({ message: 'User deleted successfully' });
   } catch (err) {
     console.error('[USERS] Delete error:', err.message);

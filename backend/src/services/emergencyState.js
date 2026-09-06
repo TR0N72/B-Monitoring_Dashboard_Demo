@@ -32,6 +32,7 @@
  */
 
 const db = require('../config/db');
+const tq = require('../config/telegramQueue');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -151,7 +152,7 @@ function resetEmergencyState(deviceId) {
  * @param {object} opts.telegramFns  - { sendEmergencyAlert }
  * @param {object} opts.mqttClient   - MQTT client instance
  */
-async function handleVibrationData({ deviceId, nodeId, payload, io, telegramFns, mqttClient }) {
+async function handleVibrationData({ deviceId, nodeId, payload, io, mqttClient }) {
   const state       = initDeviceState(deviceId);
   const isVibrating = payload.vibration === true ||
                       (typeof payload.intensity === 'number' && payload.intensity >= VIBRATION_THRESHOLD);
@@ -278,13 +279,12 @@ async function handleVibrationData({ deviceId, nodeId, payload, io, telegramFns,
       });
     }
 
-    // ── Kirim notifikasi Telegram Emergency ──────────────────────────────
-    if (telegramFns?.sendEmergencyAlert) {
-      telegramFns.sendEmergencyAlert({
-        node_id : nodeId,
-        message : emergencyMsg,
-      }).catch(console.error);
-    }
+    // ── Kirim notifikasi Telegram Emergency via queue (FAILSAFE priority) ──
+    tq.sendEmergency({
+      deviceId,
+      nodeId,
+      message: emergencyMsg,
+    });
   }
 }
 

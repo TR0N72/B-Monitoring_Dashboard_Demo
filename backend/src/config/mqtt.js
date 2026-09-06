@@ -169,7 +169,6 @@ async function handleSensorData(nodeId, payload) {
           fuzzyResult,
           readings    : { suhu, salinitas },
           io,
-          telegramFns : { sendTelegramAlert, sendEmergencyAlert },
         });
       }
 
@@ -211,9 +210,9 @@ async function handleVibrationMessage(nodeId, payload) {
       nodeId,
       payload,
       io,
-      telegramFns: { sendEmergencyAlert },
       mqttClient : client,
     });
+
   } catch (err) {
     console.error('[MQTT] handleVibrationMessage error:', err.message);
   }
@@ -250,13 +249,15 @@ async function checkThresholds(connection, deviceId, sensorDataId, readings, nod
 
         sendTelegramAlert({
           device_id       : deviceId,
+          node_id         : nodeId,
           parameter       : t.parameter,
           measured_value  : value,
           threshold_min   : min,
           threshold_max   : max,
           level_peringatan: level,
           pesan_notifikasi: msg,
-        }).catch(console.error);
+        });
+
       }
     }
   } catch (err) {

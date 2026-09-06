@@ -1,108 +1,109 @@
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '';
-const TELEGRAM_API_BASE = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
+'use strict';
+/**
+ * telegram.js — Telegram Notification Gateway (Thin Wrapper)
+ * ===========================================================
+ * Modul ini adalah gateway utama untuk notifikasi Telegram.
+ * Semua pengiriman pesan didelegasikan ke telegramQueue.js yang menangani:
+ *   - Dynamic routing ke kontak_telegram pekerja di DB
+ *   - Priority queue (FAILSAFE > WARNING > CAUTION)
+ *   - Persistent retry dengan exponential backoff
+ *   - Rate limit protection & cooldown anti-spam
+ *
+ * API backward-compatible dengan modul lama:
+ *   sendTelegramAlert(alertData)        → sendAlert() via queue
+ *   sendTelegramMessage(text)           → direct send (one-shot, no retry)
+ *   sendEmergencyAlert({ node_id, ... }) → sendEmergency() via queue (max priority)
+ *   verifyBot()                          → cek koneksi bot
+ */
 
-const ALERT_COOLDOWN_MS = 5 * 60 * 1000;
-const alertCooldowns = new Map();
+const tq = require('./telegramQueue');
 
-function isAlertThrottled(alertData) {
-  const key = `${alertData.device_id}:${alertData.parameter}`;
-  const now = Date.now();
-  const lastSent = alertCooldowns.get(key);
+const BOT_TOKEN   = process.env.TELEGRAM_BOT_TOKEN || '';
+const FALLBACK_ID = process.env.TELEGRAM_CHAT_ID   || '';
+const API_BASE    = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
-  if (lastSent && (now - lastSent) < ALERT_COOLDOWN_MS) {
-    return true;
-  }
+// ─────────────────────────────────────────────────────────────────────────────
+// Public API
+// ─────────────────────────────────────────────────────────────────────────────
 
-  alertCooldowns.set(key, now);
-  return false;
+/**
+ * Kirim alert sensor ke pekerja/admin yang relevan dengan device.
+ * Menggunakan dynamic routing dari DB + retry queue.
+ *
+ * @param {object} alertData
+ * @param {number}  alertData.device_id
+ * @param {string}  [alertData.node_id]       - Ditampilkan di pesan
+ * @param {string}  alertData.parameter        - Nama parameter sensor
+ * @param {number}  alertData.measured_value
+ * @param {number}  alertData.threshold_min
+ * @param {number}  alertData.threshold_max
+ * @param {string}  alertData.level_peringatan - 'warning' | 'critical'
+ * @param {string}  alertData.pesan_notifikasi
+ */
+function sendTelegramAlert(alertData) {
+  tq.sendAlert(alertData);
+  return Promise.resolve(null); // Backward-compatible: caller await-safe
 }
 
-async function sendTelegramAlert(alertData) {
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-    console.warn('[Telegram] Bot token or chat ID not configured, skipping notification');
-    return null;
-  }
-
-  if (isAlertThrottled(alertData)) {
-    console.log(`[Telegram] Alert throttled (cooldown): ${alertData.parameter} on device ${alertData.device_id}`);
-    return null;
-  }
-
-  const emoji = alertData.level_peringatan === 'critical' ? '🚨' : '⚠️';
-  const statusBar = alertData.level_peringatan === 'critical' ? '🔴🔴🔴' : '🟡🟡🟡';
-
-  const message = [
-    `${statusBar}`,
-    `${emoji} *B-Monitor Alert* ${emoji}`,
-    ``,
-    `*Level:* ${alertData.level_peringatan.toUpperCase()}`,
-    `*Device:* \`${alertData.device_id || 'N/A'}\``,
-    `*Parameter:* ${alertData.parameter}`,
-    `*Value:* ${alertData.measured_value}`,
-    `*Range:* ${alertData.threshold_min} — ${alertData.threshold_max}`,
-    ``,
-    `📝 ${alertData.pesan_notifikasi}`,
-    ``,
-    `🕐 ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`,
-  ].join('\n');
-
-  try {
-    const response = await fetch(`${TELEGRAM_API_BASE}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
-        text: message,
-        parse_mode: 'Markdown',
-        disable_web_page_preview: true,
-      }),
-    });
-
-    const result = await response.json();
-
-    if (!result.ok) {
-      console.error('[Telegram] API error:', result.description);
-      return null;
-    }
-
-    console.log(`[Telegram] Alert sent: ${alertData.level_peringatan} — ${alertData.parameter}`);
-    return result;
-  } catch (err) {
-    console.error('[Telegram] Failed to send:', err.message);
-    return null;
-  }
-}
-
+/**
+ * Kirim pesan teks bebas ke FALLBACK_ID (satu-satunya chat_id global).
+ * Digunakan untuk pesan debug/sistem, bukan alert sensor.
+ * Tidak menggunakan retry queue — fire-and-forget.
+ *
+ * @param {string} text
+ * @returns {Promise<object|null>}
+ */
 async function sendTelegramMessage(text) {
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return null;
+  if (!BOT_TOKEN || !FALLBACK_ID) {
+    console.warn('[Telegram] sendTelegramMessage skipped — bot or fallback chat_id not configured');
+    return null;
+  }
 
   try {
-    const response = await fetch(`${TELEGRAM_API_BASE}/sendMessage`, {
-      method: 'POST',
+    const res    = await fetch(`${API_BASE}/sendMessage`, {
+      method : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
+      body   : JSON.stringify({
+        chat_id   : FALLBACK_ID,
         text,
         parse_mode: 'Markdown',
       }),
     });
-    return await response.json();
+    return await res.json();
   } catch (err) {
-    console.error('[Telegram] Failed to send message:', err.message);
+    console.error('[Telegram] sendTelegramMessage error:', err.message);
     return null;
   }
 }
 
+/**
+ * Kirim notifikasi DARURAT Failsafe SW-420.
+ * Menggunakan priority FAILSAFE (tertinggi), tidak ada cooldown, retry unlimited.
+ * Dikirim ke SEMUA admin dan pekerja yang terdaftar.
+ *
+ * @param {object} opts
+ * @param {string} opts.node_id  - Hardware node ID
+ * @param {string} opts.message  - Pesan darurat
+ * @param {number} [opts.deviceId] - Internal device ID (untuk routing)
+ */
+function sendEmergencyAlert({ node_id, message, deviceId = null }) {
+  tq.sendEmergency({ deviceId, nodeId: node_id, message });
+  return Promise.resolve(null); // Backward-compatible
+}
+
+/**
+ * Verifikasi koneksi bot Telegram ke API.
+ * @returns {Promise<boolean>}
+ */
 async function verifyBot() {
-  if (!TELEGRAM_BOT_TOKEN) {
+  if (!BOT_TOKEN) {
     console.warn('[Telegram] No bot token configured');
     return false;
   }
 
   try {
-    const response = await fetch(`${TELEGRAM_API_BASE}/getMe`);
-    const result = await response.json();
+    const res    = await fetch(`${API_BASE}/getMe`);
+    const result = await res.json();
     if (result.ok) {
       console.log(`✓ Telegram Bot connected: @${result.result.username}`);
       return true;
@@ -115,77 +116,13 @@ async function verifyBot() {
   }
 }
 
-
 module.exports = {
   sendTelegramAlert,
   sendTelegramMessage,
-  verifyBot,
   sendEmergencyAlert,
+  verifyBot,
+  // Re-export queue utilities untuk route-level access
+  getQueueStatus    : tq.getQueueStatus,
+  invalidateRouteCache: tq.invalidateRouteCache,
+  PRIORITY          : tq.PRIORITY,
 };
-
-/**
- * sendEmergencyAlert — Notifikasi Darurat Failsafe (Prioritas Maksimum)
- * ======================================================================
- * Tidak menggunakan throttle/cooldown.
- * Mencoba mengirim hingga 3 kali jika gagal (retry for critical messages).
- *
- * @param {object} opts
- * @param {string} opts.node_id - Hardware node ID
- * @param {string} opts.message - Pesan darurat
- * @param {number} [opts.retries=3] - Jumlah percobaan ulang
- */
-async function sendEmergencyAlert({ node_id, message, retries = 3 }) {
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-    console.warn('[Telegram] Emergency alert skipped — bot not configured');
-    return null;
-  }
-
-  const text = [
-    `🆘🆘🆘 <b>EMERGENCY FAILSAFE ALERT</b> 🆘🆘🆘`,
-    ``,
-    `⛽ <b>Node:</b> <code>${node_id}</code>`,
-    ``,
-    `${message}`,
-    ``,
-    `⚠️ <b>Tindakan yang diperlukan:</b>`,
-    `1. Periksa mesin diesel secara langsung`,
-    `2. Pastikan katup kuras terbuka`,
-    `3. Laporkan ke koordinator lapangan`,
-    `4. Reset via Dashboard Admin setelah kondisi aman`,
-    ``,
-    `🕐 ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`,
-    `🔴 <b>SEGERA TANGANI — RISIKO LUAPAN AIR!</b>`,
-  ].join('\n');
-
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      const response = await fetch(`${TELEGRAM_API_BASE}/sendMessage`, {
-        method : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body   : JSON.stringify({
-          chat_id                : TELEGRAM_CHAT_ID,
-          text,
-          parse_mode             : 'HTML',
-          disable_web_page_preview: true,
-        }),
-      });
-
-      const result = await response.json();
-      if (result.ok) {
-        console.log(`[Telegram] ✓ Emergency alert sent (attempt ${attempt}/${retries})`);
-        return result;
-      }
-      console.warn(`[Telegram] Emergency attempt ${attempt} failed: ${result.description}`);
-    } catch (err) {
-      console.error(`[Telegram] Emergency attempt ${attempt} error: ${err.message}`);
-    }
-
-    // Backoff sebelum retry (1s, 2s, 4s)
-    if (attempt < retries) {
-      await new Promise(r => setTimeout(r, Math.pow(2, attempt - 1) * 1000));
-    }
-  }
-
-  console.error(`[Telegram] ✗ Failed to send emergency alert after ${retries} attempts`);
-  return null;
-}

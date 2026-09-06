@@ -3,11 +3,12 @@
  * actuator.routes.js — API Routes untuk Kontrol Aktuator & Emergency Management
  * ==============================================================================
  * Endpoints:
- *   POST /api/actuator/command              — Kirim perintah aktuator manual (Admin only)
- *   GET  /api/actuator/logs                 — Riwayat semua log aktuator dengan filter
- *   GET  /api/actuator/emergency/status     — Status emergency state semua device
- *   POST /api/actuator/emergency/reset/:id  — Reset emergency state device (Admin only)
- *   GET  /api/actuator/status/:device_id    — Status aktuator dan engine terkini per device
+ *   POST /api/actuator/command                — Kirim perintah aktuator manual (Admin only)
+ *   GET  /api/actuator/logs                   — Riwayat semua log aktuator dengan filter
+ *   GET  /api/actuator/emergency/status       — Status emergency state semua device
+ *   POST /api/actuator/emergency/reset/:id    — Reset emergency state device (Admin only)
+ *   GET  /api/actuator/status/:device_id      — Status aktuator dan engine terkini per device
+ *   GET  /api/actuator/notifications/queue    — Status antrian notifikasi Telegram (Admin only)
  */
 
 const express    = require('express');
@@ -20,6 +21,7 @@ const {
   resetEmergencyState,
   getDeviceState,
 }                                 = require('../services/emergencyState');
+const { getQueueStatus }          = require('../config/telegramQueue');
 
 const router = express.Router();
 router.use(authenticate);
@@ -267,6 +269,24 @@ router.get('/status/:device_id', async (req, res) => {
     });
   } catch (err) {
     console.error('[ACTUATOR] Status error:', err.message);
+    return res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/actuator/notifications/queue
+// Status antrian notifikasi Telegram — untuk debugging dan monitoring Admin.
+// ─────────────────────────────────────────────────────────────────────────────
+router.get('/notifications/queue', authorize('admin'), (req, res) => {
+  try {
+    return res.json({
+      description: 'Telegram notification queue status',
+      ...getQueueStatus(),
+      cooldown_ms : parseInt(process.env.ALERT_COOLDOWN_MS || '300000', 10),
+      max_size    : 500,
+    });
+  } catch (err) {
+    console.error('[ACTUATOR] Queue status error:', err.message);
     return res.status(500).json({ error: 'Internal server error.' });
   }
 });
