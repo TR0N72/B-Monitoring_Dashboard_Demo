@@ -5,7 +5,6 @@ const router = express.Router();
 
 router.use(authenticate);
 
-// LORA-13: Get DSS evaluation history
 router.get('/', async (req, res) => {
   try {
     const { device_id, start_date, end_date } = req.query;
@@ -19,8 +18,13 @@ router.get('/', async (req, res) => {
     const params = [];
 
     if (device_id) {
-      query += ` AND (d.node_id = ? OR d.id = ?)`;
-      params.push(device_id, device_id);
+      if (!isNaN(device_id)) {
+        query += ` AND (d.node_id = ? OR d.id = ?)`;
+        params.push(device_id, device_id);
+      } else {
+        query += ` AND d.node_id = ?`;
+        params.push(device_id);
+      }
     }
     if (start_date) {
       query += ` AND f.created_at >= ?`;

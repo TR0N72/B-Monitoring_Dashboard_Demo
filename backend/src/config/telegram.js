@@ -2,9 +2,30 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '';
 const TELEGRAM_API_BASE = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 
+const ALERT_COOLDOWN_MS = 5 * 60 * 1000;
+const alertCooldowns = new Map();
+
+function isAlertThrottled(alertData) {
+  const key = `${alertData.device_id}:${alertData.parameter}`;
+  const now = Date.now();
+  const lastSent = alertCooldowns.get(key);
+
+  if (lastSent && (now - lastSent) < ALERT_COOLDOWN_MS) {
+    return true;
+  }
+
+  alertCooldowns.set(key, now);
+  return false;
+}
+
 async function sendTelegramAlert(alertData) {
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
     console.warn('[Telegram] Bot token or chat ID not configured, skipping notification');
+    return null;
+  }
+
+  if (isAlertThrottled(alertData)) {
+    console.log(`[Telegram] Alert throttled (cooldown): ${alertData.parameter} on device ${alertData.device_id}`);
     return null;
   }
 

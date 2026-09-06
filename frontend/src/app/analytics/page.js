@@ -88,15 +88,21 @@ export default function AnalyticsPage() {
                     <span className="legend-item"><span className="legend-dot" style={{ backgroundColor: '#ef4444' }}></span> Turbidity</span>
                   </div>
                 </div>
-                <div className="chart-area"><span className="chart-placeholder">[Grafana Embedded Chart — Water Quality Trends]</span></div>
+                <div className="chart-area">
+                  <iframe src="http://localhost:3000/d-solo/bmonitor-main/water-quality?orgId=1&panelId=1&theme=light&kiosk" width="100%" height="100%" frameBorder="0"></iframe>
+                </div>
               </div>
               <div className="chart-container analytics-chart-medium">
                 <div className="chart-header"><h2>Parameter Correlation</h2></div>
-                <div className="chart-area"><span className="chart-placeholder">[Grafana Embedded Chart — Scatter/Heatmap]</span></div>
+                <div className="chart-area">
+                  <iframe src="http://localhost:3000/d-solo/bmonitor-main/water-quality?orgId=1&panelId=2&theme=light&kiosk" width="100%" height="100%" frameBorder="0"></iframe>
+                </div>
               </div>
               <div className="chart-container analytics-chart-medium">
                 <div className="chart-header"><h2>Alert Frequency</h2></div>
-                <div className="chart-area"><span className="chart-placeholder">[Grafana Embedded Chart — Bar Chart]</span></div>
+                <div className="chart-area">
+                  <iframe src="http://localhost:3000/d-solo/bmonitor-main/water-quality?orgId=1&panelId=3&theme=light&kiosk" width="100%" height="100%" frameBorder="0"></iframe>
+                </div>
               </div>
             </div>
 

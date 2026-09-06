@@ -16,6 +16,7 @@ const notificationsRoutes = require('./routes/notifications.routes');
 const aiDetectionRoutes = require('./routes/ai-detection.routes');
 const actuatorRoutes = require('./routes/actuator.routes');
 const fuzzyRoutes = require('./routes/fuzzy.routes');
+const usersRoutes = require('./routes/users.routes');
 const { verifyBot } = require('./config/telegram');
 const app = express();
 const server = http.createServer(app);
@@ -34,6 +35,7 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/api/ai-detection', aiDetectionRoutes);
 app.use('/api/actuator', actuatorRoutes);
 app.use('/api/dss', fuzzyRoutes);
+app.use('/api/users', usersRoutes);
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
@@ -58,9 +60,7 @@ async function start() {
     } catch (dbErr) {
       console.warn('⚠ MySQL not available (Running in dummy mode):', dbErr.message);
     }
-    initMQTT().then(() => {
-      // connected
-    }).catch((err) => {
+    initMQTT().then(() => {}).catch((err) => {
       console.warn('⚠ MQTT not available:', err.message);
     });
     initSocket(server);

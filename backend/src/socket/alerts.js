@@ -82,5 +82,6 @@ module.exports = {
   broadcastAlert,
   broadcastDeviceStatus,
   getIO,
+  getIo: getIO,
   getConnectedClients,
 };

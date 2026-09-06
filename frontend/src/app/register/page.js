@@ -7,7 +7,7 @@ import '@/styles/auth.css';
 
 export default function RegisterPage() {
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [telegramId, setTelegramId] = useState('');
   const [sendInvite, setSendInvite] = useState(true);
@@ -28,7 +28,7 @@ export default function RegisterPage() {
     try {
       const res = await apiFetch('/api/auth/register', {
         method: 'POST',
-        body: JSON.stringify({ name, email, password, role: 'operator' }),
+        body: JSON.stringify({ name, username, password, role: 'user', kontak_telegram: telegramId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Registration failed');
@@ -57,8 +57,8 @@ export default function RegisterPage() {
               <input type="text" id="workerName" className="form-input" placeholder="e.g. Jane Doe" required autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div className="form-group">
-              <label className="form-label" htmlFor="workerEmail">Email Address</label>
-              <input type="email" id="workerEmail" className="form-input" placeholder="jane.doe@example.com" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <label className="form-label" htmlFor="workerUsername">Username</label>
+              <input type="text" id="workerUsername" className="form-input" placeholder="janedoe" required autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} />
             </div>
             <div className="form-group">
               <label className="form-label" htmlFor="workerPassword">Temporary Password</label>

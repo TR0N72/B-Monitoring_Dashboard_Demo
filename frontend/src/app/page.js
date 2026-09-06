@@ -108,15 +108,13 @@ export default function DashboardPage() {
               </div>
               <div className="chart-area">
                 <iframe
-                  src={`${process.env.NEXT_PUBLIC_GRAFANA_URL || 'http://localhost:3000'}/d-solo/bmonitor-telemetry?orgId=1&panelId=1&theme=light`}
+                  src={`${process.env.NEXT_PUBLIC_GRAFANA_URL || 'http://localhost:3000'}/d-solo/bmonitor-telemetry?orgId=1&panelId=1&theme=light&kiosk=tv`}
                   width="100%"
                   height="100%"
                   frameBorder="0"
-                  style={{ border: 'none', borderRadius: '2px' }}
+                  style={{ border: 'none', borderRadius: '2px', position: 'relative', zIndex: 1 }}
                   title="Grafana Telemetry Chart"
-                  onError={(e) => { e.target.style.display = 'none'; }}
                 ></iframe>
-                <p className="chart-placeholder" style={{ position: 'absolute' }}>[Grafana Stacked Chart — Configure dashboard URL]</p>
               </div>
             </div>
 

@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import '@/styles/auth.css';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -20,10 +20,10 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await login(email, password);
+      await login(username, password);
       router.push('/');
     } catch (err) {
-      setError(err.message || 'Invalid email or password.');
+      setError(err.message || 'Invalid username or password.');
     } finally {
       setLoading(false);
     }
@@ -45,16 +45,16 @@ export default function LoginPage() {
         </div>
         <form className="auth-form" id="loginForm" onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label" htmlFor="loginEmail">Email Address</label>
+            <label className="form-label" htmlFor="loginUsername">Username</label>
             <input
-              type="email"
-              id="loginEmail"
+              type="text"
+              id="loginUsername"
               className="form-input"
-              placeholder="admin@facility.com"
+              placeholder="admin"
               required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
             />
           </div>
           <div className="form-group">

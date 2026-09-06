@@ -21,9 +21,13 @@ router.get('/latest', async (req, res) => {
     const params = [];
 
     if (device_id) {
-      // Allow searching by node_id (string) or internal id
-      query += ` AND (d.node_id = ? OR d.id = ?)`;
-      params.push(device_id, device_id);
+      if (!isNaN(device_id)) {
+        query += ` AND (d.node_id = ? OR d.id = ?)`;
+        params.push(device_id, device_id);
+      } else {
+        query += ` AND d.node_id = ?`;
+        params.push(device_id);
+      }
     }
 
     const [rows] = await pool.execute(query, params);
@@ -54,8 +58,13 @@ router.get('/history', async (req, res) => {
     const params = [];
 
     if (device_id) {
-      query += ` AND (d.node_id = ? OR d.id = ?)`;
-      params.push(device_id, device_id);
+      if (!isNaN(device_id)) {
+        query += ` AND (d.node_id = ? OR d.id = ?)`;
+        params.push(device_id, device_id);
+      } else {
+        query += ` AND d.node_id = ?`;
+        params.push(device_id);
+      }
     }
     if (start_date) {
       query += ` AND sd.recorded_at >= ?`;
@@ -70,7 +79,6 @@ router.get('/history', async (req, res) => {
 
     const [rows] = await pool.execute(query, params);
 
-    // If a specific parameter is requested, map the data to match expected frontend structure
     if (parameter && ['suhu', 'salinitas', 'baterai', 'rssi'].includes(parameter)) {
       const mappedData = rows.map(r => ({
         _time: r.recorded_at,

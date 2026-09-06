@@ -25,6 +25,18 @@ router.get('/', async (req, res) => {
 router.get('/:deviceId', async (req, res) => {
   try {
     const pool = getPool();
+    let getDeviceQuery = 'SELECT id FROM devices WHERE node_id = ?';
+    let getDeviceParams = [req.params.deviceId];
+    if (!isNaN(req.params.deviceId)) {
+      getDeviceQuery += ' OR id = ?';
+      getDeviceParams.push(req.params.deviceId);
+    }
+    const [devices] = await pool.execute(getDeviceQuery, getDeviceParams);
+    if (devices.length === 0) {
+      return res.status(404).json({ error: 'Device not found.' });
+    }
+    const internalId = devices[0].id;
+
     const [rows] = await pool.execute(`
       SELECT
         tc.id, tc.parameter, tc.batas_bawah, tc.batas_atas, tc.updated_at,
@@ -33,7 +45,7 @@ router.get('/:deviceId', async (req, res) => {
       JOIN users u ON tc.user_id = u.id
       WHERE tc.device_id = ?
       ORDER BY tc.parameter
-    `, [req.params.deviceId]);
+    `, [internalId]);
     if (rows.length === 0) {
       return res.status(404).json({ error: 'No thresholds found for this device.' });
     }
@@ -52,6 +64,19 @@ router.put('/:deviceId', authorize('admin'), async (req, res) => {
     }
     const validParams = ['suhu', 'salinitas'];
     const pool = getPool();
+
+    let getDeviceQuery = 'SELECT id FROM devices WHERE node_id = ?';
+    let getDeviceParams = [deviceId];
+    if (!isNaN(deviceId)) {
+      getDeviceQuery += ' OR id = ?';
+      getDeviceParams.push(deviceId);
+    }
+    const [devices] = await pool.execute(getDeviceQuery, getDeviceParams);
+    if (devices.length === 0) {
+      return res.status(404).json({ error: 'Device not found.' });
+    }
+    const internalId = devices[0].id;
+
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
@@ -75,7 +100,7 @@ router.put('/:deviceId', authorize('admin'), async (req, res) => {
             batas_bawah = VALUES(batas_bawah),
             batas_atas = VALUES(batas_atas),
             user_id = VALUES(user_id)
-        `, [deviceId, req.user.id, t.parameter, t.batas_bawah, t.batas_atas]);
+        `, [internalId, req.user.id, t.parameter, t.batas_bawah, t.batas_atas]);
       }
       await connection.commit();
       res.json({ message: 'Thresholds updated successfully' });

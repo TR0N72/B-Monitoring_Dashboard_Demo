@@ -41,7 +41,7 @@ export default function ExportLogsPage() {
 
   const handleDownload = async () => {
     try {
-      const res = await apiFetch(`/api/logs/export?format=csv&from=${startDate}&to=${endDate}`);
+      const res = await apiFetch(`/api/logs/export?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`);
       if (res.ok) {
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);

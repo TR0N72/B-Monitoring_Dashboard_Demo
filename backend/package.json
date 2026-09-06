@@ -15,7 +15,7 @@
     "dotenv": "^16.4.5",
     "mysql2": "^3.11.0",
     "@influxdata/influxdb-client": "^1.35.0",
-    "amqplib": "^0.10.4",
+    "mqtt": "^5.10.0",
     "jsonwebtoken": "^9.0.2",
     "bcryptjs": "^2.4.3",
     "socket.io": "^4.7.5"

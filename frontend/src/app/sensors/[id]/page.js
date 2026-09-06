@@ -42,6 +42,7 @@ export default function NodeDetailsPage() {
     <div className="main-dashboard">
       <Sidebar />
       <main className="main-content">
+        <div className="main-canvas">
         <TopAppBar />
         <div className="scrollable-content">
           <div className="page-header-controls">
@@ -134,6 +135,7 @@ export default function NodeDetailsPage() {
               </div>
             </div>
           </div>
+        </div>
         </div>
       </main>
     </div>

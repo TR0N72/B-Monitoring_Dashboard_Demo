@@ -1,12 +1,9 @@
 /**
  * Fuzzy Logic DSS (Mamdani) Engine for B-Monitor
- * Inputs: Suhu (Temperature), Salinitas (Salinity)
- * Outputs: DSS Score (0-100) -> Status (Aman, Waspada, Bahaya)
+ * Inputs: Suhu (Temperature °C), Salinitas (Salinity ppt)
+ * Output: DSS Score (0-100) → Aman / Waspada / Bahaya
  */
 
-// --- MEMBERSHIP FUNCTIONS ---
-
-// Suhu (Celsius)
 function fuzzySuhu(value) {
   let dingin = 0, normal = 0, panas = 0;
   
@@ -23,7 +20,6 @@ function fuzzySuhu(value) {
   return { dingin, normal, panas };
 }
 
-// Salinitas (ppt)
 function fuzzySalinitas(value) {
   let rendah = 0, normal = 0, tinggi = 0;
   
@@ -40,38 +36,20 @@ function fuzzySalinitas(value) {
   return { rendah, normal, tinggi };
 }
 
-// --- RULES EVALUATION ---
-// Output levels (Sugeno/Mamdani Singleton approach for simplicity):
-// Aman = 25, Waspada = 50, Bahaya = 75
-
 function evaluateRules(suhu, salinitas) {
-  const rules = [];
-  
-  // Rule 1: Jika Suhu Dingin AND Salinitas Rendah THEN Bahaya
-  rules.push({ weight: Math.min(suhu.dingin, salinitas.rendah), output: 75, label: 'Bahaya' });
-  // Rule 2: Jika Suhu Dingin AND Salinitas Normal THEN Waspada
-  rules.push({ weight: Math.min(suhu.dingin, salinitas.normal), output: 50, label: 'Waspada' });
-  // Rule 3: Jika Suhu Dingin AND Salinitas Tinggi THEN Bahaya
-  rules.push({ weight: Math.min(suhu.dingin, salinitas.tinggi), output: 75, label: 'Bahaya' });
-  
-  // Rule 4: Jika Suhu Normal AND Salinitas Rendah THEN Waspada
-  rules.push({ weight: Math.min(suhu.normal, salinitas.rendah), output: 50, label: 'Waspada' });
-  // Rule 5: Jika Suhu Normal AND Salinitas Normal THEN Aman
-  rules.push({ weight: Math.min(suhu.normal, salinitas.normal), output: 25, label: 'Aman' });
-  // Rule 6: Jika Suhu Normal AND Salinitas Tinggi THEN Waspada
-  rules.push({ weight: Math.min(suhu.normal, salinitas.tinggi), output: 50, label: 'Waspada' });
-  
-  // Rule 7: Jika Suhu Panas AND Salinitas Rendah THEN Bahaya
-  rules.push({ weight: Math.min(suhu.panas, salinitas.rendah), output: 75, label: 'Bahaya' });
-  // Rule 8: Jika Suhu Panas AND Salinitas Normal THEN Waspada
-  rules.push({ weight: Math.min(suhu.panas, salinitas.normal), output: 50, label: 'Waspada' });
-  // Rule 9: Jika Suhu Panas AND Salinitas Tinggi THEN Bahaya
-  rules.push({ weight: Math.min(suhu.panas, salinitas.tinggi), output: 75, label: 'Bahaya' });
-
-  return rules;
+  return [
+    { weight: Math.min(suhu.dingin, salinitas.rendah), output: 75, label: 'Bahaya' },
+    { weight: Math.min(suhu.dingin, salinitas.normal), output: 50, label: 'Waspada' },
+    { weight: Math.min(suhu.dingin, salinitas.tinggi), output: 75, label: 'Bahaya' },
+    { weight: Math.min(suhu.normal, salinitas.rendah), output: 50, label: 'Waspada' },
+    { weight: Math.min(suhu.normal, salinitas.normal), output: 25, label: 'Aman' },
+    { weight: Math.min(suhu.normal, salinitas.tinggi), output: 50, label: 'Waspada' },
+    { weight: Math.min(suhu.panas, salinitas.rendah), output: 75, label: 'Bahaya' },
+    { weight: Math.min(suhu.panas, salinitas.normal), output: 50, label: 'Waspada' },
+    { weight: Math.min(suhu.panas, salinitas.tinggi), output: 75, label: 'Bahaya' },
+  ];
 }
 
-// --- DEFUZZIFICATION (Centroid/Weighted Average) ---
 function defuzzify(rules) {
   let numerator = 0;
   let denominator = 0;

@@ -20,6 +20,8 @@ export default function SystemConfigPage() {
   const { apiFetch } = useApi();
   const router = useRouter();
   const [thresholds, setThresholds] = useState(defaultThresholds);
+  const [devices, setDevices] = useState([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState('');
   const [showToast, setShowToast] = useState(false);
   const [toastType, setToastType] = useState('success');
   const [toastMessage, setToastMessage] = useState('');
@@ -29,27 +31,57 @@ export default function SystemConfigPage() {
     if (!authLoading && !isAuthenticated) router.push('/login');
   }, [authLoading, isAuthenticated, router]);
 
+  // Fetch devices for selection
   useEffect(() => {
     if (!isAuthenticated) return;
+    async function fetchDevices() {
+      try {
+        const res = await apiFetch('/api/devices');
+        if (res.ok) {
+          const data = await res.json();
+          const deviceList = data.devices || [];
+          setDevices(deviceList);
+          if (deviceList.length > 0 && !selectedDeviceId) {
+            setSelectedDeviceId(String(deviceList[0].id));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch devices:', err);
+      }
+    }
+    fetchDevices();
+  }, [isAuthenticated, apiFetch]);
+
+  // Fetch thresholds for selected device
+  useEffect(() => {
+    if (!isAuthenticated || !selectedDeviceId) return;
     async function fetchThresholds() {
       try {
-        const res = await apiFetch('/api/config/thresholds');
+        const res = await apiFetch(`/api/config/thresholds/${selectedDeviceId}`);
         if (res.ok) {
           const data = await res.json();
           if (data.thresholds && data.thresholds.length > 0) {
-            const mapped = {};
+            const mapped = { ...defaultThresholds };
             data.thresholds.forEach(t => {
-              mapped[t.parameter] = { min: t.batas_bawah, max: t.batas_atas };
+              if (t.parameter === 'suhu') {
+                mapped.temperature = { min: Number(t.batas_bawah), max: Number(t.batas_atas) };
+              } else if (t.parameter === 'salinitas') {
+                mapped.salinity = { min: Number(t.batas_bawah), max: Number(t.batas_atas) };
+              }
             });
-            setThresholds(prev => ({ ...prev, ...mapped }));
+            setThresholds(mapped);
+          } else {
+            setThresholds(defaultThresholds);
           }
+        } else {
+          setThresholds(defaultThresholds);
         }
       } catch (err) {
         console.error('Failed to fetch thresholds:', err);
       }
     }
     fetchThresholds();
-  }, [isAuthenticated, apiFetch]);
+  }, [isAuthenticated, selectedDeviceId, apiFetch]);
 
   const updateThreshold = (param, field, value) => {
     setThresholds(prev => ({
@@ -59,18 +91,30 @@ export default function SystemConfigPage() {
   };
 
   const handleSave = async () => {
+    if (!selectedDeviceId) {
+      setToastType('error');
+      setToastMessage('Please select a device first');
+      setShowToast(true);
+      return;
+    }
     setSaving(true);
     try {
-      const res = await apiFetch('/api/config/thresholds', {
+      // Transform to the array format the backend expects
+      const thresholdsArray = [
+        { parameter: 'suhu', batas_bawah: thresholds.temperature.min, batas_atas: thresholds.temperature.max },
+        { parameter: 'salinitas', batas_bawah: thresholds.salinity.min, batas_atas: thresholds.salinity.max },
+      ];
+      const res = await apiFetch(`/api/config/thresholds/${selectedDeviceId}`, {
         method: 'PUT',
-        body: JSON.stringify({ thresholds }),
+        body: JSON.stringify({ thresholds: thresholdsArray }),
       });
       if (res.ok) {
         setToastType('success');
         setToastMessage('Thresholds saved successfully');
       } else {
+        const errData = await res.json();
         setToastType('error');
-        setToastMessage('Failed to save thresholds');
+        setToastMessage(errData.error || 'Failed to save thresholds');
       }
     } catch (err) {
       setToastType('error');
@@ -104,6 +148,20 @@ export default function SystemConfigPage() {
                 <h2 className="config-title">Water Quality Thresholds</h2>
                 <p className="config-description">Alerts will be triggered when sensor readings fall outside these configured ranges.</p>
               </div>
+              {devices.length > 0 && (
+                <div className="device-selector" style={{ marginBottom: '20px' }}>
+                  <label className="form-label">TARGET DEVICE</label>
+                  <select
+                    value={selectedDeviceId}
+                    onChange={(e) => setSelectedDeviceId(e.target.value)}
+                    className="device-select"
+                  >
+                    {devices.map(d => (
+                      <option key={d.id} value={String(d.id)}>{d.name} ({d.node_id})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="config-grid">
                 {cards.map((card) => (
                   <div key={card.key} className="config-card">

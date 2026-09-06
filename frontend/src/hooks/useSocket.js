@@ -2,49 +2,93 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
+import { useAuth } from '@/context/AuthContext';
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const SOCKET_PATH = '/ws';
 
 export function useSocket() {
+  const { isAuthenticated, API_URL } = useAuth();
   const socketRef = useRef(null);
   const [connected, setConnected] = useState(false);
   const [lastAlert, setLastAlert] = useState(null);
+  const listenersRef = useRef(new Map());
 
   useEffect(() => {
-    const socket = io(SOCKET_URL, {
+    if (!isAuthenticated) return;
+
+    const socketUrl = API_URL || 'http://localhost:3001';
+
+    const socket = io(socketUrl, {
+      path: SOCKET_PATH,
       transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionDelay: 2000,
       reconnectionAttempts: Infinity,
+      reconnectionDelay: 2000,
+      reconnectionDelayMax: 10000,
     });
 
     socketRef.current = socket;
 
     socket.on('connect', () => {
+      console.log('[WS] Connected:', socket.id);
       setConnected(true);
-      console.log('[Socket.io] Connected');
+      socket.emit('request_status');
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', (reason) => {
+      console.log('[WS] Disconnected:', reason);
       setConnected(false);
-      console.log('[Socket.io] Disconnected');
     });
 
-    socket.on('alert:new', (data) => {
+    socket.on('connect_error', (err) => {
+      console.warn('[WS] Connection error:', err.message);
+      setConnected(false);
+    });
+
+    // Default alert listener
+    socket.on('new_alert', (data) => {
       setLastAlert(data);
     });
 
+    // Re-attach any dynamic listeners
+    listenersRef.current.forEach((handler, event) => {
+      socket.on(event, handler);
+    });
+
     return () => {
+      socket.removeAllListeners();
       socket.disconnect();
+      socketRef.current = null;
+      setConnected(false);
+    };
+  }, [isAuthenticated, API_URL]);
+
+  const subscribe = useCallback((event, handler) => {
+    listenersRef.current.set(event, handler);
+
+    if (socketRef.current) {
+      socketRef.current.off(event, handler);
+      socketRef.current.on(event, handler);
+    }
+
+    return () => {
+      listenersRef.current.delete(event);
+      if (socketRef.current) {
+        socketRef.current.off(event, handler);
+      }
     };
   }, []);
 
-  const onAlert = useCallback((callback) => {
-    if (socketRef.current) {
-      socketRef.current.on('alert:new', callback);
-      return () => socketRef.current?.off('alert:new', callback);
+  const emit = useCallback((event, data) => {
+    if (socketRef.current && socketRef.current.connected) {
+      socketRef.current.emit(event, data);
     }
   }, []);
 
-  return { socket: socketRef.current, connected, lastAlert, onAlert };
+  // Legacy compatibility
+  const onAlert = useCallback((callback) => {
+    return subscribe('new_alert', callback);
+  }, [subscribe]);
+
+  return { socket: socketRef.current, connected, lastAlert, onAlert, subscribe, emit };
 }

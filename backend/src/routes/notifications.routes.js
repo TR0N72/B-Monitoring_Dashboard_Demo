@@ -1,8 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { getPool } = require('../config/db');
+const { authenticate } = require('../middleware/auth');
 const { sendTelegramAlert, sendTelegramMessage, verifyBot } = require('../config/telegram');
 const { broadcastAlert } = require('../socket/alerts');
+
+router.use(authenticate);
 
 router.post('/trigger', async (req, res) => {
   try {

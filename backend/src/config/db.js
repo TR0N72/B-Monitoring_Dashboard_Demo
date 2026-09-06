@@ -1,5 +1,4 @@
 const mysql = require('mysql2/promise');
-const { InfluxDB } = require('@influxdata/influxdb-client');
 let pool = null;
 async function initMySQL() {
   pool = mysql.createPool({
@@ -28,24 +27,9 @@ async function closeMySQL() {
     pool = null;
   }
 }
-const influxURL = process.env.INFLUXDB_URL || 'http://localhost:8086';
-const influxToken = process.env.INFLUXDB_TOKEN || '';
-const influxOrg = process.env.INFLUXDB_ORG || 'bmonitor';
-const influxBucket = process.env.INFLUXDB_BUCKET || 'sensor_data';
-const influxClient = new InfluxDB({ url: influxURL, token: influxToken });
-function getInfluxQueryApi() {
-  return influxClient.getQueryApi(influxOrg);
-}
-function getInfluxWriteApi() {
-  return influxClient.getWriteApi(influxOrg, influxBucket, 's');
-}
+
 module.exports = {
   initMySQL,
   getPool,
   closeMySQL,
-  influxClient,
-  influxOrg,
-  influxBucket,
-  getInfluxQueryApi,
-  getInfluxWriteApi,
 };

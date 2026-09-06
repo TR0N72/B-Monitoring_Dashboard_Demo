@@ -5,7 +5,6 @@ const router = express.Router();
 
 router.use(authenticate);
 
-// LORA-11: Process AI Detection
 router.post('/', async (req, res) => {
   try {
     const { device_id, sensor_data_id, label, confidence, model_version, hsv_metadata, image_path } = req.body;
@@ -16,7 +15,13 @@ router.post('/', async (req, res) => {
 
     const pool = getPool();
     
-    const [devices] = await pool.execute('SELECT id FROM devices WHERE id = ? OR node_id = ?', [device_id, device_id]);
+    let getDeviceQuery = 'SELECT id FROM devices WHERE node_id = ?';
+    let getDeviceParams = [device_id];
+    if (!isNaN(device_id)) {
+      getDeviceQuery += ' OR id = ?';
+      getDeviceParams.push(device_id);
+    }
+    const [devices] = await pool.execute(getDeviceQuery, getDeviceParams);
     if (devices.length === 0) {
       return res.status(404).json({ error: 'Device not found' });
     }
@@ -29,7 +34,6 @@ router.post('/', async (req, res) => {
       [internalId, sensor_data_id || null, image_path || null, label, confidence, model_version, JSON.stringify(hsv_metadata || {})]
     );
 
-    // Broadcast to UI
     const { getIo } = require('../socket/alerts');
     const io = getIo();
     if (io) {
@@ -49,7 +53,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-// LORA-12: Get AI Detection history
 router.get('/', async (req, res) => {
   try {
     const { device_id, start_date, end_date, label } = req.query;
@@ -63,8 +66,13 @@ router.get('/', async (req, res) => {
     const params = [];
 
     if (device_id) {
-      query += ` AND (d.node_id = ? OR d.id = ?)`;
-      params.push(device_id, device_id);
+      if (!isNaN(device_id)) {
+        query += ` AND (d.node_id = ? OR d.id = ?)`;
+        params.push(device_id, device_id);
+      } else {
+        query += ` AND d.node_id = ?`;
+        params.push(device_id);
+      }
     }
     if (label) {
       query += ` AND a.label = ?`;

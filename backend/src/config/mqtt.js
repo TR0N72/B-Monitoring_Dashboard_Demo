@@ -3,6 +3,23 @@ const db = require('./db');
 
 let client = null;
 
+const nodeIdCache = new Map();
+const NODE_CACHE_TTL_MS = 5 * 60 * 1000;
+
+async function resolveNodeId(connection, nodeId) {
+  const cached = nodeIdCache.get(nodeId);
+  if (cached && (Date.now() - cached.cachedAt) < NODE_CACHE_TTL_MS) {
+    return cached.internalId;
+  }
+
+  const [devices] = await connection.execute('SELECT id FROM devices WHERE node_id = ?', [nodeId]);
+  if (devices.length === 0) return null;
+
+  const internalId = devices[0].id;
+  nodeIdCache.set(nodeId, { internalId, cachedAt: Date.now() });
+  return internalId;
+}
+
 function initMQTT() {
   return new Promise((resolve, reject) => {
     const host = process.env.MQTT_HOST || 'mqtt://localhost';
@@ -20,7 +37,6 @@ function initMQTT() {
     client.on('connect', () => {
       console.log('✓ Connected to MQTT Broker');
       
-      // Subscribe to sensor data: tambak/{node_id}/sensor
       client.subscribe('tambak/+/sensor', (err) => {
         if (err) {
           console.error('✗ Failed to subscribe to sensor data:', err.message);
@@ -29,7 +45,6 @@ function initMQTT() {
         }
       });
 
-      // Subscribe to actuator status: tambak/{node_id}/actuator/status
       client.subscribe('tambak/+/actuator/status', (err) => {
         if (err) {
           console.error('✗ Failed to subscribe to actuator status:', err.message);
@@ -43,8 +58,6 @@ function initMQTT() {
 
     client.on('error', (err) => {
       console.error('✗ MQTT Error:', err.message);
-      // We do not reject the promise here immediately to allow auto-reconnect, 
-      // but if initial connection fails it might be handled.
     });
 
     client.on('message', async (topic, message) => {
@@ -52,7 +65,7 @@ function initMQTT() {
         const payload = JSON.parse(message.toString());
         const topicParts = topic.split('/');
         const nodeId = topicParts[1];
-        const msgType = topicParts[2]; // sensor or actuator
+        const msgType = topicParts[2];
 
         if (msgType === 'sensor') {
           await handleSensorData(nodeId, payload);
@@ -68,22 +81,18 @@ function initMQTT() {
 
 async function handleSensorData(nodeId, payload) {
   try {
-    const connection = await db.getConnection();
+    const pool = db.getPool();
+    const connection = await pool.getConnection();
     try {
-      // Find internal device ID
-      const [devices] = await connection.execute('SELECT id FROM devices WHERE node_id = ?', [nodeId]);
-      if (devices.length === 0) return; // Unknown device
-
-      const internalId = devices[0].id;
+      const internalId = await resolveNodeId(connection, nodeId);
+      if (internalId === null) return;
       
-      // Update last seen
       await connection.execute('UPDATE devices SET last_seen = NOW(), status = "online" WHERE id = ?', [internalId]);
 
-      // Insert sensor data
-      const suhu = payload.suhu || null;
-      const salinitas = payload.salinitas || null;
-      const baterai = payload.baterai || null;
-      const rssi = payload.rssi || null;
+      const suhu = payload.suhu !== undefined ? payload.suhu : null;
+      const salinitas = payload.salinitas !== undefined ? payload.salinitas : null;
+      const baterai = payload.baterai !== undefined ? payload.baterai : null;
+      const rssi = payload.rssi !== undefined ? payload.rssi : null;
 
       const [insertResult] = await connection.execute(
         'INSERT INTO sensor_data (device_id, suhu, salinitas, baterai, rssi) VALUES (?, ?, ?, ?, ?)',
@@ -92,7 +101,6 @@ async function handleSensorData(nodeId, payload) {
       
       const sensorDataId = insertResult.insertId;
 
-      // TODO: Call Fuzzy DSS engine here in Session 4
       if (suhu !== null && salinitas !== null) {
         const { processFuzzy } = require('../services/fuzzyDSS');
         const fuzzyResult = processFuzzy(suhu, salinitas);
@@ -116,7 +124,6 @@ async function handleSensorData(nodeId, payload) {
         }
       }
 
-      // Check thresholds
       await checkThresholds(connection, internalId, sensorDataId, { suhu, salinitas });
       
     } finally {
@@ -150,16 +157,15 @@ async function checkThresholds(connection, deviceId, sensorDataId, readings) {
             [deviceId, sensorDataId, param, value, min, max, level, msg]
           );
 
-          // Need to send Telegram alert here
-          const { sendTelegramAlert } = require('./telegram'); // lazy loaded to avoid circular deps
+          const { sendTelegramAlert } = require('./telegram');
           sendTelegramAlert({
-             device_id: deviceId, // For simplicity we send internal ID, or look up node_id if needed
+             device_id: deviceId,
              parameter: param,
-             value: value,
-             min: min,
-             max: max,
-             level: level,
-             message: msg
+             measured_value: value,
+             threshold_min: min,
+             threshold_max: max,
+             level_peringatan: level,
+             pesan_notifikasi: msg
           }).catch(console.error);
         }
       }
@@ -171,11 +177,11 @@ async function checkThresholds(connection, deviceId, sensorDataId, readings) {
 
 async function handleActuatorStatus(nodeId, payload) {
   try {
-    const connection = await db.getConnection();
+    const pool = db.getPool();
+    const connection = await pool.getConnection();
     try {
-      const [devices] = await connection.execute('SELECT id FROM devices WHERE node_id = ?', [nodeId]);
-      if (devices.length === 0) return;
-      const internalId = devices[0].id;
+      const internalId = await resolveNodeId(connection, nodeId);
+      if (internalId === null) return;
 
       if (payload.command_id) {
         await connection.execute('UPDATE actuator_logs SET status = ?, trigger_detail = ? WHERE id = ?', 
@@ -202,9 +208,10 @@ async function handleActuatorStatus(nodeId, payload) {
   }
 }
 
-function publishMQTT(topic, message) {
+function publishMQTT(topic, message, options = {}) {
   if (client && client.connected) {
-    client.publish(topic, JSON.stringify(message));
+    const pubOptions = { qos: options.qos || 0 };
+    client.publish(topic, JSON.stringify(message), pubOptions);
   } else {
     console.warn('MQTT Client not connected, cannot publish.');
   }
