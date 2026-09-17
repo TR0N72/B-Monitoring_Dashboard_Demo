@@ -87,7 +87,6 @@ export default function ActuatorPage() {
     fetchLogs();
   }, [isAuthenticated, fetchLogs]);
 
-  // Real-time actuator status
   useEffect(() => {
     if (!isAuthenticated) return;
     const unsub = subscribe('actuator:status', (data) => {
@@ -96,7 +95,6 @@ export default function ActuatorPage() {
         executed_at: data.executed_at || new Date().toISOString(),
       }, ...prev].slice(0, 100));
 
-      // Clear pending state
       if (data.command_id || data.aksi) {
         setPendingCommands(prev => {
           const next = { ...prev };
@@ -121,7 +119,7 @@ export default function ActuatorPage() {
         const json = await res.json();
         setToastType('success');
         setToastMessage(`Command "${aksi}" sent successfully (ID: ${json.command_id})`);
-        fetchLogs(); // Refresh logs
+        fetchLogs();
       } else {
         const errData = await res.json();
         throw new Error(errData.error || 'Command failed');
@@ -145,7 +143,6 @@ export default function ActuatorPage() {
 
   const isAdmin = user?.role === 'admin';
 
-  // Fallback data
   const displayLogs = logs.length > 0 ? logs : [
     { id: 1, node_id: 'ESP32-NODE-01', aksi: 'AERATOR_ON', trigger_source: 'manual', status: 'executed', executed_at: new Date(Date.now() - 120000).toISOString() },
     { id: 2, node_id: 'ESP32-NODE-01', aksi: 'PUMP_OFF', trigger_source: 'edge', status: 'executed', executed_at: new Date(Date.now() - 360000).toISOString() },

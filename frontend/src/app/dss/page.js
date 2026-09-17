@@ -109,7 +109,6 @@ export default function DSSPage() {
     fetchDSSHistory();
   }, [isAuthenticated, fetchDSSHistory]);
 
-  // Real-time DSS updates
   useEffect(() => {
     if (!isAuthenticated) return;
     const unsub = subscribe('dss:update', (data) => {
@@ -138,7 +137,6 @@ export default function DSSPage() {
     return 'status-bahaya';
   };
 
-  // Fallback data for demo
   const displayHistory = history.length > 0 ? history : [
     { id: 1, node_id: 'ESP32-NODE-01', suhu_membership: 'normal', salinitas_membership: 'normal', dss_score: 25.0, dss_recommendation: 'Aman', created_at: new Date(Date.now() - 300000).toISOString() },
     { id: 2, node_id: 'ESP32-NODE-01', suhu_membership: 'panas', salinitas_membership: 'tinggi', dss_score: 68.5, dss_recommendation: 'Waspada', created_at: new Date(Date.now() - 600000).toISOString() },

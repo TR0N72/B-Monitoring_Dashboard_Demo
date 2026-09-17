@@ -25,11 +25,3 @@ Thumbs.db
 
 .vscode/
 .idea/
-
-# Python AI service — generated model artifacts (train on server/build)
-backend/ai_service/model.joblib
-backend/ai_service/scaler.joblib
-backend/ai_service/__pycache__/
-**/__pycache__/
-*.pyc
-*.pyo

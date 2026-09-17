@@ -127,10 +127,8 @@ async function handleSensorData(nodeId, payload) {
 
       // ── DSS Fuzzy + Closed-Loop Actuator ──────────────────────────────
       if (suhu !== null && salinitas !== null) {
-        const visualLabel = payload.hsv_metadata?.label ?? 'Normal';
-
         const { processFuzzy } = require('../services/fuzzyDSS');
-        const fuzzyResult = processFuzzy(suhu, salinitas, visualLabel);
+        const fuzzyResult = processFuzzy(suhu, salinitas);
 
         await connection.execute(
           `INSERT INTO fuzzy_decisions

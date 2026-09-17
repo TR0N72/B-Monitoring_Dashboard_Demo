@@ -45,12 +45,10 @@ export function useSocket() {
       setConnected(false);
     });
 
-    // Default alert listener
     socket.on('new_alert', (data) => {
       setLastAlert(data);
     });
 
-    // Re-attach any dynamic listeners
     listenersRef.current.forEach((handler, event) => {
       socket.on(event, handler);
     });
@@ -85,7 +83,6 @@ export function useSocket() {
     }
   }, []);
 
-  // Legacy compatibility
   const onAlert = useCallback((callback) => {
     return subscribe('new_alert', callback);
   }, [subscribe]);

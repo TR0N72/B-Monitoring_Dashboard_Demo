@@ -39,20 +39,6 @@ CREATE TABLE IF NOT EXISTS sensor_data (
     INDEX idx_device_recorded (device_id, recorded_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS ai_detection_logs (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    device_id INT NOT NULL,
-    sensor_data_id BIGINT DEFAULT NULL,
-    image_path VARCHAR(255) NULL,
-    detection_type VARCHAR(50) DEFAULT 'visual_classification',
-    label VARCHAR(20),
-    confidence FLOAT,
-    model_version VARCHAR(50),
-    hsv_metadata JSON NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE,
-    FOREIGN KEY (sensor_data_id) REFERENCES sensor_data(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS fuzzy_decisions (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,

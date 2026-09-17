@@ -7,13 +7,12 @@
  * Variabel Input:
  *   1. Suhu Air  (°C)   — Rendah / Normal / Tinggi
  *   2. Salinitas (ppt)  — Rendah / Normal / Tinggi
- *   3. Label Visual     — Normal / Caution / Warning (dari model XGBoost)
  *
  * Variabel Output:
  *   DSS Score (0–100) → Aman / Waspada / Bahaya
  *
  * Jumlah Aturan:
- *   3 (Suhu) × 3 (Salinitas) × 3 (Visual) = 27 aturan IF-THEN
+ *   3 (Suhu) × 3 (Salinitas) = 9 kombinasi utama
  *
  * Referensi pakar:
  *   - Suhu optimal bandeng Juwana: 28–30 °C
@@ -453,8 +452,6 @@ function getDominantMembership(memberships) {
  *
  * @param {number} suhuValue      - Suhu air dalam °C
  * @param {number} salinitasValue - Salinitas dalam ppt
- * @param {string} [visualLabel]  - Label visual dari XGBoost: "Normal" | "Caution" | "Warning"
- *                                  Default: "Normal" (jika AI tidak tersedia)
  *
  * @returns {{
  *   suhu_membership    : string,

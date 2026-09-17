@@ -77,25 +77,24 @@ router.get('/rules', (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.post('/simulate', (req, res) => {
   try {
-    const { suhu, salinitas, visual_label } = req.body;
+    const { suhu, salinitas } = req.body;
 
     if (suhu === undefined || salinitas === undefined) {
       return res.status(400).json({ error: 'suhu and salinitas are required.' });
     }
 
-    const suhuVal     = parseFloat(suhu);
-    const salVal      = parseFloat(salinitas);
-    const visLabel    = visual_label || 'Normal';
+    const suhuVal = parseFloat(suhu);
+    const salVal  = parseFloat(salinitas);
 
     if (isNaN(suhuVal) || isNaN(salVal)) {
       return res.status(400).json({ error: 'suhu and salinitas must be valid numbers.' });
     }
 
-    const result = processFuzzy(suhuVal, salVal, visLabel);
+    const result = processFuzzy(suhuVal, salVal);
 
     return res.json({
       simulation: true,
-      inputs: { suhu: suhuVal, salinitas: salVal, visual_label: visLabel },
+      inputs: { suhu: suhuVal, salinitas: salVal },
       ...result,
     });
   } catch (err) {

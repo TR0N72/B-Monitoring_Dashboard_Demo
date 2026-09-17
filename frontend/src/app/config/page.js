@@ -31,7 +31,6 @@ export default function SystemConfigPage() {
     if (!authLoading && !isAuthenticated) router.push('/login');
   }, [authLoading, isAuthenticated, router]);
 
-  // Fetch devices for selection
   useEffect(() => {
     if (!isAuthenticated) return;
     async function fetchDevices() {
@@ -52,7 +51,6 @@ export default function SystemConfigPage() {
     fetchDevices();
   }, [isAuthenticated, apiFetch]);
 
-  // Fetch thresholds for selected device
   useEffect(() => {
     if (!isAuthenticated || !selectedDeviceId) return;
     async function fetchThresholds() {
@@ -99,7 +97,6 @@ export default function SystemConfigPage() {
     }
     setSaving(true);
     try {
-      // Transform to the array format the backend expects
       const thresholdsArray = [
         { parameter: 'suhu', batas_bawah: thresholds.temperature.min, batas_atas: thresholds.temperature.max },
         { parameter: 'salinitas', batas_bawah: thresholds.salinity.min, batas_atas: thresholds.salinity.max },

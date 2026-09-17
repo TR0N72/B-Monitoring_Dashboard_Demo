@@ -10,7 +10,7 @@ const baseNavItems = [
   { href: '/analytics', label: 'Analytics', icon: '/assets/a3cf9e83a6d2c6bae4c1e1b26c4f0b60ca53a101.svg' },
   { href: '/dss', label: 'DSS Engine', iconSvg: 'brain' },
   { href: '/actuator', label: 'Actuator', iconSvg: 'zap' },
-  { href: '/ai-detection', label: 'AI Detection', iconSvg: 'eye' },
+
   { href: '/export', label: 'Export Logs', icon: '/assets/9d40389f2a1880afd833b2f14daebc6e3ce6bbf0.svg' },
   { href: '/config', label: 'System Config', icon: '/assets/f2c53fa4859da524365e8bda2fd717f3946f2e8a.svg' },
 ];
