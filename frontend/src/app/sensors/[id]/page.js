@@ -95,9 +95,11 @@ export default function NodeDetailsPage() {
               <div className="info-card">
                 <div className="info-card-header"><h2>Quick Actions</h2></div>
                 <div className="info-list">
+                  {/* Fitur belum diimplementasi (Technical Debt)
                   <button className="quick-action-btn"><span>Reboot Node</span><div className="btn-icon"><img src="/assets/3e64856e8bfd6326ac66edd772530478a0accadc.svg" alt="Reboot" /></div></button>
                   <button className="quick-action-btn"><span>Calibrate Sensors</span><div className="btn-icon"><img src="/assets/ce7fb59404067c920b4ddbce254b374c2af18a5e.svg" alt="Calibrate" /></div></button>
                   <button className="quick-action-btn"><span>View Raw Payload</span><div className="btn-icon"><img src="/assets/dab05f5c78fa58adae96e0b9e6b27a71bf6fb370.svg" alt="Code" /></div></button>
+                  */}
                 </div>
               </div>
             </div>
@@ -113,7 +115,7 @@ export default function NodeDetailsPage() {
               <div className="recent-logs-card">
                 <div className="recent-logs-header">
                   <h2>Recent Logs</h2>
-                  <a href="#" className="view-all-link">VIEW ALL</a>
+                  {/* <a href="#" className="view-all-link">VIEW ALL</a> */}
                 </div>
                 <div className="recent-logs-table-container">
                   <table className="recent-logs-table">

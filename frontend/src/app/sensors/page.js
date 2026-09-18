@@ -101,10 +101,12 @@ export default function SensorNodesPage() {
               </table>
               <div className="table-footer">
                 <div>Showing {displayDevices.length} devices</div>
-                <div className="button-group">
-                  <button className="pagination-btn">Prev</button>
-                  <button className="pagination-btn">Next</button>
-                </div>
+                <div className="pagination">
+                {/* Fitur belum diimplementasi (Technical Debt)
+                <button className="pagination-btn">Prev</button>
+                <button className="pagination-btn">Next</button>
+                */}
+              </div>
               </div>
             </div>
           </div>

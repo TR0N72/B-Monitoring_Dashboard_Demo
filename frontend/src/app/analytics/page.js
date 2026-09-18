@@ -89,19 +89,19 @@ export default function AnalyticsPage() {
                   </div>
                 </div>
                 <div className="chart-area">
-                  <iframe src="http://localhost:3000/d-solo/bmonitor-main/water-quality?orgId=1&panelId=1&theme=light&kiosk" width="100%" height="100%" frameBorder="0"></iframe>
+                  <iframe src={`${process.env.NEXT_PUBLIC_GRAFANA_URL || 'http://localhost:3000'}/d-solo/bmonitor-main/water-quality?orgId=1&panelId=1&theme=light&kiosk`} width="100%" height="100%" frameBorder="0"></iframe>
                 </div>
               </div>
               <div className="chart-container analytics-chart-medium">
                 <div className="chart-header"><h2>Parameter Correlation</h2></div>
                 <div className="chart-area">
-                  <iframe src="http://localhost:3000/d-solo/bmonitor-main/water-quality?orgId=1&panelId=2&theme=light&kiosk" width="100%" height="100%" frameBorder="0"></iframe>
+                  <iframe src={`${process.env.NEXT_PUBLIC_GRAFANA_URL || 'http://localhost:3000'}/d-solo/bmonitor-main/water-quality?orgId=1&panelId=2&theme=light&kiosk`} width="100%" height="100%" frameBorder="0"></iframe>
                 </div>
               </div>
               <div className="chart-container analytics-chart-medium">
                 <div className="chart-header"><h2>Alert Frequency</h2></div>
                 <div className="chart-area">
-                  <iframe src="http://localhost:3000/d-solo/bmonitor-main/water-quality?orgId=1&panelId=3&theme=light&kiosk" width="100%" height="100%" frameBorder="0"></iframe>
+                  <iframe src={`${process.env.NEXT_PUBLIC_GRAFANA_URL || 'http://localhost:3000'}/d-solo/bmonitor-main/water-quality?orgId=1&panelId=3&theme=light&kiosk`} width="100%" height="100%" frameBorder="0"></iframe>
                 </div>
               </div>
             </div>

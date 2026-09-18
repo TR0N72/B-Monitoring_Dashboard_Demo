@@ -106,12 +106,14 @@ export default function Sidebar() {
         ))}
       </nav>
       <div className="sidebar-footer">
+        {/* Fitur belum diimplementasi
         <a href="#" className="nav-item">
           <div className="nav-icon">
             <img src="/assets/c2f399cbc92673b4678734c1efe5796b00a9f725.svg" alt="Support" />
           </div>
           <p>Support</p>
         </a>
+        */}
         <a href="#" className="nav-item" onClick={handleSignOut}>
           <div className="nav-icon">
             <img src="/assets/c64a15be25be00edb87b8a12e60383d8ea3306ce.svg" alt="Sign Out" />

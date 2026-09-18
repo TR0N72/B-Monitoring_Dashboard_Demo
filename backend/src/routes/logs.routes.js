@@ -46,7 +46,7 @@ router.get('/', async (req, res) => {
       SELECT
         al.id, al.parameter, al.measured_value, al.threshold_min, al.threshold_max,
         al.level_peringatan, al.pesan_notifikasi, al.acknowledged, al.created_at,
-        d.device_id AS hardware_id, d.name AS device_name,
+        d.node_id AS hardware_id, d.name AS device_name,
         u.name AS acknowledged_by_name
       FROM alert_logs al
       JOIN devices d ON al.device_id = d.id
@@ -92,7 +92,7 @@ router.get('/export', async (req, res) => {
     const pool = getPool();
     const [rows] = await pool.execute(`
       SELECT
-        al.id, d.device_id AS hardware_id, d.name AS device_name,
+        al.id, d.node_id AS hardware_id, d.name AS device_name,
         al.parameter, al.measured_value, al.threshold_min, al.threshold_max,
         al.level_peringatan, al.pesan_notifikasi, al.acknowledged, al.created_at
       FROM alert_logs al

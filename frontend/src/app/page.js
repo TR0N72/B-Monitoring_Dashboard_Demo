@@ -80,6 +80,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="page-controls">
+                {/* Fitur belum diimplementasi (Technical Debt)
                 <button className="control-btn outline">
                   <div className="btn-icon">
                     <img src="/assets/78ae8b57bff3076f255b8b5e1fec2ccd53b32508.svg" alt="Color Mode" />
@@ -92,6 +93,7 @@ export default function DashboardPage() {
                   </div>
                   <span>Table Mode</span>
                 </button>
+                */}
               </div>
             </div>
 
