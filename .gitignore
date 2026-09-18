@@ -1,7 +1,8 @@
 
 laporan/
 document/
-
+scripts/
+docs/
 
 *.md
 
