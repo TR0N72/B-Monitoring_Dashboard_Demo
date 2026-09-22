@@ -16,6 +16,7 @@ export default function DashboardPage() {
   const [sensorData, setSensorData] = useState(null);
   const [logs, setLogs] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -62,7 +63,7 @@ export default function DashboardPage() {
   const isTurbidityDanger = turbidity > 15;
 
   return (
-    <div className="main-dashboard">
+    <div className={`main-dashboard${isDarkMode ? ' dark-theme' : ''}`}>
       <Sidebar />
       <main className="main-content">
         <div className="main-canvas">
@@ -80,13 +81,13 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="page-controls">
-                {/* Fitur belum diimplementasi (Technical Debt)
-                <button className="control-btn outline">
+                <button className="control-btn outline" onClick={() => setIsDarkMode(prev => !prev)}>
                   <div className="btn-icon">
                     <img src="/assets/78ae8b57bff3076f255b8b5e1fec2ccd53b32508.svg" alt="Color Mode" />
                   </div>
-                  <span>Color Mode</span>
+                  <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
                 </button>
+                {/* Table Mode - Future Development
                 <button className="control-btn solid">
                   <div className="btn-icon">
                     <img src="/assets/8b9e5a6b17142aaccf9de7da53652d2c80a0ae45.svg" alt="Table Mode" />
