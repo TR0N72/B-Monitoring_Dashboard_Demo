@@ -2,6 +2,7 @@ import { Inter, Manrope } from 'next/font/google';
 import '@/styles/globals.css';
 import { AuthProvider } from '@/context/AuthContext';
 import { SocketProvider } from '@/context/SocketContext';
+import { ThemeProvider } from '@/context/ThemeContext';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -29,7 +30,9 @@ export default function RootLayout({ children }) {
         <AuthProvider>
           {/* SocketProvider harus di dalam AuthProvider agar bisa membaca token auth */}
           <SocketProvider>
-            {children}
+            <ThemeProvider>
+              {children}
+            </ThemeProvider>
           </SocketProvider>
         </AuthProvider>
       </body>

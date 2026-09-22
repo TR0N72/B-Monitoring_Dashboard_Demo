@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useApi } from '@/hooks/useApi';
+import { useTheme } from '@/context/ThemeContext';
 import Sidebar from '@/components/Sidebar';
 import TopAppBar from '@/components/TopAppBar';
 import AlertBanner from '@/components/AlertBanner';
@@ -12,11 +13,11 @@ import MetricCard from '@/components/MetricCard';
 export default function DashboardPage() {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { apiFetch } = useApi();
+  const { isDarkMode, toggleDarkMode } = useTheme();
   const router = useRouter();
   const [sensorData, setSensorData] = useState(null);
   const [logs, setLogs] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -63,7 +64,7 @@ export default function DashboardPage() {
   const isTurbidityDanger = turbidity > 15;
 
   return (
-    <div className={`main-dashboard${isDarkMode ? ' dark-theme' : ''}`}>
+    <div className="main-dashboard">
       <Sidebar />
       <main className="main-content">
         <div className="main-canvas">
@@ -81,7 +82,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="page-controls">
-                <button className="control-btn outline" onClick={() => setIsDarkMode(prev => !prev)}>
+                <button className="control-btn outline" onClick={toggleDarkMode}>
                   <div className="btn-icon">
                     <img src="/assets/78ae8b57bff3076f255b8b5e1fec2ccd53b32508.svg" alt="Color Mode" />
                   </div>
