@@ -115,13 +115,15 @@ async function handleSensorData(nodeId, payload) {
       );
 
       const suhu      = payload.suhu      ?? null;
+      const ph_level  = payload.ph        ?? null;
       const salinitas = payload.salinitas ?? null;
+      const turbidity = payload.kekeruhan ?? null;
       const baterai   = payload.baterai   ?? null;
       const rssi      = payload.rssi      ?? null;
 
       const [insertResult] = await connection.execute(
-        'INSERT INTO sensor_data (device_id, suhu, salinitas, baterai, rssi) VALUES (?, ?, ?, ?, ?)',
-        [internalId, suhu, salinitas, baterai, rssi]
+        'INSERT INTO sensor_data (device_id, suhu, ph_level, salinitas, turbidity, baterai, rssi) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [internalId, suhu, ph_level, salinitas, turbidity, baterai, rssi]
       );
       const sensorDataId = insertResult.insertId;
 

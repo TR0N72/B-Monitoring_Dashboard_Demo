@@ -8,48 +8,46 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // On mount, verify session via /api/auth/me (cookie is sent automatically)
   useEffect(() => {
-    const savedToken = localStorage.getItem('bmonitor_token');
-    const savedUser = localStorage.getItem('bmonitor_user');
-    if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
+    fetch(`${API_URL}/api/auth/me`, { credentials: 'include' })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.user) setUser(data.user);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   const login = useCallback(async (username, password) => {
     const res = await fetch(`${API_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ username, password }),
     });
     const data = await res.json();
     if (!res.ok) {
       throw new Error(data.error || 'Login failed');
     }
-    localStorage.setItem('bmonitor_token', data.token);
-    localStorage.setItem('bmonitor_user', JSON.stringify(data.user));
-    setToken(data.token);
     setUser(data.user);
     return data;
   }, []);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem('bmonitor_token');
-    localStorage.removeItem('bmonitor_user');
-    setToken(null);
+  const logout = useCallback(async () => {
+    await fetch(`${API_URL}/api/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    }).catch(() => {});
     setUser(null);
   }, []);
 
   const value = {
     user,
-    token,
     loading,
-    isAuthenticated: !!token,
+    isAuthenticated: !!user,
     login,
     logout,
     API_URL,

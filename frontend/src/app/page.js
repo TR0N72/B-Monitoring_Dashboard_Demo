@@ -32,17 +32,18 @@ export default function DashboardPage() {
       try {
         const [sensorRes, logsRes] = await Promise.allSettled([
           apiFetch('/api/sensors/latest'),
-          apiFetch('/api/logs?limit=5'),
+          apiFetch('/api/sensors/history?limit=5'),
         ]);
 
         if (sensorRes.status === 'fulfilled' && sensorRes.value.ok) {
           const data = await sensorRes.value.json();
-          setSensorData(data);
+          // API returns { readings: [...] } — take the first (most recent) entry
+          setSensorData(data.readings?.[0] ?? null);
         }
 
         if (logsRes.status === 'fulfilled' && logsRes.value.ok) {
           const data = await logsRes.value.json();
-          setLogs(data.logs || data || []);
+          setLogs(data.data || []);
         }
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err);
@@ -58,9 +59,9 @@ export default function DashboardPage() {
   if (!isAuthenticated) return null;
 
   const temp = sensorData?.suhu ?? 24.5;
-  const ph = sensorData?.ph ?? 7.2;
+  const ph = sensorData?.ph_level ?? 7.2;
   const salinity = sensorData?.salinitas ?? 32.1;
-  const turbidity = sensorData?.kekeruhan ?? 18.4;
+  const turbidity = sensorData?.turbidity ?? 18.4;
   const isTurbidityDanger = turbidity > 15;
 
   return (
@@ -146,12 +147,12 @@ export default function DashboardPage() {
                       <tr key={i}>
                         <td>{new Date(log.recorded_at || log.created_at).toLocaleString()}</td>
                         <td>{log.suhu ?? '—'}</td>
-                        <td>{log.ph ?? '—'}</td>
+                        <td>{log.ph_level ?? '—'}</td>
                         <td>{log.salinitas ?? '—'}</td>
-                        <td className={log.kekeruhan > 15 ? 'warning-text' : ''}>{log.kekeruhan ?? '—'}</td>
+                        <td className={log.turbidity > 15 ? 'warning-text' : ''}>{log.turbidity ?? '—'}</td>
                         <td>
-                          <span className={`status-badge ${log.kekeruhan > 15 ? 'warning' : 'normal'}`}>
-                            {log.kekeruhan > 15 ? 'Warning' : 'Normal'}
+                          <span className={`status-badge ${log.turbidity > 15 ? 'warning' : 'normal'}`}>
+                            {log.turbidity > 15 ? 'Warning' : 'Normal'}
                           </span>
                         </td>
                       </tr>

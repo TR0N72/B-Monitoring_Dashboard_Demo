@@ -50,7 +50,7 @@ router.get('/history', async (req, res) => {
     const pool = getPool();
     
     let query = `
-      SELECT sd.id, sd.suhu, sd.salinitas, sd.baterai, sd.rssi, sd.recorded_at, d.node_id
+      SELECT sd.id, sd.suhu, sd.ph_level, sd.salinitas, sd.turbidity, sd.baterai, sd.rssi, sd.recorded_at, d.node_id
       FROM sensor_data sd
       JOIN devices d ON sd.device_id = d.id
       WHERE 1=1
@@ -79,7 +79,7 @@ router.get('/history', async (req, res) => {
 
     const [rows] = await pool.execute(query, params);
 
-    if (parameter && ['suhu', 'salinitas', 'baterai', 'rssi'].includes(parameter)) {
+    if (parameter && ['suhu', 'ph_level', 'salinitas', 'turbidity', 'baterai', 'rssi'].includes(parameter)) {
       const mappedData = rows.map(r => ({
         _time: r.recorded_at,
         _value: r[parameter],

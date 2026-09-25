@@ -1,0 +1,22 @@
+{
+  "uid": "bmonitor-telemetry",
+  "title": "B-Monitor Telemetry",
+  "schemaVersion": 38,
+  "timezone": "browser",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Live Telemetry (Last 24h)",
+      "type": "timeseries",
+      "datasource": { "type": "mysql", "uid": "mysql" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n  recorded_at AS \"time\",\n  suhu AS \"Temperature\",\n  ph_level AS \"pH\",\n  salinitas AS \"Salinity\",\n  turbidity AS \"Turbidity\"\nFROM sensor_data\nWHERE\n  $__timeFilter(recorded_at)\nORDER BY recorded_at ASC",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

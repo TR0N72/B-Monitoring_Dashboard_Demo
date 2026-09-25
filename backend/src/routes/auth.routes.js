@@ -30,9 +30,15 @@ router.post('/login', async (req, res) => {
       JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
     );
+    const isSecure = process.env.NODE_ENV === 'production';
+    res.cookie('bmonitor_token', token, {
+      httpOnly: true,
+      secure: isSecure,
+      sameSite: isSecure ? 'Strict' : 'Lax',
+      maxAge: 24 * 60 * 60 * 1000, // 24h
+    });
     res.json({
       message: 'Login successful',
-      token,
       user: {
         id: user.id,
         name: user.name,
@@ -45,6 +51,10 @@ router.post('/login', async (req, res) => {
     console.error('[AUTH] Login error:', err.message);
     res.status(500).json({ error: 'Internal server error.' });
   }
+});
+router.post('/logout', (req, res) => {
+  res.clearCookie('bmonitor_token', { httpOnly: true, sameSite: 'Lax' });
+  res.json({ message: 'Logged out successfully.' });
 });
 router.post('/register', authenticate, authorize('admin'), async (req, res) => {
   try {

@@ -536,7 +536,6 @@ function getRuleDefinitions() {
 module.exports = {
   processFuzzy,
   getRuleDefinitions,
-  // Export fungsi internal untuk keperluan unit testing
   fuzzySuhu,
   fuzzySalinitas,
   fuzzyVisual,
