@@ -17,11 +17,14 @@
  *  │  [Waspada]   → Notifikasi Telegram (Caution), aktifkan      │
  *  │                monitoring intensif                          │
  *  │  [Bahaya]    → Sequence otomatis:                           │
- *  │    1. OPEN_DRAIN_VALVE  → Buka katup kuras                  │
- *  │    2. Monitor level air → 10 cm turun (timer)               │
- *  │    3. CLOSE_DRAIN_VALVE → Tutup katup kuras                 │
- *  │    4. OPEN_FILL_VALVE   → Buka katup pengisian              │
- *  │    5. PUMP_ENGINE_STOP  → Hentikan pompa diesel             │
+ *  │    1. PUMP_ENGINE_STOP  → Hentikan pompa diesel             │
+ *  │    2. (verifikasi SW-420, 15 dtk) → Konfirmasi mesin mati   │
+ *  │    3. OPEN_DRAIN_VALVE  → Buka katup kuras                  │
+ *  │    4. (delay 30 dtk)   → Estimasi air turun ~10 cm          │
+ *  │    5. CLOSE_DRAIN_VALVE → Tutup katup kuras                 │
+ *  │    6. OPEN_FILL_VALVE   → Buka katup pengisian air bersih   │
+ *  │    7. (delay 30 dtk)   → Estimasi air naik ~3 cm            │
+ *  │    8. CLOSE_FILL_VALVE  → Tutup katup pengisian             │
  *  └─────────────────────────────────────────────────────────────┘
  *
  * Setiap aksi dicatat ke tabel actuator_logs dan dikirim via MQTT
@@ -34,6 +37,7 @@
 
 const db = require('../config/db');
 const tq = require('../config/telegramQueue');
+const { isEmergencyActive, markEngineStopSent, FAILSAFE_VERIFY_WINDOW_MS } = require('./emergencyState');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants & State
@@ -62,6 +66,9 @@ const SEQUENCE_STEP_DELAY_MS = parseInt(process.env.ACTUATOR_STEP_DELAY_MS || '3
 
 /** Map cooldown: deviceId → timestamp terakhir trigger otomatis */
 const closedLoopCooldowns = new Map();
+
+/** Map abort controllers: deviceId → AbortController (sequence aktif) */
+const activeAbortControllers = new Map();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -139,28 +146,59 @@ async function dispatchActuatorCommand({ mqttClient, deviceId, nodeId, aksi, tri
 
 /**
  * Kirim serangkaian perintah dengan delay antar perintah.
- * Digunakan untuk sequence multi-langkah.
+ * Mendukung pembatalan seketika via AbortSignal.
  *
  * @param {Array<{aksi, delayAfterMs}>} steps   - Array langkah sequence
  * @param {object}                      baseOpts - Opsi dasar (mqttClient, deviceId, nodeId, triggerSource)
  */
 async function executeSequence(steps, baseOpts) {
+  const { onStepDispatched, signal, ...dispatchOpts } = baseOpts;
   for (let i = 0; i < steps.length; i++) {
+    // Periksa abort sebelum setiap langkah
+    if (signal && signal.aborted) {
+      console.warn(`[AutoActuator] ⛔ Sequence aborted at step ${i + 1} (${steps[i].aksi}) for device ${dispatchOpts.deviceId}`);
+      break;
+    }
+
     const step = steps[i];
+    let commandId;
     try {
-      await dispatchActuatorCommand({
-        ...baseOpts,
+      commandId = await dispatchActuatorCommand({
+        ...dispatchOpts,
         aksi          : step.aksi,
-        triggerDetail : step.detail || baseOpts.triggerDetail,
+        triggerDetail : step.detail || dispatchOpts.triggerDetail,
       });
+      if (onStepDispatched) onStepDispatched(step.aksi, commandId);
     } catch (err) {
       console.error(`[AutoActuator] Sequence step ${i + 1} (${step.aksi}) failed:`, err.message);
     }
 
-    // Tunggu sebelum mengirim langkah berikutnya
+    // Delay yang dapat dibatalkan
     if (i < steps.length - 1 && step.delayAfterMs > 0) {
-      await new Promise(r => setTimeout(r, step.delayAfterMs));
+      await new Promise((resolve, reject) => {
+        const timer = setTimeout(resolve, step.delayAfterMs);
+        if (signal) {
+          signal.addEventListener('abort', () => {
+            clearTimeout(timer);
+            resolve(); // Lanjut ke iterasi berikutnya (akan diperiksa abort di atas)
+          }, { once: true });
+        }
+      });
     }
+  }
+}
+
+/**
+ * Batalkan sequence yang sedang berjalan untuk device tertentu.
+ * Dipanggil saat EMERGENCY_STOP diterima.
+ * @param {number} deviceId
+ */
+function abortSequence(deviceId) {
+  const ctrl = activeAbortControllers.get(deviceId);
+  if (ctrl) {
+    ctrl.abort();
+    activeAbortControllers.delete(deviceId);
+    console.warn(`[AutoActuator] ⛔ Sequence for device ${deviceId} forcibly aborted (EMERGENCY_STOP)`);
   }
 }
 
@@ -231,6 +269,12 @@ async function evaluateAndActuate({ mqttClient, deviceId, nodeId, fuzzyResult, r
       return;
     }
 
+    // ── Interlock: blokir sekuens jika Emergency State aktif (SW-420) ────────
+    if (isEmergencyActive(deviceId)) {
+      console.warn(`[AutoActuator] ⛔ BAHAYA on ${nodeId} — sequence BLOCKED (emergency state active). Manual reset required.`);
+      return;
+    }
+
     setCooldown(deviceId);
 
     const triggerDetail = `Auto trigger: DSS Score=${score}, Suhu=${readings.suhu}°C, Salinitas=${readings.salinitas}ppt, Rekomendasi=${recommendation}`;
@@ -250,40 +294,61 @@ async function evaluateAndActuate({ mqttClient, deviceId, nodeId, fuzzyResult, r
       });
     }
 
-    // ── Sequence aktuator: drain → fill → stop engine ────────────────────
-    // Langkah 1: Buka katup kuras
-    // Langkah 2 (setelah delay): Tutup katup kuras (air turun ~10 cm)
-    // Langkah 3: Buka katup pengisian air bersih
-    // Langkah 4: Hentikan mesin pompa diesel
+    // ── Sequence aktuator: stop engine → drain → fill ────────────────────
+    // Langkah 1: Hentikan mesin diesel TERLEBIH DAHULU
+    // Langkah 2 (verifikasi SW-420, FAILSAFE_VERIFY_WINDOW_MS): Konfirmasi mesin mati
+    // Langkah 3: Buka katup kuras
+    // Langkah 4 (setelah delay 30 dtk): Tutup katup kuras (air turun ~10 cm)
+    // Langkah 5 (transisi): Buka katup pengisian air bersih
+    // Langkah 6 (setelah delay 30 dtk): Tutup katup pengisian (air naik ~3 cm)
     const sequence = [
       {
+        aksi        : ACTUATOR_ACTIONS.PUMP_ENGINE_STOP,
+        detail      : `${triggerDetail} | Langkah 1: Hentikan pompa diesel (sebelum buka katup)`,
+        delayAfterMs: FAILSAFE_VERIFY_WINDOW_MS,     // 15 detik — jeda verifikasi SW-420
+      },
+      {
         aksi        : ACTUATOR_ACTIONS.OPEN_DRAIN_VALVE,
-        detail      : `${triggerDetail} | Langkah 1: Buka katup kuras`,
+        detail      : `${triggerDetail} | Langkah 2: Buka katup kuras`,
         delayAfterMs: SEQUENCE_STEP_DELAY_MS,        // 30 detik — estimasi air turun 10 cm
       },
       {
         aksi        : ACTUATOR_ACTIONS.CLOSE_DRAIN_VALVE,
-        detail      : `${triggerDetail} | Langkah 2: Tutup katup kuras (level turun ~10 cm)`,
-        delayAfterMs: 5000,                           // 5 detik transisi
+        detail      : `${triggerDetail} | Langkah 3: Tutup katup kuras (level turun ~10 cm)`,
+        delayAfterMs: 5000,                           // 5 detik transisi sebelum buka isi
       },
       {
         aksi        : ACTUATOR_ACTIONS.OPEN_FILL_VALVE,
-        detail      : `${triggerDetail} | Langkah 3: Buka katup pengisian air bersih`,
-        delayAfterMs: 5000,
+        detail      : `${triggerDetail} | Langkah 4: Buka katup pengisian air bersih`,
+        delayAfterMs: SEQUENCE_STEP_DELAY_MS,        // 30 detik — estimasi air naik ~3 cm
       },
       {
-        aksi        : ACTUATOR_ACTIONS.PUMP_ENGINE_STOP,
-        detail      : `${triggerDetail} | Langkah 4: Auto Engine Stop — hentikan pompa diesel`,
+        aksi        : ACTUATOR_ACTIONS.CLOSE_FILL_VALVE,
+        detail      : `${triggerDetail} | Langkah 5: Tutup katup pengisian (level naik ~3 cm)`,
         delayAfterMs: 0,
       },
     ];
+
+    // Buat AbortController baru, batalkan sequence lama jika ada
+    abortSequence(deviceId);
+    const abortCtrl = new AbortController();
+    activeAbortControllers.set(deviceId, abortCtrl);
 
     // Jalankan sequence secara asinkron (tidak memblokir MQTT handler)
     executeSequence(sequence, {
       mqttClient,
       deviceId,
       nodeId,
-      triggerSource: 'auto_dss',
+      triggerSource    : 'auto_dss',
+      signal           : abortCtrl.signal,
+      onStepDispatched : (aksi, commandId) => {
+        if (aksi === ACTUATOR_ACTIONS.PUMP_ENGINE_STOP) {
+          markEngineStopSent(deviceId, commandId);
+        }
+      },
+    }).finally(() => {
+      // Bersihkan controller setelah sequence selesai/dibatalkan
+      activeAbortControllers.delete(deviceId);
     }).catch(err => {
       console.error(`[AutoActuator] Sequence execution error:`, err.message);
     });
@@ -303,6 +368,7 @@ async function evaluateAndActuate({ mqttClient, deviceId, nodeId, fuzzyResult, r
 module.exports = {
   evaluateAndActuate,
   dispatchActuatorCommand,
+  abortSequence,
   ACTUATOR_ACTIONS,
   DSS_THRESHOLD_WASPADA,
   DSS_THRESHOLD_BAHAYA,

@@ -1,10 +1,22 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
 const { getPool } = require('../config/db');
 const { authenticate, authorize, JWT_SECRET } = require('../middleware/auth');
 const router = express.Router();
-router.post('/login', async (req, res) => {
+
+// Max 10 login attempts per 15 minutes per IP
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Terlalu banyak percobaan login. Coba lagi dalam 15 menit.' },
+  skipSuccessfulRequests: true, // Only count failed requests
+});
+
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) {

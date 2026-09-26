@@ -99,7 +99,21 @@ function initMQTT() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Handler: Data Sensor Utama (suhu, salinitas, baterai, rssi)
+// Sanitasi & Validasi Input Sensor
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Konversi nilai ke Float yang valid, kembalikan null jika tidak valid.
+ * Mencegah String/Object/NaN/Infinity masuk ke pipeline DSS.
+ */
+function sanitizeFloat(value, min = -Infinity, max = Infinity) {
+  const n = parseFloat(value);
+  if (!isFinite(n)) return null;
+  if (n < min || n > max) return null;
+  return n;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Handler: Data Sensor Utama (suhu, ph, salinitas, kekeruhan, baterai, rssi)
 // ─────────────────────────────────────────────────────────────────────────────
 async function handleSensorData(nodeId, payload) {
   try {
@@ -114,12 +128,18 @@ async function handleSensorData(nodeId, payload) {
         [internalId]
       );
 
-      const suhu      = payload.suhu      ?? null;
-      const ph_level  = payload.ph        ?? null;
-      const salinitas = payload.salinitas ?? null;
-      const turbidity = payload.kekeruhan ?? null;
-      const baterai   = payload.baterai   ?? null;
-      const rssi      = payload.rssi      ?? null;
+      // ── Sanitasi & Validasi Payload ───────────────────────────────────
+      const suhu      = sanitizeFloat(payload.suhu,      0,   45);   // °C normal tambak
+      const ph_level  = sanitizeFloat(payload.ph,        0,   14);   // skala pH
+      const salinitas = sanitizeFloat(payload.salinitas, 0,  100);   // ppt
+      const turbidity = sanitizeFloat(payload.kekeruhan, 0, 1000);   // NTU
+      const baterai   = sanitizeFloat(payload.baterai,   0,  100);   // %
+      const rssi      = sanitizeFloat(payload.rssi,   -150,    0);   // dBm
+
+      if (suhu === null && salinitas === null && baterai === null) {
+        console.warn(`[MQTT] Payload tidak valid dari node ${nodeId} — diabaikan:`, payload);
+        return;
+      }
 
       const [insertResult] = await connection.execute(
         'INSERT INTO sensor_data (device_id, suhu, ph_level, salinitas, turbidity, baterai, rssi) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -221,6 +241,10 @@ async function handleVibrationMessage(nodeId, payload) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Evaluasi Threshold Statis
 // ─────────────────────────────────────────────────────────────────────────────
+// Debounce lock: mencegah Telegram ganda untuk alert yang sama dalam 60 detik
+const alertDebounce = new Map();
+const ALERT_DEBOUNCE_MS = 60 * 1000;
+
 async function checkThresholds(connection, deviceId, sensorDataId, readings, nodeId) {
   try {
     const [thresholds] = await connection.execute(
@@ -247,16 +271,22 @@ async function checkThresholds(connection, deviceId, sensorDataId, readings, nod
           [deviceId, sensorDataId, t.parameter, value, min, max, level, msg]
         );
 
-        sendTelegramAlert({
-          device_id       : deviceId,
-          node_id         : nodeId,
-          parameter       : t.parameter,
-          measured_value  : value,
-          threshold_min   : min,
-          threshold_max   : max,
-          level_peringatan: level,
-          pesan_notifikasi: msg,
-        });
+        // ── Debounce: kirim Telegram hanya jika belum dikirim dalam 60 detik ──
+        const debounceKey = `${deviceId}:${t.parameter}`;
+        const lastSent    = alertDebounce.get(debounceKey) || 0;
+        if (Date.now() - lastSent > ALERT_DEBOUNCE_MS) {
+          alertDebounce.set(debounceKey, Date.now());
+          sendTelegramAlert({
+            device_id       : deviceId,
+            node_id         : nodeId,
+            parameter       : t.parameter,
+            measured_value  : value,
+            threshold_min   : min,
+            threshold_max   : max,
+            level_peringatan: level,
+            pesan_notifikasi: msg,
+          });
+        }
 
       }
     }
@@ -315,7 +345,9 @@ async function handleActuatorStatus(nodeId, payload) {
 // ─────────────────────────────────────────────────────────────────────────────
 function publishMQTT(topic, message, options = {}) {
   if (client && client.connected) {
-    client.publish(topic, JSON.stringify(message), { qos: options.qos || 0 });
+    // Default QoS 1 (at-least-once) untuk memastikan perintah tidak hilang
+    // di jaringan pesisir yang fluktuatif. Caller dapat override dengan qos: 2.
+    client.publish(topic, JSON.stringify(message), { qos: options.qos ?? 1 });
   } else {
     console.warn('[MQTT] Client not connected — cannot publish.');
   }

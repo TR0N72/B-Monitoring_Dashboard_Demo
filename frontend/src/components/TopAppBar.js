@@ -12,7 +12,7 @@ const LEVEL_COLORS = {
 };
 
 export default function TopAppBar() {
-  const { user, logout, token, API_URL } = useAuth();
+  const { user, logout, API_URL } = useAuth();
 
   // --- Profile state ---
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -38,28 +38,40 @@ export default function TopAppBar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Polling alert setiap 10 detik
+  // Polling alert dengan Exponential Backoff
   useEffect(() => {
-    if (!token) return;
+    if (!user) return;
+
+    let timeoutId = null;
+    let delay = 10000;        // mulai 10 detik
+    const MAX_DELAY = 300000; // cap 5 menit
+    let cancelled = false;
 
     async function fetchAlerts() {
       try {
         const res = await fetch(`${API_URL}/api/logs?limit=5`, {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
         });
-        if (!res.ok) return;
+        if (!res.ok) throw new Error('non-2xx');
         const data = await res.json();
         const newAlerts = data.logs || [];
         setAlerts(newAlerts);
-        // Tampilkan badge merah jika ada alert bahaya atau waspada
         setHasNew(newAlerts.some(a => a.level_peringatan !== 'normal'));
-      } catch (_) {}
+        delay = 10000; // reset ke normal jika berhasil
+      } catch (_) {
+        delay = Math.min(delay * 2, MAX_DELAY); // backoff eksponensial
+      } finally {
+        if (!cancelled) timeoutId = setTimeout(fetchAlerts, delay);
+      }
     }
 
-    fetchAlerts(); // Langsung fetch pertama kali
-    const interval = setInterval(fetchAlerts, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [token, API_URL]);
+    fetchAlerts();
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [user, API_URL]);
+
 
   function handleSignOut() {
     logout();

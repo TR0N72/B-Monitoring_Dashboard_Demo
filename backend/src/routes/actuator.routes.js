@@ -15,11 +15,12 @@ const express    = require('express');
 const { getPool } = require('../config/db');
 const { authenticate, authorize } = require('../middleware/auth');
 const { publishMQTT }             = require('../config/mqtt');
-const { ACTUATOR_ACTIONS }        = require('../services/actuatorController');
+const { ACTUATOR_ACTIONS, abortSequence } = require('../services/actuatorController');
 const {
   getAllEmergencyStates,
   resetEmergencyState,
   getDeviceState,
+  isEmergencyActive,
 }                                 = require('../services/emergencyState');
 const { getQueueStatus }          = require('../config/telegramQueue');
 
@@ -60,12 +61,26 @@ router.post('/command', authorize('admin'), async (req, res) => {
     }
     const { id: internalId, node_id: nodeId } = devices[0];
 
+    // Interlock: blokir perintah manual (kecuali EMERGENCY_STOP & reset) jika emergency aktif
+    const isSafeOverride = aksi === 'EMERGENCY_STOP' || aksi === 'CLOSE_FILL_VALVE' || aksi === 'CLOSE_DRAIN_VALVE';
+    if (!isSafeOverride && isEmergencyActive(internalId)) {
+      return res.status(403).json({
+        error          : 'Command blocked: emergency state is active for this device. Use POST /api/actuator/emergency/reset/:id to clear it first.',
+        emergency_active: true,
+      });
+    }
+
     const triggerDetail = `Manual command by user_id=${req.user?.id || 'unknown'} (${req.user?.username || '-'})`;
 
     const [result] = await pool.execute(
       'INSERT INTO actuator_logs (device_id, aksi, trigger_source, trigger_detail, status) VALUES (?, ?, ?, ?, ?)',
       [internalId, aksi, 'manual', triggerDetail, 'pending']
     );
+
+    // Jika EMERGENCY_STOP: batalkan sequence yang sedang berjalan seketika
+    if (aksi === 'EMERGENCY_STOP') {
+      abortSequence(internalId);
+    }
 
     publishMQTT(`tambak/${nodeId}/actuator/command`, { aksi, command_id: result.insertId }, { qos: 1 });
 
