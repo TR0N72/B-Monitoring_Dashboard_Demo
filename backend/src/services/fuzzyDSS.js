@@ -43,11 +43,10 @@
 function fuzzySuhu(t) {
   const mu = { rendah: 0, normal: 0, tinggi: 0 };
 
-  // Rendah: trapezoidal [−∞, 24, 26, 28]
-  if (t <= 24)       mu.rendah = 1;
-  else if (t <= 26)  mu.rendah = (26 - t) / (26 - 24);
-  else if (t <= 28)  mu.rendah = (28 - t) / (28 - 26); // transisi menuju normal
-  // (setelah 28 → 0)
+  // Rendah: Bahu kiri (left shoulder) kontinu
+  // Nilai 1 untuk t <= 26, lalu turun linear ke 0 pada t = 29 (berpotongan dengan Normal)
+  if (t <= 26)       mu.rendah = 1;
+  else if (t <= 29)  mu.rendah = (29 - t) / (29 - 26);
 
   // Normal: triangular [26, 29, 32]
   if (t > 26 && t <= 29)      mu.normal = (t - 26) / (29 - 26);
@@ -74,10 +73,10 @@ function fuzzySuhu(t) {
 function fuzzySalinitas(s) {
   const mu = { rendah: 0, normal: 0, tinggi: 0 };
 
-  // Rendah: trapezoidal [−∞, 8, 12, 15]
-  if (s <= 8)        mu.rendah = 1;
-  else if (s <= 12)  mu.rendah = (12 - s) / (12 - 8);
-  else if (s <= 15)  mu.rendah = (15 - s) / (15 - 12);
+  // Rendah: Bahu kiri (left shoulder) kontinu
+  // Nilai 1 untuk s <= 12, lalu turun linear ke 0 pada s = 17 (berpotongan dengan Normal)
+  if (s <= 12)       mu.rendah = 1;
+  else if (s <= 17)  mu.rendah = (17 - s) / (17 - 12);
 
   // Normal: trapezoidal [12, 17, 22, 28]
   if (s > 12 && s <= 17)      mu.normal = (s - 12) / (17 - 12);
