@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS threshold_config (
     id INT AUTO_INCREMENT PRIMARY KEY,
     device_id INT NOT NULL,
     user_id INT NOT NULL COMMENT 'User who last modified this threshold',
-    parameter ENUM('suhu', 'salinitas') NOT NULL COMMENT 'Sensor parameter name',
+    parameter ENUM('suhu', 'salinitas', 'ph', 'turbidity') NOT NULL COMMENT 'Sensor parameter name',
     batas_bawah DECIMAL(10, 2) NOT NULL COMMENT 'Minimum threshold',
     batas_atas DECIMAL(10, 2) NOT NULL COMMENT 'Maximum threshold',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -115,5 +115,7 @@ ON DUPLICATE KEY UPDATE name = VALUES(name);
 
 INSERT INTO threshold_config (device_id, user_id, parameter, batas_bawah, batas_atas) VALUES
     (1, 1, 'suhu', 18.50, 28.00),
-    (1, 1, 'salinitas', 10.00, 35.00)
+    (1, 1, 'salinitas', 10.00, 35.00),
+    (1, 1, 'ph', 6.50, 8.50),
+    (1, 1, 'turbidity', 0.00, 25.00)
 ON DUPLICATE KEY UPDATE batas_bawah = VALUES(batas_bawah), batas_atas = VALUES(batas_atas);
