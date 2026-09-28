@@ -232,7 +232,10 @@ async function handleSensorData(nodeId, payload) {
       // ── DSS Fuzzy + Closed-Loop Actuator ──────────────────────────────
       if (suhu !== null && salinitas !== null) {
         const { processFuzzy } = require('../services/fuzzyDSS');
-        const fuzzyResult = processFuzzy(suhu, salinitas);
+        
+        // Ekstrak label visual dari MQTT Edge Computing (jika ada), default ke 'Normal'
+        const visualLabel = payload.visual_label || payload.visualLabel || 'Normal';
+        const fuzzyResult = processFuzzy(suhu, salinitas, visualLabel);
 
         await connection.execute(
           `INSERT INTO fuzzy_decisions
