@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getPool } = require('../config/db');
 const { authenticate } = require('../middleware/auth');
-const { sendTelegramAlert, sendTelegramMessage, verifyBot } = require('../config/telegram');
+const { sendTelegramMessage, verifyBot } = require('../config/telegram');
 const { broadcastAlert } = require('../socket/alerts');
 
 router.use(authenticate);
@@ -17,12 +17,19 @@ router.post('/trigger', async (req, res) => {
 
     const pool = getPool();
 
-    const [devices] = await pool.execute('SELECT id, name FROM devices WHERE device_id = ?', [device_id]);
+    let getDeviceQuery = 'SELECT id, node_id, name FROM devices WHERE node_id = ?';
+    let getDeviceParams = [String(device_id)];
+    if (!isNaN(device_id)) {
+      getDeviceQuery += ' OR id = ?';
+      getDeviceParams.push(Number(device_id));
+    }
+    const [devices] = await pool.execute(getDeviceQuery, getDeviceParams);
     if (devices.length === 0) {
       return res.status(404).json({ error: 'Device not found' });
     }
 
     const internalId = devices[0].id;
+    const nodeId = devices[0].node_id;
     const deviceName = devices[0].name;
 
     const level = level_peringatan || 'warning';
@@ -36,7 +43,8 @@ router.post('/trigger', async (req, res) => {
 
     const alertPayload = {
       id: result.insertId,
-      device_id,
+      device_id: internalId,
+      node_id: nodeId,
       device_name: deviceName,
       parameter,
       measured_value,
@@ -46,15 +54,13 @@ router.post('/trigger', async (req, res) => {
       pesan_notifikasi: message,
     };
 
-    broadcastAlert(alertPayload);
-
-    const telegramResult = await sendTelegramAlert(alertPayload);
+    await broadcastAlert(alertPayload);
 
     res.status(201).json({
       message: 'Alert created and dispatched',
       alert_id: result.insertId,
       websocket_broadcast: true,
-      telegram_sent: telegramResult !== null,
+      telegram_sent: true,
     });
   } catch (err) {
     console.error('[Alerts] Trigger error:', err.message);

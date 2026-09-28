@@ -180,6 +180,60 @@ function invalidateRouteCache(deviceId = null) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Escaping Helpers for Telegram MarkdownV2 & HTML
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Escape karakter khusus MarkdownV2 Telegram.
+ * Karakter yang wajib di-escape di luar entitas:
+ * _ * [ ] ( ) ~ ` > # + - = | { } . ! \
+ * @param {string|number|null|undefined} text
+ * @returns {string}
+ */
+function escapeMarkdownV2(text) {
+  if (text === null || text === undefined) return '';
+  return String(text).replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, '\\$&');
+}
+
+/**
+ * Escape karakter khusus di dalam blok inline code (`...`).
+ * Di dalam inline code MarkdownV2, hanya ` dan \ yang perlu di-escape.
+ * @param {string|number|null|undefined} text
+ * @returns {string}
+ */
+function escapeCode(text) {
+  if (text === null || text === undefined) return '';
+  return String(text).replace(/[`\\]/g, '\\$&');
+}
+
+/**
+ * Escape karakter khusus HTML (<, >, &).
+ * Digunakan untuk alert dengan parse_mode: 'HTML'.
+ * @param {string|number|null|undefined} text
+ * @returns {string}
+ */
+function escapeHtml(text) {
+  if (text === null || text === undefined) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+/**
+ * Hapus escape backslash dan markdown markers dasar untuk fallback plain-text jika parsing gagal.
+ * @param {string} text
+ * @returns {string}
+ */
+function stripMarkdownEscapes(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/\\([_*[\]()~`>#+\-=|{}.!\\])/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/`([^`]+)`/g, '$1');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Message Formatting
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -188,13 +242,16 @@ function formatAlertMessage(alertData, priority) {
   const level = (alertData.level_peringatan || 'warning').toLowerCase();
 
   if (priority === PRIORITY.FAILSAFE) {
+    const safeNode = escapeHtml(alertData.node_id || alertData.device_id || 'N/A');
+    const safeMsg  = escapeHtml(alertData.pesan_notifikasi || '');
+    const safeTime = escapeHtml(new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }));
     return {
       text: [
         `🆘🆘🆘 <b>EMERGENCY FAILSAFE ALERT</b> 🆘🆘🆘`,
         ``,
-        `⛽ <b>Node:</b> <code>${alertData.node_id || alertData.device_id}</code>`,
+        `⛽ <b>Node:</b> <code>${safeNode}</code>`,
         ``,
-        `${alertData.pesan_notifikasi}`,
+        `${safeMsg}`,
         ``,
         `⚠️ <b>Tindakan yang diperlukan:</b>`,
         `1. Periksa mesin diesel secara langsung`,
@@ -202,7 +259,7 @@ function formatAlertMessage(alertData, priority) {
         `3. Laporkan ke koordinator lapangan`,
         `4. Reset via Dashboard Admin setelah kondisi aman`,
         ``,
-        `🕐 ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`,
+        `🕐 ${safeTime}`,
         `🔴 <b>SEGERA TANGANI — RISIKO LUAPAN AIR!</b>`,
       ].join('\n'),
       parse_mode: 'HTML',
@@ -211,7 +268,14 @@ function formatAlertMessage(alertData, priority) {
 
   const emoji    = level === 'critical' ? '🚨' : '⚠️';
   const bar      = level === 'critical' ? '🔴🔴🔴' : '🟡🟡🟡';
-  const levelStr = level.toUpperCase();
+  const levelStr = escapeMarkdownV2(level.toUpperCase());
+  const nodeId   = escapeCode(alertData.node_id || alertData.device_id || 'N/A');
+  const param    = escapeMarkdownV2(alertData.parameter || '—');
+  const val      = escapeMarkdownV2(alertData.measured_value ?? '—');
+  const min      = escapeMarkdownV2(alertData.threshold_min ?? '—');
+  const max      = escapeMarkdownV2(alertData.threshold_max ?? '—');
+  const msg      = escapeMarkdownV2(alertData.pesan_notifikasi || '—');
+  const timeStr  = escapeMarkdownV2(new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }));
 
   return {
     text: [
@@ -219,14 +283,14 @@ function formatAlertMessage(alertData, priority) {
       `${emoji} *B\\-Monitor Alert* ${emoji}`,
       ``,
       `*Level:* ${levelStr}`,
-      `*Node:* \`${alertData.node_id || alertData.device_id || 'N/A'}\``,
-      `*Parameter:* ${alertData.parameter || '—'}`,
-      `*Nilai:* ${alertData.measured_value ?? '—'}`,
-      `*Batas:* ${alertData.threshold_min ?? '—'} — ${alertData.threshold_max ?? '—'}`,
+      `*Node:* \`${nodeId}\``,
+      `*Parameter:* ${param}`,
+      `*Nilai:* ${val}`,
+      `*Batas:* ${min} \\- ${max}`,
       ``,
-      `📝 ${alertData.pesan_notifikasi}`,
+      `📝 ${msg}`,
       ``,
-      `🕐 ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`,
+      `🕐 ${timeStr}`,
     ].join('\n'),
     parse_mode: 'MarkdownV2',
   };
@@ -264,16 +328,58 @@ async function sendToChat(chatId, text, parseMode = 'MarkdownV2') {
     const data = await res.json();
 
     if (!data.ok) {
-      // Rate limit — Telegram mengembalikan 429
+      // 1. Rate limit — Telegram mengembalikan 429
       if (res.status === 429) {
         const retryAfter = data.parameters?.retry_after || 10;
         throw new RateLimitError(`Rate limited. Retry after ${retryAfter}s`, retryAfter);
       }
-      // Chat tidak ditemukan / tidak valid
-      if (data.error_code === 400 || data.error_code === 403) {
-        throw new InvalidChatError(`Invalid chat_id '${chatId}': ${data.description}`);
+
+      const desc = data.description || '';
+
+      // 2. Format / Entity parsing error (HTTP 400 "can't parse entities...")
+      if (data.error_code === 400 && desc.toLowerCase().includes("can't parse entities")) {
+        console.warn(`[TelegramQueue] MarkdownV2 parse failed for chat=${chatId} (${desc}) — attempting plain text fallback`);
+        try {
+          const fallbackRes = await fetch(`${API_BASE}/sendMessage`, {
+            method : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body   : JSON.stringify({
+              chat_id                 : chatId,
+              text                    : stripMarkdownEscapes(text),
+              disable_web_page_preview: true,
+            }),
+            signal: controller.signal,
+          });
+          const fallbackData = await fallbackRes.json();
+          if (fallbackData.ok) {
+            console.log(`[TelegramQueue] ✓ Plain-text fallback sent to chat=${chatId}`);
+            return fallbackData;
+          }
+        } catch (fallbackErr) {
+          console.error(`[TelegramQueue] Plain-text fallback failed for chat=${chatId}:`, fallbackErr.message);
+        }
+        // Jika fallback juga gagal, lempar TelegramParseError (BUKAN InvalidChatError)
+        throw new TelegramParseError(`Formatting parse error for chat '${chatId}': ${desc}`);
       }
-      throw new Error(`Telegram API error: ${data.description}`);
+
+      // 3. Chat tidak ditemukan / diblokir / tidak valid
+      const isInvalidChat = data.error_code === 403 ||
+        (data.error_code === 400 && (
+          desc.toLowerCase().includes('chat not found') ||
+          desc.toLowerCase().includes('user not found') ||
+          desc.toLowerCase().includes('chat_id is empty') ||
+          desc.toLowerCase().includes('group chat was deactivated') ||
+          desc.toLowerCase().includes('peer_id_invalid') ||
+          desc.toLowerCase().includes('bot was kicked') ||
+          desc.toLowerCase().includes('deactivated')
+        ));
+
+      if (isInvalidChat) {
+        throw new InvalidChatError(`Invalid chat_id '${chatId}': ${desc}`);
+      }
+
+      // 4. Error umum lainnya
+      throw new Error(`Telegram API error: ${desc}`);
     }
 
     return data;
@@ -285,8 +391,8 @@ async function sendToChat(chatId, text, parseMode = 'MarkdownV2') {
 class RateLimitError extends Error {
   constructor(msg, retryAfterSec) {
     super(msg);
-    this.name           = 'RateLimitError';
-    this.retryAfterMs   = retryAfterSec * 1000;
+    this.name         = 'RateLimitError';
+    this.retryAfterMs = retryAfterSec * 1000;
   }
 }
 
@@ -294,6 +400,13 @@ class InvalidChatError extends Error {
   constructor(msg) {
     super(msg);
     this.name = 'InvalidChatError';
+  }
+}
+
+class TelegramParseError extends Error {
+  constructor(msg) {
+    super(msg);
+    this.name = 'TelegramParseError';
   }
 }
 
@@ -461,6 +574,12 @@ async function _processNext() {
           console.warn(`[TelegramQueue] Rate limited for chat=${chatId} — retry after ${err.retryAfterMs}ms`);
           break;
         }
+        if (err instanceof TelegramParseError) {
+          // Format error — tandai allSuccess = false agar dicoba ulang dan tidak dibuang diam-diam
+          allSuccess = false;
+          console.error(`[TelegramQueue] Format parse error for chat=${chatId}:`, err.message);
+          continue;
+        }
         // Network error / timeout — requeue dengan backoff
         allSuccess = false;
         console.error(`[TelegramQueue] Failed to send to chat=${chatId}:`, err.message);
@@ -615,4 +734,13 @@ module.exports = {
   getQueueStatus,
   invalidateRouteCache,
   PRIORITY,
+  // Helper & Error Classes
+  escapeMarkdownV2,
+  escapeCode,
+  escapeHtml,
+  stripMarkdownEscapes,
+  RateLimitError,
+  InvalidChatError,
+  TelegramParseError,
+  formatAlertMessage,
 };

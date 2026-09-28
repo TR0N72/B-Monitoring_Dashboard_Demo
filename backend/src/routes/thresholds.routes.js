@@ -9,7 +9,7 @@ router.get('/', async (req, res) => {
     const [rows] = await pool.execute(`
       SELECT
         tc.id, tc.parameter, tc.batas_bawah, tc.batas_atas, tc.updated_at,
-        d.device_id AS hardware_id, d.name AS device_name,
+        d.node_id AS hardware_id, d.node_id, d.id AS device_id, d.name AS device_name,
         u.name AS modified_by
       FROM threshold_config tc
       JOIN devices d ON tc.device_id = d.id

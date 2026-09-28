@@ -77,7 +77,7 @@ router.get('/rules', (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.post('/simulate', (req, res) => {
   try {
-    const { suhu, salinitas } = req.body;
+    const { suhu, salinitas, visual_label, visualLabel } = req.body;
 
     if (suhu === undefined || salinitas === undefined) {
       return res.status(400).json({ error: 'suhu and salinitas are required.' });
@@ -90,11 +90,16 @@ router.post('/simulate', (req, res) => {
       return res.status(400).json({ error: 'suhu and salinitas must be valid numbers.' });
     }
 
-    const result = processFuzzy(suhuVal, salVal);
+    // Dukung input visual_label atau visualLabel (default: 'Normal')
+    const rawVisual = visual_label || visualLabel || 'Normal';
+    const validVisuals = ['Normal', 'Caution', 'Warning'];
+    const matchedVisual = validVisuals.find(v => v.toLowerCase() === String(rawVisual).toLowerCase()) || 'Normal';
+
+    const result = processFuzzy(suhuVal, salVal, matchedVisual);
 
     return res.json({
       simulation: true,
-      inputs: { suhu: suhuVal, salinitas: salVal },
+      inputs: { suhu: suhuVal, salinitas: salVal, visual_label: matchedVisual },
       ...result,
     });
   } catch (err) {

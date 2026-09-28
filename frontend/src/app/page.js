@@ -1,23 +1,30 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useApi } from '@/hooks/useApi';
 import { useTheme } from '@/context/ThemeContext';
+import { useSocket } from '@/context/SocketContext';
 import Sidebar from '@/components/Sidebar';
 import TopAppBar from '@/components/TopAppBar';
 import AlertBanner from '@/components/AlertBanner';
 import MetricCard from '@/components/MetricCard';
 
+/** Maximum number of log rows kept in memory to avoid unbounded growth. */
+const MAX_LOG_ROWS = 50;
+
 export default function DashboardPage() {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { apiFetch } = useApi();
   const { isDarkMode, toggleDarkMode } = useTheme();
+  const { subscribe } = useSocket();
   const router = useRouter();
   const [sensorData, setSensorData] = useState(null);
   const [logs, setLogs] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
+  // Track the last WebSocket event timestamp to deduplicate rapid bursts
+  const lastWsTimestampRef = useRef(null);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -55,14 +62,60 @@ export default function DashboardPage() {
     fetchData();
   }, [isAuthenticated, apiFetch]);
 
+  /**
+   * WebSocket subscription — updates metric cards and prepends the new reading
+   * to the historical log table without triggering a full refetch.
+   *
+   * Wrapped in useCallback so the reference is stable across renders, which
+   * prevents the subscribe/unsubscribe cycle from firing on every render.
+   */
+  const handleSensorUpdate = useCallback((payload) => {
+    // Payload shape: { suhu, ph_level, salinitas, turbidity, recorded_at, node_id, ... }
+    if (!payload || typeof payload !== 'object') return;
+
+    // Deduplicate: ignore if this exact timestamp was already processed
+    const ts = payload.recorded_at || payload.created_at || null;
+    if (ts && ts === lastWsTimestampRef.current) return;
+    lastWsTimestampRef.current = ts;
+
+    // Update the live metric cards
+    setSensorData((prev) => ({ ...(prev ?? {}), ...payload }));
+
+    // Prepend to historical log, capped at MAX_LOG_ROWS
+    setLogs((prev) => [payload, ...prev].slice(0, MAX_LOG_ROWS));
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    // Subscribe returns an unsubscribe function — call it on cleanup
+    const unsubscribe = subscribe('sensor_update', handleSensorUpdate);
+    return unsubscribe;
+  }, [isAuthenticated, subscribe, handleSensorUpdate]);
+
   if (authLoading) return null;
   if (!isAuthenticated) return null;
 
-  const temp = sensorData?.suhu ?? 24.5;
-  const ph = sensorData?.ph_level ?? 7.2;
-  const salinity = sensorData?.salinitas ?? 32.1;
-  const turbidity = sensorData?.turbidity ?? 18.4;
-  const isTurbidityDanger = turbidity > 15;
+  // Use null when no real data is available — avoids phantom alarm states
+  const temp     = sensorData?.suhu     ?? null;
+  const ph       = sensorData?.ph_level ?? null;
+  const salinity = sensorData?.salinitas ?? null;
+  const turbidity = sensorData?.turbidity ?? null;
+
+  // Danger flag only when we have real data exceeding threshold
+  const isTurbidityDanger = turbidity !== null && turbidity > 15;
+
+  // Progress bar widths derived from sensor ranges (show 0% when no data)
+  const tempFill     = temp     !== null ? `${Math.min(100, Math.max(0, ((temp - 20) / 20) * 100)).toFixed(0)}%` : '0%';
+  const phFill       = ph       !== null ? `${Math.min(100, Math.max(0, (ph / 14) * 100)).toFixed(0)}%`           : '0%';
+  const salinityFill = salinity  !== null ? `${Math.min(100, Math.max(0, (salinity / 50) * 100)).toFixed(0)}%`    : '0%';
+  const turbidityFill = turbidity !== null ? `${Math.min(100, Math.max(0, (turbidity / 30) * 100)).toFixed(0)}%`  : '0%';
+
+  // Display values — show '—' when data is unavailable (never show phantom numbers)
+  const displayTemp     = temp     !== null ? temp     : '—';
+  const displayPh       = ph       !== null ? ph       : '—';
+  const displaySalinity = salinity  !== null ? salinity  : '—';
+  const displayTurbidity = turbidity !== null ? turbidity : '—';
 
   return (
     <div className="main-dashboard">
@@ -101,10 +154,10 @@ export default function DashboardPage() {
             </div>
 
             <div className="metric-cards-grid">
-              <MetricCard label="TEMPERATURE" value={temp} unit="°C" icon="/assets/aa1f13350a63705391a2fd719fbfea1ec8a0d775.svg" fillWidth="65%" fillColor="var(--progress-fill-blue)" />
-              <MetricCard label="PH LEVEL" value={ph} icon="/assets/175d2836fad0f392a3e0301c7f021e3b9233f740.svg" fillWidth="50%" fillColor="var(--progress-fill-green)" />
-              <MetricCard label="SALINITY" value={salinity} unit="ppt" icon="/assets/aa1f13350a63705391a2fd719fbfea1ec8a0d775.svg" fillWidth="80%" fillColor="var(--progress-fill-blue)" />
-              <MetricCard label="TURBIDITY" value={turbidity} unit="NTU" isDanger={isTurbidityDanger} fillWidth="95%" />
+              <MetricCard label="TEMPERATURE" value={displayTemp} unit={temp !== null ? '°C' : ''} icon="/assets/aa1f13350a63705391a2fd719fbfea1ec8a0d775.svg" fillWidth={tempFill} fillColor="var(--progress-fill-blue)" />
+              <MetricCard label="PH LEVEL" value={displayPh} unit="" icon="/assets/175d2836fad0f392a3e0301c7f021e3b9233f740.svg" fillWidth={phFill} fillColor="var(--progress-fill-green)" />
+              <MetricCard label="SALINITY" value={displaySalinity} unit={salinity !== null ? 'ppt' : ''} icon="/assets/aa1f13350a63705391a2fd719fbfea1ec8a0d775.svg" fillWidth={salinityFill} fillColor="var(--progress-fill-blue)" />
+              <MetricCard label="TURBIDITY" value={displayTurbidity} unit={turbidity !== null ? 'NTU' : ''} isDanger={isTurbidityDanger} fillWidth={turbidityFill} />
             </div>
 
             <div className="chart-container">
@@ -127,7 +180,7 @@ export default function DashboardPage() {
               <div className="table-header-section">
                 <h2>Historical Logs</h2>
                 <div className="table-info">
-                  <p>Showing last {logs.length || 5} entries</p>
+                  <p>{loadingData ? 'Loading…' : logs.length > 0 ? `Showing last ${logs.length} entries` : 'No data yet'}</p>
                 </div>
               </div>
               <div className="table-wrapper">
@@ -143,25 +196,44 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {logs.length > 0 ? logs.map((log, i) => (
-                      <tr key={i}>
-                        <td>{new Date(log.recorded_at || log.created_at).toLocaleString()}</td>
-                        <td>{log.suhu ?? '—'}</td>
-                        <td>{log.ph_level ?? '—'}</td>
-                        <td>{log.salinitas ?? '—'}</td>
-                        <td className={log.turbidity > 15 ? 'warning-text' : ''}>{log.turbidity ?? '—'}</td>
-                        <td>
-                          <span className={`status-badge ${log.turbidity > 15 ? 'warning' : 'normal'}`}>
-                            {log.turbidity > 15 ? 'Warning' : 'Normal'}
-                          </span>
+                    {loadingData ? (
+                      // Skeleton rows while fetching — no false data
+                      [1, 2, 3].map((n) => (
+                        <tr key={`skel-${n}`} className="skeleton-row">
+                          <td><span className="skeleton-cell" /></td>
+                          <td><span className="skeleton-cell skeleton-cell--sm" /></td>
+                          <td><span className="skeleton-cell skeleton-cell--sm" /></td>
+                          <td><span className="skeleton-cell skeleton-cell--sm" /></td>
+                          <td><span className="skeleton-cell skeleton-cell--sm" /></td>
+                          <td><span className="skeleton-cell skeleton-cell--sm" /></td>
+                        </tr>
+                      ))
+                    ) : logs.length > 0 ? (
+                      logs.map((log, i) => {
+                        const turbVal = log.turbidity ?? null;
+                        const isDanger = turbVal !== null && turbVal > 15;
+                        return (
+                          <tr key={log.id || i}>
+                            <td>{new Date(log.recorded_at || log.created_at).toLocaleString()}</td>
+                            <td>{log.suhu ?? '—'}</td>
+                            <td>{log.ph_level ?? '—'}</td>
+                            <td>{log.salinitas ?? '—'}</td>
+                            <td className={isDanger ? 'warning-text' : ''}>{turbVal ?? '—'}</td>
+                            <td>
+                              <span className={`status-badge ${isDanger ? 'warning' : 'normal'}`}>
+                                {isDanger ? 'Warning' : 'Normal'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      // True empty state — no phantom rows
+                      <tr>
+                        <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0', fontStyle: 'italic' }}>
+                          No sensor readings recorded yet.
                         </td>
                       </tr>
-                    )) : (
-                      <>
-                        <tr><td>2023-10-27 14:30:00</td><td>24.5</td><td>7.2</td><td>32.1</td><td className="warning-text">18.4</td><td><span className="status-badge warning">Warning</span></td></tr>
-                        <tr><td>2023-10-27 14:15:00</td><td>24.4</td><td>7.2</td><td>32.0</td><td>15.2</td><td><span className="status-badge normal">Normal</span></td></tr>
-                        <tr><td>2023-10-27 14:00:00</td><td>24.4</td><td>7.3</td><td>32.0</td><td>14.8</td><td><span className="status-badge normal">Normal</span></td></tr>
-                      </>
                     )}
                   </tbody>
                 </table>

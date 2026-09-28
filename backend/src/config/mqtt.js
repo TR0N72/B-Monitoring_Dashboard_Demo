@@ -24,6 +24,10 @@ let client = null;
 const nodeIdCache    = new Map();
 const NODE_CACHE_TTL = 5 * 60 * 1000;
 
+// Debounce lock: mencegah Telegram ganda untuk alert/anomali yang sama dalam 60 detik
+const alertDebounce     = new Map();
+const ALERT_DEBOUNCE_MS = 60 * 1000;
+
 async function resolveNodeId(connection, nodeId) {
   const cached = nodeIdCache.get(nodeId);
   if (cached && (Date.now() - cached.cachedAt) < NODE_CACHE_TTL) {
@@ -99,16 +103,34 @@ function initMQTT() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Sanitasi & Validasi Input Sensor
+// Sanitasi & Validasi Input Sensor (Sensor Anomaly Trap Protection)
 // ─────────────────────────────────────────────────────────────────────────────
 /**
- * Konversi nilai ke Float yang valid, kembalikan null jika tidak valid.
- * Mencegah String/Object/NaN/Infinity masuk ke pipeline DSS.
+ * Konversi nilai ke Float yang valid.
+ * Mencegah String non-angka/Object/NaN/Infinity masuk ke database.
+ * Jika nilai berada di luar batas fisik wajar [min, max], tandai sebagai anomali
+ * namun TETAP kembalikan angka riilnya agar sistem dapat membangkitkan alarm
+ * bahaya / kegagalan sensor (Sensor Anomaly / Hardware Failure).
+ *
+ * @param {*} value - Nilai mentah dari payload sensor
+ * @param {number} min - Batas bawah fisik wajar
+ * @param {number} max - Batas atas fisik wajar
+ * @param {Function} [onAnomaly] - Callback opsional jika nilai melampaui rentang [min, max]
+ * @returns {number|null}
  */
-function sanitizeFloat(value, min = -Infinity, max = Infinity) {
+function sanitizeFloat(value, min = -Infinity, max = Infinity, onAnomaly = null) {
   const n = parseFloat(value);
   if (!isFinite(n)) return null;
-  if (n < min || n > max) return null;
+
+  if (n < min || n > max) {
+    if (typeof onAnomaly === 'function') {
+      onAnomaly(n, min, max);
+    }
+    // Nilai ekstrem di luar rentang wajar tetap dipertahankan sebagai angka riil
+    // agar alert threshold dan deteksi kegagalan sensor/hardware failure dapat dibangkitkan
+    return n;
+  }
+
   return n;
 }
 
@@ -128,13 +150,25 @@ async function handleSensorData(nodeId, payload) {
         [internalId]
       );
 
-      // ── Sanitasi & Validasi Payload ───────────────────────────────────
-      const suhu      = sanitizeFloat(payload.suhu,      0,   45);   // °C normal tambak
-      const ph_level  = sanitizeFloat(payload.ph,        0,   14);   // skala pH
-      const salinitas = sanitizeFloat(payload.salinitas, 0,  100);   // ppt
-      const turbidity = sanitizeFloat(payload.kekeruhan, 0, 1000);   // NTU
-      const baterai   = sanitizeFloat(payload.baterai,   0,  100);   // %
-      const rssi      = sanitizeFloat(payload.rssi,   -150,    0);   // dBm
+      // ── Sanitasi & Validasi Payload dengan Deteksi Anomali ─────────────
+      const anomalies = [];
+      const recordAnomaly = (param, val, min, max) => {
+        anomalies.push({
+          parameter       : param,
+          measured_value  : val,
+          threshold_min   : min,
+          threshold_max   : max,
+          level_peringatan: 'critical',
+          pesan_notifikasi: `🚨 [Sensor Anomaly / Hardware Failure] Pembacaan ekstrem pada node ${nodeId}: ${param} = ${val} (rentang wajar: ${min}–${max}). Periksa fisik sensor dan jalur kabel.`,
+        });
+      };
+
+      const suhu      = sanitizeFloat(payload.suhu,      0,   45, (v, min, max) => recordAnomaly('suhu', v, min, max));
+      const ph_level  = sanitizeFloat(payload.ph,        0,   14, (v, min, max) => recordAnomaly('ph', v, min, max));
+      const salinitas = sanitizeFloat(payload.salinitas, 0,  100, (v, min, max) => recordAnomaly('salinitas', v, min, max));
+      const turbidity = sanitizeFloat(payload.kekeruhan, 0, 1000, (v, min, max) => recordAnomaly('turbidity', v, min, max));
+      const baterai   = sanitizeFloat(payload.baterai,   0,  100, (v, min, max) => recordAnomaly('baterai', v, min, max));
+      const rssi      = sanitizeFloat(payload.rssi,   -150,    0, (v, min, max) => recordAnomaly('rssi', v, min, max));
 
       if (suhu === null && salinitas === null && baterai === null) {
         console.warn(`[MQTT] Payload tidak valid dari node ${nodeId} — diabaikan:`, payload);
@@ -146,6 +180,54 @@ async function handleSensorData(nodeId, payload) {
         [internalId, suhu, ph_level, salinitas, turbidity, baterai, rssi]
       );
       const sensorDataId = insertResult.insertId;
+
+      // ── Tangani Sensor Anomaly / Hardware Failure ─────────────────────
+      if (anomalies.length > 0) {
+        const { getIo } = require('../socket/alerts');
+        const io = getIo();
+
+        for (const anom of anomalies) {
+          console.warn(`[MQTT] ${anom.pesan_notifikasi}`);
+          await connection.execute(
+            `INSERT INTO alert_logs
+               (device_id, sensor_data_id, parameter, measured_value, threshold_min, threshold_max,
+                level_peringatan, pesan_notifikasi)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [internalId, sensorDataId, anom.parameter, anom.measured_value, anom.threshold_min, anom.threshold_max, anom.level_peringatan, anom.pesan_notifikasi]
+          );
+
+          if (io) {
+            io.to('alerts').emit('new_alert', {
+              device_id       : internalId,
+              node_id         : nodeId,
+              parameter       : anom.parameter,
+              measured_value  : anom.measured_value,
+              threshold_min   : anom.threshold_min,
+              threshold_max   : anom.threshold_max,
+              level_peringatan: anom.level_peringatan,
+              pesan_notifikasi: anom.pesan_notifikasi,
+              timestamp       : new Date().toISOString(),
+            });
+          }
+
+          // Debounce pengiriman Telegram untuk alert anomali
+          const debounceKey = `${internalId}:anomaly:${anom.parameter}`;
+          const lastSent    = alertDebounce.get(debounceKey) || 0;
+          if (Date.now() - lastSent > ALERT_DEBOUNCE_MS) {
+            alertDebounce.set(debounceKey, Date.now());
+            sendTelegramAlert({
+              device_id       : internalId,
+              node_id         : nodeId,
+              parameter       : anom.parameter,
+              measured_value  : anom.measured_value,
+              threshold_min   : anom.threshold_min,
+              threshold_max   : anom.threshold_max,
+              level_peringatan: anom.level_peringatan,
+              pesan_notifikasi: anom.pesan_notifikasi,
+            });
+          }
+        }
+      }
 
       // ── DSS Fuzzy + Closed-Loop Actuator ──────────────────────────────
       if (suhu !== null && salinitas !== null) {
@@ -241,9 +323,6 @@ async function handleVibrationMessage(nodeId, payload) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Evaluasi Threshold Statis
 // ─────────────────────────────────────────────────────────────────────────────
-// Debounce lock: mencegah Telegram ganda untuk alert yang sama dalam 60 detik
-const alertDebounce = new Map();
-const ALERT_DEBOUNCE_MS = 60 * 1000;
 
 async function checkThresholds(connection, deviceId, sensorDataId, readings, nodeId) {
   try {

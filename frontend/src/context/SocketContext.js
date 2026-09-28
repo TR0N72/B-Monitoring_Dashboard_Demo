@@ -17,7 +17,7 @@ export function SocketProvider({ children }) {
   const [connected, setConnected] = useState(false);
   const [lastAlert, setLastAlert] = useState(null);
 
-  // Simpan semua subscriber agar bisa di-reattach setelah reconnect
+  // Map<event, Set<handler>> — mendukung banyak subscriber per event secara independen
   const listenersRef = useRef(new Map());
 
   useEffect(() => {
@@ -54,9 +54,11 @@ export function SocketProvider({ children }) {
       socket.emit('request_status');
 
       // Re-attach semua subscriber aktif setelah reconnect
-      listenersRef.current.forEach((handler, event) => {
-        socket.off(event, handler);
-        socket.on(event, handler);
+      listenersRef.current.forEach((handlers, event) => {
+        handlers.forEach((handler) => {
+          socket.off(event, handler);
+          socket.on(event, handler);
+        });
       });
     });
 
@@ -83,18 +85,41 @@ export function SocketProvider({ children }) {
   }, [isAuthenticated, API_URL]);
 
   /**
-   * Subscribe ke event tertentu. Mengembalikan fungsi unsubscribe.
+   * Subscribe ke event tertentu.
+   *
+   * listenersRef menyimpan Map<event, Set<handler>> sehingga banyak komponen
+   * bisa subscribe ke event yang sama secara independen. Setiap panggilan
+   * subscribe() mengembalikan fungsi unsubscribe yang hanya menghapus handler
+   * miliknya sendiri — tidak mengganggu subscriber lain pada event yang sama.
+   *
+   * @param {string} event    - Nama event Socket.IO
+   * @param {Function} handler - Callback yang dipanggil saat event diterima
+   * @returns {Function} unsubscribe — panggil saat komponen unmount
    */
   const subscribe = useCallback((event, handler) => {
-    listenersRef.current.set(event, handler);
+    const map = listenersRef.current;
 
+    // Pastikan Set untuk event ini sudah ada
+    if (!map.has(event)) {
+      map.set(event, new Set());
+    }
+    map.get(event).add(handler);
+
+    // Pasang handler ke socket yang sudah aktif (jika ada)
     if (socketRef.current) {
-      socketRef.current.off(event, handler);
       socketRef.current.on(event, handler);
     }
 
+    // Kembalikan fungsi unsubscribe yang presisi: hanya hapus handler ini
     return () => {
-      listenersRef.current.delete(event);
+      const handlers = map.get(event);
+      if (handlers) {
+        handlers.delete(handler);
+        // Bersihkan entry Map jika Set sudah kosong
+        if (handlers.size === 0) {
+          map.delete(event);
+        }
+      }
       if (socketRef.current) {
         socketRef.current.off(event, handler);
       }

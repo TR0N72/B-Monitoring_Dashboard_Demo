@@ -139,8 +139,8 @@ export default function DSSPage() {
 
   const displayHistory = history.length > 0 ? history : [
     { id: 1, node_id: 'ESP32-NODE-01', suhu_membership: 'normal', salinitas_membership: 'normal', dss_score: 25.0, dss_recommendation: 'Aman', created_at: new Date(Date.now() - 300000).toISOString() },
-    { id: 2, node_id: 'ESP32-NODE-01', suhu_membership: 'panas', salinitas_membership: 'tinggi', dss_score: 68.5, dss_recommendation: 'Waspada', created_at: new Date(Date.now() - 600000).toISOString() },
-    { id: 3, node_id: 'ESP32-NODE-03', suhu_membership: 'dingin', salinitas_membership: 'rendah', dss_score: 75.0, dss_recommendation: 'Bahaya', created_at: new Date(Date.now() - 900000).toISOString() },
+    { id: 2, node_id: 'ESP32-NODE-01', suhu_membership: 'tinggi', salinitas_membership: 'tinggi', dss_score: 68.5, dss_recommendation: 'Waspada', created_at: new Date(Date.now() - 600000).toISOString() },
+    { id: 3, node_id: 'ESP32-NODE-03', suhu_membership: 'rendah', salinitas_membership: 'rendah', dss_score: 75.0, dss_recommendation: 'Bahaya', created_at: new Date(Date.now() - 900000).toISOString() },
   ];
 
   return (
@@ -181,12 +181,15 @@ export default function DSSPage() {
                   </div>
                   <div className="dss-mem-value">{suhuMem}</div>
                   <div className="dss-mem-bar-group">
-                    {['dingin', 'normal', 'panas'].map(m => (
-                      <div key={m} className={`dss-mem-indicator ${suhuMem === m ? 'active' : ''}`}>
-                        <div className="dss-mem-dot" style={{ backgroundColor: suhuMem === m ? (m === 'normal' ? 'var(--dss-aman)' : m === 'dingin' ? 'var(--accent-blue)' : 'var(--dss-bahaya)') : 'var(--card-border)' }}></div>
-                        <span>{m}</span>
-                      </div>
-                    ))}
+                    {['rendah', 'normal', 'tinggi'].map(m => {
+                      const isActive = String(suhuMem).toLowerCase() === m;
+                      return (
+                        <div key={m} className={`dss-mem-indicator ${isActive ? 'active' : ''}`}>
+                          <div className="dss-mem-dot" style={{ backgroundColor: isActive ? (m === 'normal' ? 'var(--dss-aman)' : m === 'rendah' ? 'var(--accent-blue)' : 'var(--dss-bahaya)') : 'var(--card-border)' }}></div>
+                          <span>{m}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
                 <div className="dss-mem-card">
@@ -196,12 +199,15 @@ export default function DSSPage() {
                   </div>
                   <div className="dss-mem-value">{salMem}</div>
                   <div className="dss-mem-bar-group">
-                    {['rendah', 'normal', 'tinggi'].map(m => (
-                      <div key={m} className={`dss-mem-indicator ${salMem === m ? 'active' : ''}`}>
-                        <div className="dss-mem-dot" style={{ backgroundColor: salMem === m ? (m === 'normal' ? 'var(--dss-aman)' : m === 'rendah' ? 'var(--accent-blue)' : 'var(--dss-bahaya)') : 'var(--card-border)' }}></div>
-                        <span>{m}</span>
-                      </div>
-                    ))}
+                    {['rendah', 'normal', 'tinggi'].map(m => {
+                      const isActive = String(salMem).toLowerCase() === m;
+                      return (
+                        <div key={m} className={`dss-mem-indicator ${isActive ? 'active' : ''}`}>
+                          <div className="dss-mem-dot" style={{ backgroundColor: isActive ? (m === 'normal' ? 'var(--dss-aman)' : m === 'rendah' ? 'var(--accent-blue)' : 'var(--dss-bahaya)') : 'var(--card-border)' }}></div>
+                          <span>{m}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
