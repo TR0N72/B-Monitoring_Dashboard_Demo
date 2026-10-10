@@ -47,6 +47,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       httpOnly: true,
       secure: isSecure,
       sameSite: isSecure ? 'Strict' : 'Lax',
+      path: '/',
       maxAge: 24 * 60 * 60 * 1000, // 24h
     });
     res.json({
@@ -65,7 +66,7 @@ router.post('/login', loginLimiter, async (req, res) => {
   }
 });
 router.post('/logout', (req, res) => {
-  res.clearCookie('bmonitor_token', { httpOnly: true, sameSite: 'Lax' });
+  res.clearCookie('bmonitor_token', { httpOnly: true, sameSite: 'Lax', path: '/' });
   res.json({ message: 'Logged out successfully.' });
 });
 router.post('/register', authenticate, authorize('admin'), async (req, res) => {

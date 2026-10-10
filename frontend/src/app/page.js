@@ -166,7 +166,7 @@ export default function DashboardPage() {
               </div>
               <div className="chart-area">
                 <iframe
-                  src={`${process.env.NEXT_PUBLIC_GRAFANA_URL || 'http://localhost:3000'}/d-solo/bmonitor-telemetry?orgId=1&panelId=1&theme=light&kiosk=tv`}
+                  src={`${(typeof window !== 'undefined' && window.location.protocol === 'https:' && process.env.NEXT_PUBLIC_GRAFANA_URL?.startsWith('http:')) ? process.env.NEXT_PUBLIC_GRAFANA_URL.replace('http:', 'https:') : (process.env.NEXT_PUBLIC_GRAFANA_URL || 'http://localhost:3000')}/d-solo/bmonitor-telemetry?orgId=1&panelId=1&theme=light&kiosk=tv`}
                   width="100%"
                   height="100%"
                   frameBorder="0"
