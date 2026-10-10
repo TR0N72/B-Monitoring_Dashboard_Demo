@@ -197,6 +197,18 @@ export default function ActuatorPage() {
           status: 'pending',
           executed_at: new Date().toISOString(),
         }, ...prev].slice(0, 100));
+
+        // Fallback timeout (10 detik) jika konfirmasi via WebSocket tidak pernah sampai
+        setTimeout(() => {
+          setPendingCommands((prev) => {
+            if (prev[aksi]) {
+              const next = { ...prev };
+              delete next[aksi];
+              return next;
+            }
+            return prev;
+          });
+        }, 10000);
       } else {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || `HTTP ${res.status}`);
