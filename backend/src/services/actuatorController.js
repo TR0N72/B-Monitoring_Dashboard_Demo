@@ -61,11 +61,15 @@ const DSS_THRESHOLD_BAHAYA  = 66;
 /** Cooldown antar trigger otomatis per device (ms) */
 const COOLDOWN_MS = parseInt(process.env.ACTUATOR_COOLDOWN_MS || '600000', 10); // 10 menit
 
+/** Cooldown khusus WASPADA (ms) — 3 menit */
+const WASPADA_COOLDOWN_MS = 3 * 60 * 1000;
+
 /** Delay antar perintah dalam sequence (ms) */
 const SEQUENCE_STEP_DELAY_MS = parseInt(process.env.ACTUATOR_STEP_DELAY_MS || '30000', 10); // 30 detik
 
-/** Map cooldown: deviceId → timestamp terakhir trigger otomatis */
-const closedLoopCooldowns = new Map();
+/** Map cooldown terpisah: WASPADA vs BAHAYA agar Waspada tidak memblokir Bahaya */
+const waspadaCooldowns = new Map();
+const bahayaCooldowns = new Map();
 
 /** Map abort controllers: deviceId → AbortController (sequence aktif) */
 const activeAbortControllers = new Map();
@@ -75,22 +79,41 @@ const activeAbortControllers = new Map();
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Periksa apakah device masih dalam cooldown period.
+ * Periksa apakah device masih dalam cooldown period untuk BAHAYA.
  * @param {number} deviceId
  * @returns {boolean}
  */
-function isInCooldown(deviceId) {
-  const last = closedLoopCooldowns.get(deviceId);
+function isInBahayaCooldown(deviceId) {
+  const last = bahayaCooldowns.get(deviceId);
   if (!last) return false;
   return (Date.now() - last) < COOLDOWN_MS;
 }
 
 /**
- * Set cooldown untuk device.
+ * Periksa apakah device masih dalam cooldown period untuk WASPADA.
+ * @param {number} deviceId
+ * @returns {boolean}
+ */
+function isInWaspadaCooldown(deviceId) {
+  const last = waspadaCooldowns.get(deviceId);
+  if (!last) return false;
+  return (Date.now() - last) < WASPADA_COOLDOWN_MS;
+}
+
+/**
+ * Set cooldown BAHAYA untuk device.
  * @param {number} deviceId
  */
-function setCooldown(deviceId) {
-  closedLoopCooldowns.set(deviceId, Date.now());
+function setBahayaCooldown(deviceId) {
+  bahayaCooldowns.set(deviceId, Date.now());
+}
+
+/**
+ * Set cooldown WASPADA untuk device.
+ * @param {number} deviceId
+ */
+function setWaspadaCooldown(deviceId) {
+  waspadaCooldowns.set(deviceId, Date.now());
 }
 
 /**
@@ -98,7 +121,8 @@ function setCooldown(deviceId) {
  * @param {number} deviceId
  */
 function resetCooldown(deviceId) {
-  closedLoopCooldowns.delete(deviceId);
+  waspadaCooldowns.delete(deviceId);
+  bahayaCooldowns.delete(deviceId);
 }
 
 /**
@@ -231,7 +255,8 @@ async function evaluateAndActuate({ mqttClient, deviceId, nodeId, fuzzyResult, r
 
   // ── Level: WASPADA — notifikasi dini tanpa aktivasi fisik ─────────────────
   if (score >= DSS_THRESHOLD_WASPADA && score < DSS_THRESHOLD_BAHAYA) {
-    if (!isInCooldown(deviceId)) {
+    if (!isInWaspadaCooldown(deviceId)) {
+      setWaspadaCooldown(deviceId);
       console.log(`[AutoActuator] WASPADA on ${nodeId} (score: ${score}) — notifying only`);
 
       // Dynamic routing: kirim ke pekerja device + admin via queue
@@ -255,16 +280,13 @@ async function evaluateAndActuate({ mqttClient, deviceId, nodeId, fuzzyResult, r
           timestamp     : new Date(),
         });
       }
-
-      // Cooldown pendek untuk Waspada (3 menit)
-      closedLoopCooldowns.set(deviceId, Date.now() - COOLDOWN_MS + 3 * 60 * 1000);
     }
     return;
   }
 
   // ── Level: BAHAYA — eksekusi sequence aktuator otomatis ──────────────────
   if (score >= DSS_THRESHOLD_BAHAYA) {
-    if (isInCooldown(deviceId)) {
+    if (isInBahayaCooldown(deviceId)) {
       console.log(`[AutoActuator] BAHAYA on ${nodeId} — skipping (in cooldown)`);
       return;
     }
@@ -275,7 +297,7 @@ async function evaluateAndActuate({ mqttClient, deviceId, nodeId, fuzzyResult, r
       return;
     }
 
-    setCooldown(deviceId);
+    setBahayaCooldown(deviceId);
 
     const triggerDetail = `Auto trigger: DSS Score=${score}, Suhu=${readings.suhu}°C, Salinitas=${readings.salinitas}ppt, Rekomendasi=${recommendation}`;
     console.log(`[AutoActuator] 🚨 BAHAYA on ${nodeId} — executing closed-loop sequence`);

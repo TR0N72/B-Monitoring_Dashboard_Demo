@@ -158,7 +158,21 @@ export default function ActuatorPage() {
         });
       }
     });
-    return unsub;
+    const unsubConfirmed = subscribe('actuator:confirmed', (data) => {
+      setLogs((prev) => [{
+        ...data,
+        trigger_source: 'failsafe',
+        executed_at: data.timestamp || new Date().toISOString(),
+      }, ...prev].slice(0, 100));
+      if (data.aksi) {
+        setPendingCommands((prev) => {
+          const next = { ...prev };
+          delete next[data.aksi];
+          return next;
+        });
+      }
+    });
+    return () => { unsub(); unsubConfirmed(); };
   }, [isAuthenticated, subscribe]);
 
   // ── Kirim perintah ke backend ───────────────────────────────────────────────

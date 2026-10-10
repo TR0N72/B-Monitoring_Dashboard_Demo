@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
-const JWT_SECRET = process.env.JWT_SECRET || 'bmonitor_dev_secret';
+const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'test' ? 'bmonitor_dev_secret' : null);
+if (!JWT_SECRET) throw new Error('JWT_SECRET environment variable is required.');
 function authenticate(req, res, next) {
   // Read from HttpOnly cookie (primary) or Authorization header (fallback)
   let token = req.cookies?.bmonitor_token;

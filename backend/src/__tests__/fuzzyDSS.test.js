@@ -47,45 +47,51 @@ describe('🌡️ fuzzySuhu() — Membership Function', () => {
     expect(mu.tinggi).toBe(0);
   });
 
-  // ── Zona transisi rendah→normal ──────────────────────────────────────────
-  test('t = 25°C → rendah mengecil (0.5 di tengah transisi 24–26)', () => {
+  // ── Zona transisi rendah→normal (plateau rendah ≤26, ramp 26–28) ─────────
+  test('t = 25°C → rendah = 1 (masih plateau rendah)', () => {
     const mu = fuzzySuhu(25);
-    expect(r4(mu.rendah)).toBe(0.5);  // (26-25)/(26-24) = 0.5
+    expect(mu.rendah).toBe(1);
     expect(mu.normal).toBe(0);
     expect(mu.tinggi).toBe(0);
   });
 
-  test('t = 27°C → rendah mulai ke 0, normal mulai naik', () => {
+  test('t = 27°C → rendah = 0.5, normal = 0.5 (tengah transisi 26–28)', () => {
     const mu = fuzzySuhu(27);
-    expect(r4(mu.rendah)).toBe(0.5);  // (28-27)/(28-26) = 0.5
-    expect(r4(mu.normal)).toBe(r4((27 - 26) / (29 - 26)));
+    expect(r4(mu.rendah)).toBe(0.5);
+    expect(r4(mu.normal)).toBe(0.5);
   });
 
-  // ── Zona normal ──────────────────────────────────────────────────────────
-  test('t = 29°C → normal = 1 (puncak triangular)', () => {
+  // ── Zona normal (plateau optimal 28–30) ──────────────────────────────────
+  test('t = 29°C → normal = 1 (plateau optimal)', () => {
     const mu = fuzzySuhu(29);
     expect(mu.normal).toBe(1);
     expect(mu.rendah).toBe(0);
     expect(mu.tinggi).toBe(0);
   });
 
-  test('t = 28°C → normal tepat 2/3 naik ke puncak', () => {
-    // (28-26)/(29-26) = 2/3 ≈ 0.6667
+  test('t = 28°C → normal = 1, rendah = 0 (awal plateau)', () => {
     const mu = fuzzySuhu(28);
-    expect(r4(mu.normal)).toBe(r4(2 / 3));
+    expect(mu.normal).toBe(1);
     expect(mu.rendah).toBe(0);
   });
 
-  test('t = 30°C → normal mulai turun dari puncak + tinggi mulai naik', () => {
+  test('t = 30°C → normal = 1, tinggi = 0 (akhir plateau)', () => {
     const mu = fuzzySuhu(30);
-    expect(r4(mu.normal)).toBe(r4((32 - 30) / (32 - 29)));  // 2/3
-    expect(r4(mu.tinggi)).toBe(0);  // (30-30)/(32-30) = 0, baru mulai
+    expect(mu.normal).toBe(1);
+    expect(mu.tinggi).toBe(0);
   });
 
-  test('t = 31°C → normal turun, tinggi = 0.5', () => {
+  test('t = 31°C → normal = 0.5, tinggi = 0.5 (tengah transisi 30–32)', () => {
     const mu = fuzzySuhu(31);
-    expect(r4(mu.normal)).toBe(r4((32 - 31) / (32 - 29)));  // 1/3
-    expect(r4(mu.tinggi)).toBe(0.5);  // (31-30)/(32-30) = 0.5
+    expect(r4(mu.normal)).toBe(0.5);
+    expect(r4(mu.tinggi)).toBe(0.5);
+  });
+
+  test('Partition of unity: Σμ = 1 di seluruh rentang suhu', () => {
+    for (let t = 10; t <= 45; t += 0.25) {
+      const mu = fuzzySuhu(t);
+      expect(r4(mu.rendah + mu.normal + mu.tinggi)).toBe(1);
+    }
   });
 
   // ── Titik ekstrem atas ───────────────────────────────────────────────────
@@ -141,12 +147,19 @@ describe('🧂 fuzzySalinitas() — Membership Function', () => {
     expect(mu.rendah).toBe(1);
   });
 
-  test('s = 10 ppt → rendah = 0.5 (tengah transisi 8–12)', () => {
+  test('s = 10 ppt → rendah = 1 (plateau rendah ≤12)', () => {
     const mu = fuzzySalinitas(10);
-    expect(r4(mu.rendah)).toBe(0.5);  // (12-10)/(12-8) = 0.5
+    expect(mu.rendah).toBe(1);
+    expect(mu.normal).toBe(0);
   });
 
-  // ── Zona normal (trapezoidal plateau 17–22) ──────────────────────────────
+  test('s = 13.5 ppt → rendah = 0.5, normal = 0.5 (tengah transisi 12–15)', () => {
+    const mu = fuzzySalinitas(13.5);
+    expect(r4(mu.rendah)).toBe(0.5);
+    expect(r4(mu.normal)).toBe(0.5);
+  });
+
+  // ── Zona normal (trapezoidal plateau optimal 15–25) ──────────────────────
   test('s = 17 ppt → normal = 1 (masuk plateau)', () => {
     const mu = fuzzySalinitas(17);
     expect(mu.normal).toBe(1);
@@ -164,19 +177,30 @@ describe('🧂 fuzzySalinitas() — Membership Function', () => {
     expect(mu.normal).toBe(1);
   });
 
-  test('s = 25 ppt → normal turun, tinggi mulai naik', () => {
+  test('s = 25 ppt → normal = 1 (akhir plateau), tinggi = 0', () => {
     const mu = fuzzySalinitas(25);
-    // normal: (28-25)/(28-22) = 3/6 = 0.5
-    expect(r4(mu.normal)).toBe(0.5);
-    // tinggi: (25-25)/(32-25) = 0
+    expect(mu.normal).toBe(1);
     expect(mu.tinggi).toBe(0);
   });
 
+  test('s = 26.5 ppt → normal = 0.5, tinggi = 0.5 (tengah transisi 25–28)', () => {
+    const mu = fuzzySalinitas(26.5);
+    expect(r4(mu.normal)).toBe(0.5);
+    expect(r4(mu.tinggi)).toBe(0.5);
+  });
+
+  test('Partition of unity: Σμ = 1 di seluruh rentang salinitas', () => {
+    for (let s = 0; s <= 60; s += 0.25) {
+      const mu = fuzzySalinitas(s);
+      expect(r4(mu.rendah + mu.normal + mu.tinggi)).toBe(1);
+    }
+  });
+
   // ── Zona tinggi ─────────────────────────────────────────────────────────
-  test('s = 28.5 ppt → normal = 0 (di atas 28), tinggi muncul', () => {
+  test('s = 28.5 ppt → normal = 0 (di atas 28), tinggi = 1', () => {
     const mu = fuzzySalinitas(28.5);
     expect(mu.normal).toBe(0);
-    expect(r4(mu.tinggi)).toBe(r4((28.5 - 25) / (32 - 25)));
+    expect(mu.tinggi).toBe(1);
   });
 
   test('s = 32 ppt → tinggi = 1', () => {
@@ -475,12 +499,9 @@ describe('🐟 processFuzzy() — Skenario Nyata Tambak Juwana', () => {
 // SUITE 7: Skenario Batas & Edge Cases
 // ─────────────────────────────────────────────────────────────────────────────
 describe('🔧 Edge Cases & Boundary Values', () => {
-  test('Suhu tepat di crossover rendah-normal (26°C) — keduanya = 0', () => {
-    // t=26: rendah = (26-26)/(26-24) = 0 (sudah habis)
-    //        normal memerlukan t>26, jadi normal = 0 juga
-    //        → titik dead zone persis di 26°C
+  test('Suhu tepat di akhir plateau rendah (26°C) — rendah = 1, normal = 0', () => {
     const mu = fuzzySuhu(26);
-    expect(mu.rendah).toBe(0);
+    expect(mu.rendah).toBe(1);
     expect(mu.normal).toBe(0);
     expect(mu.tinggi).toBe(0);
   });
@@ -494,10 +515,25 @@ describe('🔧 Edge Cases & Boundary Values', () => {
 
   test('Salinitas di zona overlap rendah-normal (14ppt)', () => {
     const mu = fuzzySalinitas(14);
-    // rendah: (15-14)/(15-12) = 1/3
-    // normal: (14-12)/(17-12) = 2/5
+    // rendah: (15-14)/(15-12) = 1/3 ; normal: (14-12)/(15-12) = 2/3
     expect(r4(mu.rendah)).toBe(r4(1 / 3));
-    expect(r4(mu.normal)).toBe(r4(2 / 5));
+    expect(r4(mu.normal)).toBe(r4(2 / 3));
+  });
+
+  test('Anomali satu faktor ekstrem mencapai Bahaya (lantai keparahan)', () => {
+    expect(processFuzzy(45, 20, 'Normal').recommendation).toBe('Bahaya');
+    expect(processFuzzy(29, 80, 'Normal').recommendation).toBe('Bahaya');
+    expect(processFuzzy(15, 20, 'Normal').recommendation).toBe('Bahaya');
+  });
+
+  test('Deviasi ringan satu faktor tetap Waspada, bukan Bahaya', () => {
+    expect(processFuzzy(32, 20, 'Normal').recommendation).toBe('Waspada');
+  });
+
+  test('Spec endpoint = spec implementasi (single source of truth)', () => {
+    const { MEMBERSHIP_SPEC } = require('../services/fuzzyDSS');
+    expect(MEMBERSHIP_SPEC.suhu.normal).toEqual([26, 28, 30, 32]);
+    expect(MEMBERSHIP_SPEC.salinitas.normal).toEqual([12, 15, 25, 28]);
   });
 
   test('Seluruh 9 skenario ekstrem crisp menghasilkan rekomendasi valid', () => {

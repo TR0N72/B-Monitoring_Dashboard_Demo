@@ -26,3 +26,7 @@ Thumbs.db
 
 .vscode/
 .idea/
+# Mosquitto runtime & credentials
+docker/mosquitto/passwd
+docker/mosquitto/data/
+docker/mosquitto/log/

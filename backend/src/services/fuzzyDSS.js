@@ -28,66 +28,72 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Fuzzifikasi Suhu Air (°C) untuk budidaya bandeng Juwana.
- *
- * Rentang:
- *   Rendah  : ≤ 26 °C  (berbahaya — pertumbuhan terhambat)
- *   Normal  : 26–32 °C (optimal pada 28–30 °C)
- *   Tinggi  : ≥ 30 °C  (berbahaya — stres termal)
- *
- * Fungsi keanggotaan: Trapezoidal-Triangular gabungan.
- *
- * @param {number} t - Nilai suhu dalam °C
- * @returns {{ rendah: number, normal: number, tinggi: number }}
+ * SINGLE SOURCE OF TRUTH — parameter fungsi keanggotaan trapezoidal [a, b, c, d].
+ * Dipakai oleh fuzzySuhu/fuzzySalinitas DAN endpoint /api/dss/rules.
+ * Tiap pasang himpunan bertetangga saling melengkapi (Σμ = 1) di zona transisi.
  */
-function fuzzySuhu(t) {
-  const mu = { rendah: 0, normal: 0, tinggi: 0 };
+const MEMBERSHIP_SPEC = {
+  suhu: {
+    rendah: [-Infinity, 24, 26, 28],
+    normal: [26, 28, 30, 32],          // plateau = rentang optimal 28–30 °C
+    tinggi: [30, 32, Infinity, Infinity],
+  },
+  salinitas: {
+    rendah: [-Infinity, 8, 12, 15],
+    normal: [12, 15, 25, 28],          // plateau = rentang optimal 15–25 ppt
+    tinggi: [25, 28, Infinity, Infinity],
+  },
+};
 
-  // Rendah: Bahu kiri (left shoulder) kontinu
-  // Nilai 1 untuk t <= 26, lalu turun linear ke 0 pada t = 29 (berpotongan dengan Normal)
-  if (t <= 26)       mu.rendah = 1;
-  else if (t <= 29)  mu.rendah = (29 - t) / (29 - 26);
+/** Batas kondisi KRITIS satu-faktor: [bawah_penuh, bawah_mulai, atas_mulai, atas_penuh] */
+const CRITICAL_SPEC = {
+  suhu     : [21, 24, 33, 36],
+  salinitas: [4, 8, 35, 45],
+};
 
-  // Normal: triangular [26, 29, 32]
-  if (t > 26 && t <= 29)      mu.normal = (t - 26) / (29 - 26);
-  else if (t > 29 && t <= 32) mu.normal = (32 - t) / (32 - 29);
+function trapezoid(x, [a, b, c, d]) {
+  if (x < b)  return a === -Infinity ? 1 : Math.max(0, (x - a) / (b - a));
+  if (x <= c) return 1;
+  if (x < d)  return d === Infinity ? 1 : (d - x) / (d - c);
+  return d === Infinity ? 1 : 0;
+}
 
-  // Tinggi: trapezoidal [30, 32, +∞]
-  if (t >= 32)       mu.tinggi = 1;
-  else if (t >= 30)  mu.tinggi = (t - 30) / (32 - 30);
-
-  return mu;
+function fuzzify(x, spec) {
+  return {
+    rendah: trapezoid(x, spec.rendah),
+    normal: trapezoid(x, spec.normal),
+    tinggi: trapezoid(x, spec.tinggi),
+  };
 }
 
 /**
- * Fuzzifikasi Salinitas Air (ppt) untuk budidaya bandeng Juwana.
- *
- * Rentang:
- *   Rendah  : ≤ 10 ppt  (berbahaya — terlalu tawar)
- *   Normal  : 10–30 ppt (optimal pada 15–25 ppt)
- *   Tinggi  : ≥ 25 ppt  (berbahaya — terlalu asin)
- *
- * @param {number} s - Nilai salinitas dalam ppt
+ * Fuzzifikasi Suhu Air (°C): Rendah ≤ 26, Normal 26–32 (optimal 28–30), Tinggi ≥ 30.
+ * @param {number} t
+ * @returns {{ rendah: number, normal: number, tinggi: number }}
+ */
+function fuzzySuhu(t) {
+  return fuzzify(t, MEMBERSHIP_SPEC.suhu);
+}
+
+/**
+ * Fuzzifikasi Salinitas (ppt): Rendah ≤ 15, Normal 12–28 (optimal 15–25), Tinggi ≥ 25.
+ * @param {number} s
  * @returns {{ rendah: number, normal: number, tinggi: number }}
  */
 function fuzzySalinitas(s) {
-  const mu = { rendah: 0, normal: 0, tinggi: 0 };
+  return fuzzify(s, MEMBERSHIP_SPEC.salinitas);
+}
 
-  // Rendah: Bahu kiri (left shoulder) kontinu
-  // Nilai 1 untuk s <= 12, lalu turun linear ke 0 pada s = 17 (berpotongan dengan Normal)
-  if (s <= 12)       mu.rendah = 1;
-  else if (s <= 17)  mu.rendah = (17 - s) / (17 - 12);
-
-  // Normal: trapezoidal [12, 17, 22, 28]
-  if (s > 12 && s <= 17)      mu.normal = (s - 12) / (17 - 12);
-  else if (s > 17 && s <= 22) mu.normal = 1;
-  else if (s > 22 && s <= 28) mu.normal = (28 - s) / (28 - 22);
-
-  // Tinggi: trapezoidal [25, 28, +∞]
-  if (s >= 32)       mu.tinggi = 1;
-  else if (s >= 25)  mu.tinggi = (s - 25) / (32 - 25);
-
-  return mu;
+/**
+ * Derajat kondisi KRITIS (0–1) untuk satu variabel — menangkap besaran deviasi
+ * yang hilang saat himpunan Rendah/Tinggi jenuh di 1.
+ */
+function criticalDegree(x, [lowFull, lowStart, highStart, highFull]) {
+  if (x <= lowFull)   return 1;
+  if (x < lowStart)   return (lowStart - x) / (lowStart - lowFull);
+  if (x >= highFull)  return 1;
+  if (x > highStart)  return (x - highStart) / (highFull - highStart);
+  return 0;
 }
 
 /**
@@ -471,7 +477,15 @@ function processFuzzy(suhuValue, salinitasValue, visualLabel = 'Normal') {
   const rules       = evaluateRules(suhuMu, salinitasMu, visualMu);
 
   // 3. Defuzzifikasi CoG
-  const score       = defuzzify(rules);
+  let score         = defuzzify(rules);
+
+  // 3b. Lantai keparahan: deviasi ekstrem satu faktor harus bisa mencapai Bahaya
+  const extremity = Math.max(
+    criticalDegree(suhuValue, CRITICAL_SPEC.suhu),
+    criticalDegree(salinitasValue, CRITICAL_SPEC.salinitas)
+  );
+  const severityFloor = 50 + 30 * extremity;           // ext 1 → 80 (Bahaya)
+  if (extremity > 0 && severityFloor > score) score = severityFloor;
   const recommendation = getRecommendation(score);
 
   // 4. Kumpulkan aturan aktif (weight > 0) untuk transparansi / logging
@@ -483,6 +497,15 @@ function processFuzzy(suhuValue, salinitasValue, visualLabel = 'Normal') {
       output_label: r.label,
       description : r.description,
     }));
+
+  if (extremity > 0.5) {
+    firedRules.push({
+      rule_id     : 'X01',
+      weight      : parseFloat(extremity.toFixed(4)),
+      output_label: 'Bahaya',
+      description : 'Deviasi ekstrem satu faktor (lantai keparahan) → Bahaya',
+    });
+  }
 
   return {
     suhu_membership     : getDominantMembership(suhuMu),
@@ -538,6 +561,7 @@ module.exports = {
   fuzzySuhu,
   fuzzySalinitas,
   fuzzyVisual,
+  MEMBERSHIP_SPEC,
   defuzzify,
   getRecommendation,
 };

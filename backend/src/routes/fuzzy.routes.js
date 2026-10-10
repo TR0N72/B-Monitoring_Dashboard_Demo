@@ -11,7 +11,13 @@
 const express              = require('express');
 const { getPool }          = require('../config/db');
 const { authenticate }     = require('../middleware/auth');
-const { processFuzzy, getRuleDefinitions } = require('../services/fuzzyDSS');
+const { processFuzzy, getRuleDefinitions, MEMBERSHIP_SPEC } = require('../services/fuzzyDSS');
+
+const toSets = (spec) => ['rendah', 'normal', 'tinggi'].map((k) => ({
+  name  : k.charAt(0).toUpperCase() + k.slice(1),
+  type  : 'trapezoidal',
+  params: spec[k],
+}));
 
 const router = express.Router();
 router.use(authenticate);
@@ -29,20 +35,12 @@ router.get('/rules', (req, res) => {
       membership_functions: {
         suhu: {
           description: 'Fungsi keanggotaan Suhu Air (°C) — Tambak Bandeng Juwana',
-          sets: [
-            { name: 'Rendah',  type: 'trapezoidal', params: [-Infinity, 24, 26, 28] },
-            { name: 'Normal',  type: 'triangular',  params: [26, 29, 32] },
-            { name: 'Tinggi',  type: 'trapezoidal', params: [30, 32, Infinity, Infinity] },
-          ],
+          sets: toSets(MEMBERSHIP_SPEC.suhu),
           optimal_range: { min: 28, max: 30, unit: '°C' },
         },
         salinitas: {
           description: 'Fungsi keanggotaan Salinitas (ppt) — Tambak Bandeng Juwana',
-          sets: [
-            { name: 'Rendah',  type: 'trapezoidal', params: [-Infinity, 8, 12, 15] },
-            { name: 'Normal',  type: 'trapezoidal', params: [12, 17, 22, 28] },
-            { name: 'Tinggi',  type: 'trapezoidal', params: [25, 32, Infinity, Infinity] },
-          ],
+          sets: toSets(MEMBERSHIP_SPEC.salinitas),
           optimal_range: { min: 15, max: 25, unit: 'ppt' },
         },
         visual: {

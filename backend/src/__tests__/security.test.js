@@ -119,10 +119,12 @@ describe('✅ Public Endpoints', () => {
       .send({ username: 'admin', password: 'password123' });
 
     expect(res.status).toBe(200);
-    expect(res.body).toHaveProperty('token');
+    // Token is now delivered via HttpOnly cookie
+    const cookies = res.headers['set-cookie'];
+    expect(cookies).toBeDefined();
+    const tokenCookie = cookies.find(c => c.startsWith('bmonitor_token='));
+    expect(tokenCookie).toBeDefined();
     expect(res.body.user).not.toHaveProperty('password_hash');
-    const decoded = jwt.verify(res.body.token, JWT_SECRET);
-    expect(decoded.role).toBe('admin');
   });
 
   test('POST /api/auth/login tanpa body → 400', async () => {

@@ -181,6 +181,24 @@ async function handleSensorData(nodeId, payload) {
       );
       const sensorDataId = insertResult.insertId;
 
+      // ── Broadcast Sensor Update ke Frontend (Dashboard Live Telemetry) ──
+      const { getIo } = require('../socket/alerts');
+      const io = getIo();
+      if (io) {
+        io.emit('sensor_update', {
+          id: sensorDataId,
+          device_id: internalId,
+          node_id: nodeId,
+          suhu,
+          ph_level,
+          salinitas,
+          turbidity,
+          baterai,
+          rssi,
+          recorded_at: new Date().toISOString()
+        });
+      }
+
       // ── Tangani Sensor Anomaly / Hardware Failure ─────────────────────
       if (anomalies.length > 0) {
         const { getIo } = require('../socket/alerts');
@@ -230,7 +248,9 @@ async function handleSensorData(nodeId, payload) {
       }
 
       // ── DSS Fuzzy + Closed-Loop Actuator ──────────────────────────────
-      if (suhu !== null && salinitas !== null) {
+      // Hanya jalankan DSS & Actuator jika BUKAN hardware failure/anomali ekstrem pada sensor utama
+      const mainSensorAnomaly = anomalies.some(a => ['suhu', 'salinitas'].includes(a.parameter));
+      if (suhu !== null && salinitas !== null && !mainSensorAnomaly) {
         const { processFuzzy } = require('../services/fuzzyDSS');
         
         // Ekstrak label visual dari MQTT Edge Computing (jika ada), default ke 'Normal'
@@ -278,7 +298,7 @@ async function handleSensorData(nodeId, payload) {
       }
 
       // ── Cek threshold statis dan kirim alert ──────────────────────────
-      await checkThresholds(connection, internalId, sensorDataId, { suhu, salinitas }, nodeId);
+      await checkThresholds(connection, internalId, sensorDataId, { suhu, salinitas, ph: ph_level, turbidity }, nodeId);
 
     } finally {
       connection.release();

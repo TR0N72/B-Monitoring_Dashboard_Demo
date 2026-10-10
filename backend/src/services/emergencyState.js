@@ -238,6 +238,14 @@ async function handleVibrationData({ deviceId, nodeId, payload, io, mqttClient }
       );
     }
 
+    // ── BATALKAN SEQUENCE YANG SEDANG BERJALAN ────────────────────────────
+    try {
+      const { abortSequence } = require('./actuatorController');
+      abortSequence(deviceId);
+    } catch (e) {
+      console.error(`[Failsafe] Failed to abort sequence:`, e.message);
+    }
+
     // ── Catat ke alert_logs ──────────────────────────────────────────────
     const emergencyMsg = `🆘 FAILSAFE DARURAT: Mesin diesel pada node ${nodeId} gagal mati setelah perintah PUMP_ENGINE_STOP! Risiko LUAPAN AIR (overfilling). Segera periksa secara fisik!`;
 

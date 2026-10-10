@@ -76,6 +76,14 @@ export function SocketProvider({ children }) {
       setLastAlert(data);
     });
 
+    // ── Bind hardware emergency ke AlertBanner global ─────────────────
+    socket.on('system:emergency', (data) => {
+      setLastAlert({
+        level_peringatan: 'critical',
+        pesan_notifikasi: `🚨 [EMERGENCY] ${data.message || 'Kegagalan hardware terdeteksi!'}`,
+      });
+    });
+
     return () => {
       socket.removeAllListeners();
       socket.disconnect();

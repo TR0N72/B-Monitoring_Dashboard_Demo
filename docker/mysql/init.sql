@@ -103,7 +103,7 @@ CREATE TABLE IF NOT EXISTS alert_logs (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO users (name, username, email, password_hash, role) VALUES
-    ('Administrator', 'admin', 'admin@bmonitor.local', '$2a$10$GIlavMyST/GCudOOEkKvcuuU0Xo.vLiafBlNjdsjd4FdHH6YGYwqC', 'admin')
+    ('Administrator', 'admin', 'admin@bmonitor.local', '$2a$10$API01k8gd.67sulVeDaEJOJc3zFNHbFry7J1A5qaGN0y7okAniCTG', 'admin')
 ON DUPLICATE KEY UPDATE name = VALUES(name);
 
 INSERT INTO devices (node_id, name, type, mac_address, lokasi, status) VALUES
