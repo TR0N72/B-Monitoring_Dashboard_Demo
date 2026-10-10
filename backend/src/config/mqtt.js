@@ -315,23 +315,19 @@ async function handleVibrationMessage(nodeId, payload) {
   try {
     const pool       = db.getPool();
     const connection = await pool.getConnection();
+    let internalId   = null;
     try {
-      const internalId = await resolveNodeId(connection, nodeId);
-      if (internalId === null) return;
+      internalId = await resolveNodeId(connection, nodeId);
     } finally {
       connection.release();
     }
-
-    // Dapatkan internalId lagi untuk digunakan di luar blok connection
-    const pool2      = db.getPool();
-    const [[device]] = await pool2.execute('SELECT id FROM devices WHERE node_id = ?', [nodeId]);
-    if (!device) return;
+    if (internalId === null) return;
 
     const { getIo } = require('../socket/alerts');
     const io = getIo();
 
     await handleVibrationData({
-      deviceId   : device.id,
+      deviceId   : internalId,
       nodeId,
       payload,
       io,

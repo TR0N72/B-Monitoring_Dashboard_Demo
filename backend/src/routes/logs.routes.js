@@ -54,7 +54,7 @@ router.get('/', async (req, res) => {
       ${whereClause}
       ORDER BY al.created_at DESC
       LIMIT ? OFFSET ?
-    `, [...params, String(pageLimit), String(offset)]);
+    `, [...params, Number(pageLimit), Number(offset)]);
     res.json({
       logs: rows,
       pagination: {

@@ -4,12 +4,61 @@ const { sendTelegramAlert } = require('../config/telegram');
 let io = null;
 
 function initSocket(httpServer) {
+  const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:3000,http://localhost:3002')
+    .split(',')
+    .map(o => o.trim());
+
   io = new Server(httpServer, {
     cors: {
-      origin: '*',
+      origin: (origin, callback) => {
+        // Izinkan request tanpa origin (seperti tools/curl) atau jika origin terdaftar
+        if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+          callback(null, true);
+        } else {
+          callback(new Error('CORS origin not allowed'));
+        }
+      },
+      credentials: true,
       methods: ['GET', 'POST'],
     },
     path: '/ws',
+  });
+
+  // ── Authentication Middleware pada Handshake ────────────────────────────
+  io.use((socket, next) => {
+    try {
+      let token = null;
+      const cookieHeader = socket.handshake.headers.cookie;
+      if (cookieHeader) {
+        const match = cookieHeader.match(/bmonitor_token=([^;]+)/);
+        if (match) token = match[1];
+      }
+      if (!token && socket.handshake.auth?.token) {
+        token = socket.handshake.auth.token;
+      }
+      if (!token && socket.handshake.headers.authorization) {
+        const auth = socket.handshake.headers.authorization;
+        if (auth.startsWith('Bearer ')) token = auth.slice(7);
+      }
+
+      // Bypass auth hanya saat testing
+      if (!token && process.env.NODE_ENV === 'test') {
+        socket.user = { id: 1, role: 'admin' };
+        return next();
+      }
+
+      if (!token) {
+        return next(new Error('Authentication error: Token required for WebSocket connection'));
+      }
+
+      const jwt = require('jsonwebtoken');
+      const { JWT_SECRET } = require('../middleware/auth');
+      const decoded = jwt.verify(token, JWT_SECRET);
+      socket.user = decoded;
+      next();
+    } catch (err) {
+      next(new Error('Authentication error: Invalid or expired token'));
+    }
   });
 
   io.on('connection', (socket) => {

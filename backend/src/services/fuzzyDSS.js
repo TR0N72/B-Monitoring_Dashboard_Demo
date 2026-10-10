@@ -267,14 +267,14 @@ function evaluateRules(suhuMu, salinitasMu, visualMu) {
       label       : 'Waspada',
       description : 'Fisik Optimal, Air Mulai Keruh → Waspada',
     },
-    // R15: Suhu Normal, Salinitas Normal, Visual Warning → Waspada Tinggi
-    //      Fisik OK tapi kondisi visual sangat buruk — kemungkinan bloom alga
+    // R15: Suhu Normal, Salinitas Normal, Visual Warning → Bahaya
+    //      Fisik OK tapi kondisi visual Warning (Algae Bloom) → Eskalasi Bahaya (aktifkan aerasi)
     {
       rule_id     : 'R15',
       weight      : Math.min(suhuMu.normal, salinitasMu.normal, visualMu.warning),
-      output      : 65,
-      label       : 'Waspada',
-      description : 'Fisik Optimal, Air Sangat Keruh (Bloom?) → Waspada Tinggi',
+      output      : 80,
+      label       : 'Bahaya',
+      description : 'Fisik Optimal tapi Air Sangat Keruh (Algae Bloom) → Bahaya (Eskalasi Kritis)',
     },
 
     // R16: Suhu Normal, Salinitas Tinggi, Visual Normal → Waspada
@@ -539,7 +539,7 @@ function getRuleDefinitions() {
     { rule_id: 'R12', suhu: 'Normal', salinitas: 'Rendah', visual: 'Warning', output: 80, label: 'Bahaya',  description: 'Salinitas Rendah & Air Sangat Keruh → Bahaya' },
     { rule_id: 'R13', suhu: 'Normal', salinitas: 'Normal', visual: 'Normal',  output: 20, label: 'Aman',    description: 'Semua parameter optimal → Aman' },
     { rule_id: 'R14', suhu: 'Normal', salinitas: 'Normal', visual: 'Caution', output: 50, label: 'Waspada', description: 'Fisik Optimal, Air Mulai Keruh → Waspada' },
-    { rule_id: 'R15', suhu: 'Normal', salinitas: 'Normal', visual: 'Warning', output: 65, label: 'Waspada', description: 'Fisik Optimal, Air Sangat Keruh (Bloom?) → Waspada Tinggi' },
+    { rule_id: 'R15', suhu: 'Normal', salinitas: 'Normal', visual: 'Warning', output: 80, label: 'Bahaya', description: 'Fisik Optimal tapi Air Sangat Keruh (Algae Bloom) → Bahaya (Eskalasi Kritis)' },
     { rule_id: 'R16', suhu: 'Normal', salinitas: 'Tinggi', visual: 'Normal',  output: 50, label: 'Waspada', description: 'Salinitas Tinggi, Suhu & Visual OK → Waspada' },
     { rule_id: 'R17', suhu: 'Normal', salinitas: 'Tinggi', visual: 'Caution', output: 65, label: 'Waspada', description: 'Salinitas Tinggi & Air Mulai Keruh → Waspada Tinggi' },
     { rule_id: 'R18', suhu: 'Normal', salinitas: 'Tinggi', visual: 'Warning', output: 80, label: 'Bahaya',  description: 'Salinitas Tinggi & Air Sangat Keruh → Bahaya' },

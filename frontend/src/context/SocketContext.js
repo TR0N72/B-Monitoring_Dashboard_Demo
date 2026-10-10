@@ -40,6 +40,7 @@ export function SocketProvider({ children }) {
     const socket = io(socketUrl, {
       path: '/ws',
       transports: ['websocket', 'polling'],
+      withCredentials: true,
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 2000,

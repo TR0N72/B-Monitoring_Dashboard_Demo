@@ -126,8 +126,12 @@ function markEngineStopSent(deviceId, commandId) {
  * Reset emergency state setelah konfirmasi manual admin.
  * @param {number} deviceId
  */
-function resetEmergencyState(deviceId) {
+function resetEmergencyState(deviceId, force = false) {
   const state = getDeviceState(deviceId);
+  const now = Date.now();
+  if (!force && state.lastVibratingAt && (now - state.lastVibratingAt < 5000)) {
+    throw new Error('Mesin masih terdeteksi bergetar (SW-420 aktif). Pastikan mesin diesel benar-benar mati sebelum melakukan reset darurat.');
+  }
   state.emergencyActive      = false;
   state.emergencyActivatedAt = null;
   state.engineStopPending    = false;
@@ -236,6 +240,17 @@ async function handleVibrationData({ deviceId, nodeId, payload, io, mqttClient }
         JSON.stringify({ aksi: 'EMERGENCY_STOP', command_id: null }),
         { qos: 2 }
       );
+    }
+
+    // ── Catat audit EMERGENCY_STOP ke actuator_logs ──────────────────────
+    try {
+      const pool = db.getPool();
+      await pool.execute(
+        'INSERT INTO actuator_logs (device_id, aksi, trigger_source, trigger_detail, status) VALUES (?, ?, ?, ?, ?)',
+        [deviceId, 'EMERGENCY_STOP', 'failsafe', `SW-420 Failsafe triggered: pump still vibrating after ${elapsed}ms`, 'executed']
+      );
+    } catch (actLogErr) {
+      console.error('[Failsafe] Failed to write EMERGENCY_STOP to actuator_logs:', actLogErr.message);
     }
 
     // ── BATALKAN SEQUENCE YANG SEDANG BERJALAN ────────────────────────────
