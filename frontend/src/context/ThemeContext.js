@@ -5,13 +5,12 @@ import { createContext, useContext, useState, useEffect } from 'react';
 const ThemeContext = createContext(null);
 
 export function ThemeProvider({ children }) {
-  const [isDarkMode, setIsDarkMode] = useState(false);
-
-  // Load dari localStorage saat pertama kali
-  useEffect(() => {
-    const saved = localStorage.getItem('bmonitor_theme');
-    if (saved === 'dark') setIsDarkMode(true);
-  }, []);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('bmonitor_theme') === 'dark';
+    }
+    return false;
+  });
 
   // Apply class ke document.body setiap kali berubah
   useEffect(() => {

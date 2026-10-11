@@ -44,7 +44,8 @@ router.get('/history', async (req, res) => {
       device_id,
       parameter,
       start_date,
-      end_date
+      end_date,
+      limit,
     } = req.query;
     
     const pool = getPool();
@@ -75,7 +76,11 @@ router.get('/history', async (req, res) => {
       params.push(end_date);
     }
 
-    query += ` ORDER BY sd.recorded_at DESC LIMIT 1000`;
+    const parsedLimit = limit ? parseInt(limit, 10) : 1000;
+    const finalLimit = isNaN(parsedLimit) ? 1000 : Math.max(1, Math.min(1000, parsedLimit));
+
+    query += ` ORDER BY sd.recorded_at DESC LIMIT ?`;
+    params.push(Number(finalLimit));
 
     const [rows] = await pool.execute(query, params);
 

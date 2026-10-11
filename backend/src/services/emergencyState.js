@@ -129,7 +129,9 @@ function markEngineStopSent(deviceId, commandId) {
 function resetEmergencyState(deviceId, force = false) {
   const state = getDeviceState(deviceId);
   const now = Date.now();
-  if (!force && state.lastVibratingAt && (now - state.lastVibratingAt < 5000)) {
+  // Hanya blokir reset jika getaran terakhir kurang dari 5 detik lalu DAN
+  // status terbaru TIDAK menegaskan bahwa mesin telah berhenti.
+  if (!force && state.isCurrentlyVibrating !== false && state.lastVibratingAt && (now - state.lastVibratingAt < 5000)) {
     throw new Error('Mesin masih terdeteksi bergetar (SW-420 aktif). Pastikan mesin diesel benar-benar mati sebelum melakukan reset darurat.');
   }
   state.emergencyActive      = false;
@@ -160,6 +162,8 @@ async function handleVibrationData({ deviceId, nodeId, payload, io, mqttClient }
   const state       = initDeviceState(deviceId);
   const isVibrating = payload.vibration === true ||
                       (typeof payload.intensity === 'number' && payload.intensity >= VIBRATION_THRESHOLD);
+
+  state.isCurrentlyVibrating = isVibrating;
 
   if (isVibrating) {
     state.lastVibratingAt = Date.now();

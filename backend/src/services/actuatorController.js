@@ -247,9 +247,11 @@ async function evaluateAndActuate({ mqttClient, deviceId, nodeId, fuzzyResult, r
   const score          = fuzzyResult.score;
   const recommendation = fuzzyResult.recommendation;
 
-  // ── Level: AMAN — reset cooldown, tidak ada aksi ─────────────────────────
+  // ── Level: AMAN — tidak ada aksi (cooldown kedaluwarsa secara alami) ─────
   if (score < DSS_THRESHOLD_WASPADA) {
-    resetCooldown(deviceId);
+    // Note: Tidak memanggil resetCooldown secara aktif untuk mencegah
+    // flapping/spamming notifikasi jika pembacaan sensor berosilasi
+    // di sekitar ambang batas (contoh: 35.8 <-> 36.1).
     return;
   }
 

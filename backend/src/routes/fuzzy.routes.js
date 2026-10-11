@@ -147,7 +147,7 @@ router.get('/', async (req, res) => {
     }
 
     query += ` ORDER BY f.created_at DESC LIMIT ? OFFSET ?`;
-    params.push(String(pageLimit), String(offset));
+    params.push(Number(pageLimit), Number(offset));
 
     const pool   = getPool();
     const [rows] = await pool.execute(query, params);

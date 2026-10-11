@@ -14,6 +14,7 @@ const SocketContext = createContext(null);
 export function SocketProvider({ children }) {
   const { isAuthenticated, API_URL } = useAuth();
   const socketRef = useRef(null);
+  const [socketInstance, setSocketInstance] = useState(null);
   const [connected, setConnected] = useState(false);
   const [lastAlert, setLastAlert] = useState(null);
 
@@ -27,6 +28,7 @@ export function SocketProvider({ children }) {
         socketRef.current.removeAllListeners();
         socketRef.current.disconnect();
         socketRef.current = null;
+        setSocketInstance(null);
         setConnected(false);
       }
       return;
@@ -48,6 +50,7 @@ export function SocketProvider({ children }) {
     });
 
     socketRef.current = socket;
+    setSocketInstance(socket);
 
     socket.on('connect', () => {
       console.log('[WS] Connected:', socket.id);
@@ -89,6 +92,7 @@ export function SocketProvider({ children }) {
       socket.removeAllListeners();
       socket.disconnect();
       socketRef.current = null;
+      setSocketInstance(null);
       setConnected(false);
     };
   }, [isAuthenticated, API_URL]);
@@ -145,7 +149,7 @@ export function SocketProvider({ children }) {
   }, []);
 
   const value = {
-    socket: socketRef.current,
+    socket: socketInstance,
     connected,
     lastAlert,
     subscribe,
