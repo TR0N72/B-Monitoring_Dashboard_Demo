@@ -8,6 +8,9 @@ RUN npm install --production
 
 # ── Copy source code ──────────────────────────────────────────────────────
 COPY . .
+RUN chown -R node:node /app
+
+USER node
 
 EXPOSE 3001
 CMD ["node", "src/server.js"]

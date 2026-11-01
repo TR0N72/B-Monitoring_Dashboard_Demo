@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const { getPool } = require('../config/db');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/auth');
 const { sendTelegramMessage, verifyBot } = require('../config/telegram');
 const { broadcastAlert } = require('../socket/alerts');
 
 router.use(authenticate);
 
-router.post('/trigger', async (req, res) => {
+router.post('/trigger', authorize('admin', 'operator', 'user'), async (req, res) => {
   try {
     const { device_id, parameter, measured_value, threshold_min, threshold_max, level_peringatan, pesan_notifikasi } = req.body;
 
@@ -68,7 +68,7 @@ router.post('/trigger', async (req, res) => {
   }
 });
 
-router.post('/test-telegram', async (req, res) => {
+router.post('/test-telegram', authorize('admin'), async (req, res) => {
   try {
     const verified = await verifyBot();
     if (!verified) {

@@ -1,28 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useSocket } from '@/hooks/useSocket';
 
 export default function AlertBanner() {
   const { lastAlert } = useSocket();
-  const [alert, setAlert] = useState(null);
-  const [visible, setVisible] = useState(false);
+  const [dismissedAlert, setDismissedAlert] = useState(null);
 
-  useEffect(() => {
-    if (lastAlert) {
-      setAlert(lastAlert);
-      setVisible(true);
-    }
-  }, [lastAlert]);
+  if (!lastAlert || lastAlert === dismissedAlert) return null;
 
-  const handleClose = () => {
-    setVisible(false);
-  };
-
-  if (!visible || !alert) return null;
-
-  const level = alert.level_peringatan || alert.level || 'critical';
-  const message = alert.pesan_notifikasi || alert.message || 'System alert received.';
+  const level = lastAlert.level_peringatan || lastAlert.level || 'critical';
+  const message = lastAlert.pesan_notifikasi || lastAlert.message || 'System alert received.';
 
   return (
     <div className={`alert-banner ${level.toLowerCase()}`} id="alertBanner">
@@ -34,7 +22,7 @@ export default function AlertBanner() {
         </svg>
         <span>{message}</span>
       </div>
-      <button className="alert-banner-close" onClick={handleClose} aria-label="Close alert">
+      <button className="alert-banner-close" onClick={() => setDismissedAlert(lastAlert)} aria-label="Close alert">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="18" y1="6" x2="6" y2="18"></line>
           <line x1="6" y1="6" x2="18" y2="18"></line>

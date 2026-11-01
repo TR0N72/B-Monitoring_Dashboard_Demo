@@ -73,6 +73,12 @@ function MembershipBar({ label, memberships, colorMap }) {
   );
 }
 
+const FALLBACK_DSS_HISTORY = [
+  { id: 1, node_id: 'ESP32-NODE-01', suhu_membership: 'normal', salinitas_membership: 'normal', dss_score: 25.0, dss_recommendation: 'Aman', created_at: '2026-11-01T12:00:00.000Z' },
+  { id: 2, node_id: 'ESP32-NODE-01', suhu_membership: 'tinggi', salinitas_membership: 'tinggi', dss_score: 68.5, dss_recommendation: 'Waspada', created_at: '2026-11-01T11:55:00.000Z' },
+  { id: 3, node_id: 'ESP32-NODE-03', suhu_membership: 'rendah', salinitas_membership: 'rendah', dss_score: 75.0, dss_recommendation: 'Bahaya', created_at: '2026-11-01T11:50:00.000Z' },
+];
+
 export default function DSSPage() {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { apiFetch } = useApi();
@@ -86,28 +92,29 @@ export default function DSSPage() {
     if (!authLoading && !isAuthenticated) router.push('/login');
   }, [authLoading, isAuthenticated, router]);
 
-  const fetchDSSHistory = useCallback(async () => {
-    try {
-      const res = await apiFetch('/api/dss?limit=50');
-      if (res.ok) {
-        const json = await res.json();
-        const data = json.data || [];
-        setHistory(data);
-        if (data.length > 0) {
-          setLatestDSS(data[0]);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to fetch DSS history:', err);
-    } finally {
-      setLoadingData(false);
-    }
-  }, [apiFetch]);
-
   useEffect(() => {
     if (!isAuthenticated) return;
-    fetchDSSHistory();
-  }, [isAuthenticated, fetchDSSHistory]);
+    let ignore = false;
+    async function load() {
+      try {
+        const res = await apiFetch('/api/dss?limit=50');
+        if (res.ok && !ignore) {
+          const json = await res.json();
+          const data = json.data || [];
+          setHistory(data);
+          if (data.length > 0) {
+            setLatestDSS(data[0]);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch DSS history:', err);
+      } finally {
+        if (!ignore) setLoadingData(false);
+      }
+    }
+    load();
+    return () => { ignore = true; };
+  }, [isAuthenticated, apiFetch]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -137,11 +144,7 @@ export default function DSSPage() {
     return 'status-bahaya';
   };
 
-  const displayHistory = history.length > 0 ? history : [
-    { id: 1, node_id: 'ESP32-NODE-01', suhu_membership: 'normal', salinitas_membership: 'normal', dss_score: 25.0, dss_recommendation: 'Aman', created_at: new Date(Date.now() - 300000).toISOString() },
-    { id: 2, node_id: 'ESP32-NODE-01', suhu_membership: 'tinggi', salinitas_membership: 'tinggi', dss_score: 68.5, dss_recommendation: 'Waspada', created_at: new Date(Date.now() - 600000).toISOString() },
-    { id: 3, node_id: 'ESP32-NODE-03', suhu_membership: 'rendah', salinitas_membership: 'rendah', dss_score: 75.0, dss_recommendation: 'Bahaya', created_at: new Date(Date.now() - 900000).toISOString() },
-  ];
+  const displayHistory = history.length > 0 ? history : FALLBACK_DSS_HISTORY;
 
   return (
     <div className="main-dashboard">

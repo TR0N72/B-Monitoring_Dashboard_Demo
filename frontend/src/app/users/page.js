@@ -31,7 +31,6 @@ export default function UsersPage() {
 
   const fetchUsers = useCallback(async () => {
     try {
-      setLoading(true);
       const res = await apiFetch('/api/users');
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to fetch users');
@@ -44,14 +43,27 @@ export default function UsersPage() {
   }, [apiFetch]);
 
   useEffect(() => {
-    if (!authLoading) {
-      if (!isAuthenticated || user?.role !== 'admin') {
-        router.push('/');
-        return;
-      }
-      fetchUsers();
+    if (authLoading) return;
+    if (!isAuthenticated || user?.role !== 'admin') {
+      router.push('/');
+      return;
     }
-  }, [isAuthenticated, user, authLoading, router, fetchUsers]);
+    let ignore = false;
+    async function load() {
+      try {
+        const res = await apiFetch('/api/users');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to fetch users');
+        if (!ignore) setUsers(data.users || []);
+      } catch (err) {
+        if (!ignore) setError(err.message);
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    }
+    load();
+    return () => { ignore = true; };
+  }, [isAuthenticated, user, authLoading, router, apiFetch]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;

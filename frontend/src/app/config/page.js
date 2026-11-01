@@ -40,8 +40,8 @@ export default function SystemConfigPage() {
           const data = await res.json();
           const deviceList = data.devices || [];
           setDevices(deviceList);
-          if (deviceList.length > 0 && !selectedDeviceId) {
-            setSelectedDeviceId(String(deviceList[0].id));
+          if (deviceList.length > 0) {
+            setSelectedDeviceId(prev => prev || String(deviceList[0].id));
           }
         }
       } catch (err) {

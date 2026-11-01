@@ -96,6 +96,12 @@ function EmergencyConfirmModal({ onConfirm, onCancel }) {
 }
 
 // ─── Halaman Utama ────────────────────────────────────────────────────────────
+const FALLBACK_ACTUATOR_LOGS = [
+  { id: 1, node_id: 'ESP32-NODE-01', aksi: 'OPEN_DRAIN_VALVE',  trigger_source: 'manual', status: 'executed', executed_at: '2026-11-01T12:00:00.000Z' },
+  { id: 2, node_id: 'ESP32-NODE-01', aksi: 'CLOSE_DRAIN_VALVE', trigger_source: 'edge',   status: 'executed', executed_at: '2026-11-01T11:56:00.000Z' },
+  { id: 3, node_id: 'ESP32-NODE-01', aksi: 'PUMP_ENGINE_START', trigger_source: 'dss',    status: 'pending',  executed_at: '2026-11-01T11:50:00.000Z' },
+];
+
 export default function ActuatorPage() {
   const { isAuthenticated, loading: authLoading, user } = useAuth();
   const { apiFetch } = useApi();
@@ -120,24 +126,25 @@ export default function ActuatorPage() {
   }, [authLoading, isAuthenticated, router]);
 
   // ── Fetch log aktuator saat mount ───────────────────────────────────────────
-  const fetchLogs = useCallback(async () => {
-    try {
-      const res = await apiFetch('/api/actuator/logs');
-      if (res.ok) {
-        const json = await res.json();
-        setLogs(json.data || []);
-      }
-    } catch (err) {
-      console.error('[Actuator] Failed to fetch logs:', err);
-    } finally {
-      setLoadingData(false);
-    }
-  }, [apiFetch]);
-
   useEffect(() => {
     if (!isAuthenticated) return;
-    fetchLogs();
-  }, [isAuthenticated, fetchLogs]);
+    let ignore = false;
+    async function load() {
+      try {
+        const res = await apiFetch('/api/actuator/logs');
+        if (res.ok && !ignore) {
+          const json = await res.json();
+          setLogs(json.data || []);
+        }
+      } catch (err) {
+        console.error('[Actuator] Failed to fetch logs:', err);
+      } finally {
+        if (!ignore) setLoadingData(false);
+      }
+    }
+    load();
+    return () => { ignore = true; };
+  }, [isAuthenticated, apiFetch]);
 
   // ── WebSocket: real-time ACK dari perangkat ─────────────────────────────────
   useEffect(() => {
@@ -252,11 +259,7 @@ export default function ActuatorPage() {
   const isAdmin = user?.role === 'admin';
 
   // Placeholder logs jika belum ada data
-  const displayLogs = logs.length > 0 ? logs : [
-    { id: 1, node_id: 'ESP32-NODE-01', aksi: 'OPEN_DRAIN_VALVE',  trigger_source: 'manual', status: 'executed', executed_at: new Date(Date.now() - 120000).toISOString() },
-    { id: 2, node_id: 'ESP32-NODE-01', aksi: 'CLOSE_DRAIN_VALVE', trigger_source: 'edge',   status: 'executed', executed_at: new Date(Date.now() - 360000).toISOString() },
-    { id: 3, node_id: 'ESP32-NODE-01', aksi: 'PUMP_ENGINE_START', trigger_source: 'dss',    status: 'pending',  executed_at: new Date(Date.now() - 600000).toISOString() },
-  ];
+  const displayLogs = logs.length > 0 ? logs : FALLBACK_ACTUATOR_LOGS;
 
   const getStatusIcon = (status) => {
     switch (status) {

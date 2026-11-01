@@ -106,16 +106,19 @@ router.get('/export', async (req, res) => {
     ];
     const csvLines = [headers.join(',')];
     for (const row of rows) {
+      const msg = (row.pesan_notifikasi || '').replace(/"/g, '""');
+      const hwId = (row.hardware_id || '').replace(/"/g, '""');
+      const devName = (row.device_name || '').replace(/"/g, '""');
       csvLines.push([
         row.id,
-        `"${row.hardware_id}"`,
-        `"${row.device_name}"`,
-        row.parameter,
-        row.measured_value,
-        row.threshold_min,
-        row.threshold_max,
-        row.level_peringatan,
-        `"${row.pesan_notifikasi.replace(/"/g, '""')}"`,
+        `"${hwId}"`,
+        `"${devName}"`,
+        row.parameter || '',
+        row.measured_value ?? '',
+        row.threshold_min ?? '',
+        row.threshold_max ?? '',
+        row.level_peringatan || '',
+        `"${msg}"`,
         row.acknowledged ? 'Yes' : 'No',
         row.created_at,
       ].join(','));

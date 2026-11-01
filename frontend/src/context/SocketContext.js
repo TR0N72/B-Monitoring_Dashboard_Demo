@@ -88,6 +88,24 @@ export function SocketProvider({ children }) {
       });
     });
 
+    // ── Bind closed-loop status DSS ke AlertBanner ────────────────────
+    socket.on('system:status', (data) => {
+      setLastAlert({
+        level_peringatan: data.level === 'bahaya' ? 'critical' : 'warning',
+        pesan_notifikasi: `⚠️ [${(data.level || 'STATUS').toUpperCase()}] ${data.message || 'Perubahan status sistem.'}`,
+      });
+    });
+
+    // ── Bind sensor getaran SW-420 ke AlertBanner ─────────────────────
+    socket.on('sensor:vibration', (data) => {
+      if (data.vibrating) {
+        setLastAlert({
+          level_peringatan: 'warning',
+          pesan_notifikasi: `📳 Getaran aktif terdeteksi pada node ${data.node_id || data.device_id}.`,
+        });
+      }
+    });
+
     return () => {
       socket.removeAllListeners();
       socket.disconnect();
