@@ -10,24 +10,42 @@ router.get('/latest', async (req, res) => {
     const { device_id } = req.query;
     const pool = getPool();
     
-    let query = `
-      SELECT sd.*, d.node_id 
-      FROM sensor_data sd
-      JOIN devices d ON sd.device_id = d.id
-      WHERE sd.id IN (
-        SELECT MAX(id) FROM sensor_data GROUP BY device_id
-      )
-    `;
+    let query;
     const params = [];
 
     if (device_id) {
       if (!isNaN(device_id)) {
-        query += ` AND (d.node_id = ? OR d.id = ?)`;
+        query = `
+          SELECT sd.*, d.node_id 
+          FROM sensor_data sd
+          JOIN devices d ON sd.device_id = d.id
+          WHERE (d.node_id = ? OR d.id = ?)
+          ORDER BY sd.id DESC
+          LIMIT 1
+        `;
         params.push(device_id, device_id);
       } else {
-        query += ` AND d.node_id = ?`;
+        query = `
+          SELECT sd.*, d.node_id 
+          FROM sensor_data sd
+          JOIN devices d ON sd.device_id = d.id
+          WHERE d.node_id = ?
+          ORDER BY sd.id DESC
+          LIMIT 1
+        `;
         params.push(device_id);
       }
+    } else {
+      query = `
+        SELECT sd.*, d.node_id 
+        FROM sensor_data sd
+        JOIN devices d ON sd.device_id = d.id
+        INNER JOIN (
+          SELECT device_id, MAX(id) AS max_id
+          FROM sensor_data
+          GROUP BY device_id
+        ) latest ON sd.id = latest.max_id
+      `;
     }
 
     const [rows] = await pool.execute(query, params);

@@ -12,10 +12,67 @@ export default function AnalyticsPage() {
   const { apiFetch } = useApi();
   const router = useRouter();
   const [activeFilter, setActiveFilter] = useState('24h');
+  const [stats, setStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(true);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/login');
   }, [authLoading, isAuthenticated, router]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let ignore = false;
+    async function fetchStats() {
+      setLoadingStats(true);
+      try {
+        const res = await apiFetch('/api/sensors/history?limit=300');
+        if (res.ok && !ignore) {
+          const json = await res.json();
+          const list = json.data || json || [];
+          
+          const now = Date.now();
+          const cutoff = 
+            activeFilter === '24h' ? now - 24 * 3600 * 1000 :
+            activeFilter === '7 Days' ? now - 7 * 86400 * 1000 :
+            activeFilter === '30 Days' ? now - 30 * 86400 * 1000 : 0;
+
+          const filtered = list.filter(item => {
+            if (!cutoff) return true;
+            const ts = new Date(item.recorded_at || item.created_at || item.timestamp).getTime();
+            return !isNaN(ts) && ts >= cutoff;
+          });
+
+          const dataset = filtered.length > 0 ? filtered : list; // ponytail: fallback to recent batch if empty in strict window
+
+          let sumTemp = 0, countTemp = 0;
+          let sumPh = 0, countPh = 0;
+          let sumSal = 0, countSal = 0;
+          let sumTurb = 0, countTurb = 0;
+
+          dataset.forEach(d => {
+            if (d.suhu != null) { sumTemp += Number(d.suhu); countTemp++; }
+            if (d.ph_level != null) { sumPh += Number(d.ph_level); countPh++; }
+            if (d.salinitas != null) { sumSal += Number(d.salinitas); countSal++; }
+            if (d.turbidity != null) { sumTurb += Number(d.turbidity); countTurb++; }
+          });
+
+          setStats({
+            avgTemp: countTemp > 0 ? (sumTemp / countTemp).toFixed(1) : '—',
+            avgPh: countPh > 0 ? (sumPh / countPh).toFixed(1) : '—',
+            avgSal: countSal > 0 ? (sumSal / countSal).toFixed(1) : '—',
+            avgTurb: countTurb > 0 ? (sumTurb / countTurb).toFixed(1) : '—',
+            count: dataset.length
+          });
+        }
+      } catch (err) {
+        console.error('[Analytics] Failed to fetch stats:', err);
+      } finally {
+        if (!ignore) setLoadingStats(false);
+      }
+    }
+    fetchStats();
+    return () => { ignore = true; };
+  }, [isAuthenticated, activeFilter, apiFetch]);
 
   if (authLoading || !isAuthenticated) return null;
 
@@ -45,34 +102,34 @@ export default function AnalyticsPage() {
             <div className="analytics-stat-row">
               <div className="analytics-stat-card">
                 <div className="stat-card-label">AVG TEMPERATURE</div>
-                <div className="stat-card-value"><span className="value">24.3</span><span className="unit">°C</span></div>
-                <div className="stat-card-trend positive">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
-                  +0.4% from last period
+                <div className="stat-card-value"><span className="value">{loadingStats ? '…' : (stats?.avgTemp ?? '—')}</span><span className="unit">°C</span></div>
+                <div className="stat-card-trend stable">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="1" y1="12" x2="23" y2="12"></line></svg>
+                  <span>{stats?.count ? `${stats.count} samples` : 'Awaiting data'}</span>
                 </div>
               </div>
               <div className="analytics-stat-card">
                 <div className="stat-card-label">AVG pH LEVEL</div>
-                <div className="stat-card-value"><span className="value">7.2</span><span className="unit">pH</span></div>
+                <div className="stat-card-value"><span className="value">{loadingStats ? '…' : (stats?.avgPh ?? '—')}</span><span className="unit">pH</span></div>
                 <div className="stat-card-trend stable">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="1" y1="12" x2="23" y2="12"></line></svg>
-                  Stable
+                  <span>{stats?.count ? `${stats.count} samples` : 'Awaiting data'}</span>
                 </div>
               </div>
               <div className="analytics-stat-card">
                 <div className="stat-card-label">AVG SALINITY</div>
-                <div className="stat-card-value"><span className="value">22.8</span><span className="unit">ppt</span></div>
-                <div className="stat-card-trend negative">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>
-                  -1.2% from last period
+                <div className="stat-card-value"><span className="value">{loadingStats ? '…' : (stats?.avgSal ?? '—')}</span><span className="unit">ppt</span></div>
+                <div className="stat-card-trend stable">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="1" y1="12" x2="23" y2="12"></line></svg>
+                  <span>{stats?.count ? `${stats.count} samples` : 'Awaiting data'}</span>
                 </div>
               </div>
               <div className="analytics-stat-card">
                 <div className="stat-card-label">AVG TURBIDITY</div>
-                <div className="stat-card-value"><span className="value">12.4</span><span className="unit">NTU</span></div>
-                <div className="stat-card-trend positive">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
-                  +2.1% from last period
+                <div className="stat-card-value"><span className="value">{loadingStats ? '…' : (stats?.avgTurb ?? '—')}</span><span className="unit">NTU</span></div>
+                <div className="stat-card-trend stable">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="1" y1="12" x2="23" y2="12"></line></svg>
+                  <span>{stats?.count ? `${stats.count} samples` : 'Awaiting data'}</span>
                 </div>
               </div>
             </div>

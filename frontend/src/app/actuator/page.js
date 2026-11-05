@@ -96,12 +96,6 @@ function EmergencyConfirmModal({ onConfirm, onCancel }) {
 }
 
 // ─── Halaman Utama ────────────────────────────────────────────────────────────
-const FALLBACK_ACTUATOR_LOGS = [
-  { id: 1, node_id: 'ESP32-NODE-01', aksi: 'OPEN_DRAIN_VALVE',  trigger_source: 'manual', status: 'executed', executed_at: '2026-11-01T12:00:00.000Z' },
-  { id: 2, node_id: 'ESP32-NODE-01', aksi: 'CLOSE_DRAIN_VALVE', trigger_source: 'edge',   status: 'executed', executed_at: '2026-11-01T11:56:00.000Z' },
-  { id: 3, node_id: 'ESP32-NODE-01', aksi: 'PUMP_ENGINE_START', trigger_source: 'dss',    status: 'pending',  executed_at: '2026-11-01T11:50:00.000Z' },
-];
-
 export default function ActuatorPage() {
   const { isAuthenticated, loading: authLoading, user } = useAuth();
   const { apiFetch } = useApi();
@@ -109,13 +103,14 @@ export default function ActuatorPage() {
   const router = useRouter();
 
   const [logs, setLogs] = useState([]);
+  const [devices, setDevices] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
   // Map<aksi, boolean> — true jika perintah sedang dikirim / menunggu ACK
   const [pendingCommands, setPendingCommands] = useState({});
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('success');
-  const [selectedDevice, setSelectedDevice] = useState('ESP32-NODE-01');
+  const [selectedDevice, setSelectedDevice] = useState('');
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   // Ref untuk menyimpan aksi yang sedang dikonfirmasi di modal
   const pendingEmergencyRef = useRef(null);
@@ -124,6 +119,29 @@ export default function ActuatorPage() {
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/login');
   }, [authLoading, isAuthenticated, router]);
+
+  // ── Fetch devices ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let ignore = false;
+    async function loadDevices() {
+      try {
+        const res = await apiFetch('/api/devices');
+        if (res.ok && !ignore) {
+          const json = await res.json();
+          const list = json.devices || json.data || json || [];
+          setDevices(list);
+          if (list.length > 0) {
+            setSelectedDevice((prev) => prev || list[0].node_id || list[0].name || 'ESP32-NODE-01');
+          }
+        }
+      } catch (err) {
+        console.error('[Actuator] Failed to fetch devices:', err);
+      }
+    }
+    loadDevices();
+    return () => { ignore = true; };
+  }, [isAuthenticated, apiFetch]);
 
   // ── Fetch log aktuator saat mount ───────────────────────────────────────────
   useEffect(() => {
@@ -258,8 +276,7 @@ export default function ActuatorPage() {
 
   const isAdmin = user?.role === 'admin';
 
-  // Placeholder logs jika belum ada data
-  const displayLogs = logs.length > 0 ? logs : FALLBACK_ACTUATOR_LOGS;
+  const displayLogs = logs;
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -295,9 +312,15 @@ export default function ActuatorPage() {
                     onChange={(e) => setSelectedDevice(e.target.value)}
                     className="device-select"
                   >
-                    <option value="ESP32-NODE-01">ESP32-NODE-01</option>
-                    <option value="ESP32-NODE-02">ESP32-NODE-02</option>
-                    <option value="ESP32-NODE-03">ESP32-NODE-03</option>
+                    {devices.length > 0 ? (
+                      devices.map((d) => (
+                        <option key={d.id || d.node_id} value={d.node_id || d.name}>
+                          {d.name ? `${d.name} (${d.node_id})` : d.node_id}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="ESP32-NODE-01">ESP32-NODE-01</option>
+                    )}
                   </select>
                 </div>
               </div>
@@ -415,36 +438,42 @@ export default function ActuatorPage() {
                 </div>
               </div>
               <div className="table-wrapper">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>TIMESTAMP</th>
-                      <th>NODE</th>
-                      <th>ACTION</th>
-                      <th>SOURCE</th>
-                      <th>STATUS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {displayLogs.map((log, i) => (
-                      <tr key={log.id || i}>
-                        <td>{new Date(log.executed_at).toLocaleString()}</td>
-                        <td className="fw-500">{log.node_id || `Device-${log.device_id}`}</td>
-                        <td><span className="mono-text">{log.aksi}</span></td>
-                        <td>
-                          <span className={`source-badge source-${log.trigger_source}`}>
-                            {log.trigger_source}
-                          </span>
-                        </td>
-                        <td>
-                          <span className={`status-badge status-${log.status}`}>
-                            {getStatusIcon(log.status)} {log.status}
-                          </span>
-                        </td>
+                {displayLogs.length === 0 ? (
+                  <div style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                    <p style={{ margin: 0 }}>No actuator command executions recorded yet.</p>
+                  </div>
+                ) : (
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>TIMESTAMP</th>
+                        <th>NODE</th>
+                        <th>ACTION</th>
+                        <th>SOURCE</th>
+                        <th>STATUS</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {displayLogs.map((log, i) => (
+                        <tr key={log.id || i}>
+                          <td>{new Date(log.executed_at).toLocaleString()}</td>
+                          <td className="fw-500">{log.node_id || `Device-${log.device_id}`}</td>
+                          <td><span className="mono-text">{log.aksi}</span></td>
+                          <td>
+                            <span className={`source-badge source-${log.trigger_source}`}>
+                              {log.trigger_source}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`status-badge status-${log.status}`}>
+                              {getStatusIcon(log.status)} {log.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
 

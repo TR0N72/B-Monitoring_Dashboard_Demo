@@ -65,6 +65,10 @@ export default function SystemConfigPage() {
                 mapped.temperature = { min: Number(t.batas_bawah), max: Number(t.batas_atas) };
               } else if (t.parameter === 'salinitas') {
                 mapped.salinity = { min: Number(t.batas_bawah), max: Number(t.batas_atas) };
+              } else if (t.parameter === 'ph') {
+                mapped.ph = { min: Number(t.batas_bawah), max: Number(t.batas_atas) };
+              } else if (t.parameter === 'turbidity') {
+                mapped.turbidity = { min: Number(t.batas_bawah), max: Number(t.batas_atas) };
               }
             });
             setThresholds(mapped);
@@ -100,6 +104,8 @@ export default function SystemConfigPage() {
       const thresholdsArray = [
         { parameter: 'suhu', batas_bawah: thresholds.temperature.min, batas_atas: thresholds.temperature.max },
         { parameter: 'salinitas', batas_bawah: thresholds.salinity.min, batas_atas: thresholds.salinity.max },
+        { parameter: 'ph', batas_bawah: thresholds.ph.min, batas_atas: thresholds.ph.max },
+        { parameter: 'turbidity', batas_bawah: thresholds.turbidity.min, batas_atas: thresholds.turbidity.max },
       ];
       const res = await apiFetch(`/api/config/thresholds/${selectedDeviceId}`, {
         method: 'PUT',

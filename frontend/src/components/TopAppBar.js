@@ -73,8 +73,8 @@ export default function TopAppBar() {
   }, [user, API_URL]);
 
 
-  function handleSignOut() {
-    logout();
+  async function handleSignOut() {
+    await logout();
     window.location.href = '/login';
   }
 
@@ -164,4 +164,4 @@ export default function TopAppBar() {
     </header>
   );
 }
-
+

@@ -29,9 +29,9 @@ export default function Sidebar() {
     return pathname.startsWith(href);
   };
 
-  const handleSignOut = (e) => {
+  const handleSignOut = async (e) => {
     e.preventDefault();
-    logout();
+    await logout();
     window.location.href = '/login';
   };
 

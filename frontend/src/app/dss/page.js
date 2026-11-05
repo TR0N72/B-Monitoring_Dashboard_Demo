@@ -73,12 +73,6 @@ function MembershipBar({ label, memberships, colorMap }) {
   );
 }
 
-const FALLBACK_DSS_HISTORY = [
-  { id: 1, node_id: 'ESP32-NODE-01', suhu_membership: 'normal', salinitas_membership: 'normal', dss_score: 25.0, dss_recommendation: 'Aman', created_at: '2026-11-01T12:00:00.000Z' },
-  { id: 2, node_id: 'ESP32-NODE-01', suhu_membership: 'tinggi', salinitas_membership: 'tinggi', dss_score: 68.5, dss_recommendation: 'Waspada', created_at: '2026-11-01T11:55:00.000Z' },
-  { id: 3, node_id: 'ESP32-NODE-03', suhu_membership: 'rendah', salinitas_membership: 'rendah', dss_score: 75.0, dss_recommendation: 'Bahaya', created_at: '2026-11-01T11:50:00.000Z' },
-];
-
 export default function DSSPage() {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { apiFetch } = useApi();
@@ -131,6 +125,7 @@ export default function DSSPage() {
   const score = latestDSS?.score ?? latestDSS?.dss_score ?? 0;
   const suhuMem = latestDSS?.suhu_membership || '—';
   const salMem = latestDSS?.salinitas_membership || '—';
+  const visualLabel = latestDSS?.visual_label || 'none';
   const firedRules = (() => {
     try {
       if (typeof latestDSS?.fired_rules === 'string') return JSON.parse(latestDSS.fired_rules);
@@ -144,7 +139,7 @@ export default function DSSPage() {
     return 'status-bahaya';
   };
 
-  const displayHistory = history.length > 0 ? history : FALLBACK_DSS_HISTORY;
+  const displayHistory = history;
 
   return (
     <div className="main-dashboard">
@@ -213,6 +208,24 @@ export default function DSSPage() {
                     })}
                   </div>
                 </div>
+                <div className="dss-mem-card">
+                  <div className="dss-mem-card-header">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                    <span>Visual Edge (ESP32-CAM)</span>
+                  </div>
+                  <div className="dss-mem-value" style={{ textTransform: 'capitalize' }}>{visualLabel}</div>
+                  <div className="dss-mem-bar-group">
+                    {['jernih', 'keruh', 'anomali', 'none'].map(m => {
+                      const isActive = String(visualLabel).toLowerCase() === m;
+                      return (
+                        <div key={m} className={`dss-mem-indicator ${isActive ? 'active' : ''}`}>
+                          <div className="dss-mem-dot" style={{ backgroundColor: isActive ? (m === 'jernih' ? 'var(--dss-aman)' : m === 'keruh' ? 'var(--dss-waspada)' : m === 'anomali' ? 'var(--dss-bahaya)' : 'var(--card-border)') : 'var(--card-border)' }}></div>
+                          <span>{m}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
 
               <div className="dss-rules-card">
@@ -248,35 +261,43 @@ export default function DSSPage() {
                 </div>
               </div>
               <div className="table-wrapper">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>TIMESTAMP</th>
-                      <th>NODE</th>
-                      <th>SUHU MEM.</th>
-                      <th>SALINITAS MEM.</th>
-                      <th>SCORE</th>
-                      <th>RECOMMENDATION</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {displayHistory.map((item, i) => {
-                      const rec = item.dss_recommendation || item.recommendation || '—';
-                      return (
-                        <tr key={item.id || i}>
-                          <td>{new Date(item.created_at).toLocaleString()}</td>
-                          <td className="fw-500">{item.node_id || `Device-${item.device_id}`}</td>
-                          <td><span className="dss-mem-chip">{item.suhu_membership}</span></td>
-                          <td><span className="dss-mem-chip">{item.salinitas_membership}</span></td>
-                          <td className="fw-500">{(item.dss_score ?? item.score)?.toFixed(1)}</td>
-                          <td>
-                            <span className={`status-badge ${getStatusClass(rec)}`}>{rec}</span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                {displayHistory.length === 0 ? (
+                  <div style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                    <p style={{ margin: 0 }}>No DSS evaluations recorded yet. Awaiting incoming telemetry stream.</p>
+                  </div>
+                ) : (
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>TIMESTAMP</th>
+                        <th>NODE</th>
+                        <th>SUHU MEM.</th>
+                        <th>SALINITAS MEM.</th>
+                        <th>VISUAL EDGE</th>
+                        <th>SCORE</th>
+                        <th>RECOMMENDATION</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {displayHistory.map((item, i) => {
+                        const rec = item.dss_recommendation || item.recommendation || '—';
+                        return (
+                          <tr key={item.id || i}>
+                            <td>{new Date(item.created_at).toLocaleString()}</td>
+                            <td className="fw-500">{item.node_id || `Device-${item.device_id}`}</td>
+                            <td><span className="dss-mem-chip">{item.suhu_membership}</span></td>
+                            <td><span className="dss-mem-chip">{item.salinitas_membership}</span></td>
+                            <td><span className="dss-mem-chip">{item.visual_label || '—'}</span></td>
+                            <td className="fw-500">{(item.dss_score ?? item.score)?.toFixed(1)}</td>
+                            <td>
+                              <span className={`status-badge ${getStatusClass(rec)}`}>{rec}</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
           </div>

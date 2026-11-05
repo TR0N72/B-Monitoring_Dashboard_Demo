@@ -71,25 +71,68 @@ router.get('/', async (req, res) => {
 });
 router.get('/export', async (req, res) => {
   try {
-    const { start_date, end_date, device_id } = req.query;
+    const { start_date, end_date, device_id, type = 'telemetry' } = req.query;
+    const isTelemetry = type === 'telemetry';
+    const prefix = isTelemetry ? 'sd' : 'al';
+    const timeCol = isTelemetry ? 'recorded_at' : 'created_at';
+
     const conditions = [];
     const params = [];
     if (device_id) {
-      conditions.push('al.device_id = ?');
+      conditions.push(`${prefix}.device_id = ?`);
       params.push(device_id);
     }
     if (start_date) {
-      conditions.push('al.created_at >= ?');
-      params.push(start_date);
+      conditions.push(`${prefix}.${timeCol} >= ?`);
+      params.push(start_date.length === 10 ? `${start_date} 00:00:00` : start_date);
     }
     if (end_date) {
-      conditions.push('al.created_at <= ?');
-      params.push(end_date);
+      conditions.push(`${prefix}.${timeCol} <= ?`);
+      params.push(end_date.length === 10 ? `${end_date} 23:59:59` : end_date);
     }
     const whereClause = conditions.length > 0
       ? 'WHERE ' + conditions.join(' AND ')
       : '';
     const pool = getPool();
+
+    if (isTelemetry) {
+      const [rows] = await pool.execute(`
+        SELECT
+          sd.id, d.node_id AS hardware_id, d.name AS device_name,
+          sd.suhu, sd.salinitas, sd.ph_level, sd.turbidity, sd.baterai, sd.rssi, sd.recorded_at
+        FROM sensor_data sd
+        JOIN devices d ON sd.device_id = d.id
+        ${whereClause}
+        ORDER BY sd.recorded_at DESC
+        LIMIT 10000
+      `, params);
+
+      const headers = [
+        'ID', 'Hardware ID', 'Device Name', 'Suhu (C)', 'Salinitas (ppt)',
+        'pH Level', 'Turbidity (NTU)', 'Battery (%)', 'RSSI (dBm)', 'Timestamp'
+      ];
+      const csvLines = [headers.join(',')];
+      for (const row of rows) {
+        const hwId = (row.hardware_id || '').replace(/"/g, '""');
+        const devName = (row.device_name || '').replace(/"/g, '""');
+        csvLines.push([
+          row.id,
+          `"${hwId}"`,
+          `"${devName}"`,
+          row.suhu ?? '',
+          row.salinitas ?? '',
+          row.ph_level ?? '',
+          row.turbidity ?? '',
+          row.baterai ?? '',
+          row.rssi ?? '',
+          row.recorded_at,
+        ].join(','));
+      }
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=bmonitor_telemetry_${Date.now()}.csv`);
+      return res.send(csvLines.join('\n'));
+    }
+
     const [rows] = await pool.execute(`
       SELECT
         al.id, d.node_id AS hardware_id, d.name AS device_name,
@@ -99,6 +142,7 @@ router.get('/export', async (req, res) => {
       JOIN devices d ON al.device_id = d.id
       ${whereClause}
       ORDER BY al.created_at DESC
+      LIMIT 10000
     `, params);
     const headers = [
       'ID', 'Hardware ID', 'Device Name', 'Parameter', 'Measured Value',

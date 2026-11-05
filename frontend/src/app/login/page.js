@@ -109,14 +109,10 @@ export default function LoginPage() {
         </form>
         <div className="auth-divider"></div>
         <div className="register-section" id="registerSection">
-          <p className="register-label">Field Team Registration</p>
-          <a href="/register" className="register-link" id="registerLink">
-            <span>Register New Worker Device</span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-              <polyline points="12 5 19 12 12 19"></polyline>
-            </svg>
-          </a>
+          <p className="register-label">Field Team Access</p>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #64748b)', margin: '6px 0 0 0' }}>
+            Worker accounts are provisioned by Administrator via User Management.
+          </p>
         </div>
       </div>
       <p className="auth-footer">&copy; 2026 B-Monitor &middot; LoRa-BandengMon</p>

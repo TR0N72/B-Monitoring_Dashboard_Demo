@@ -17,7 +17,7 @@ export function useApi() {
     });
 
     if (res.status === 401) {
-      logout();
+      await logout();
       throw new Error('Session expired. Please login again.');
     }
 

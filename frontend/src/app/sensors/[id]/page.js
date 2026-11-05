@@ -36,7 +36,23 @@ export default function NodeDetailsPage() {
 
   if (authLoading || !isAuthenticated) return null;
 
-  const d = device || { name: 'Alpha-Node-01', mac_address: '00:1B:44:11:3A:B7', firmware: 'v2.4.1-stable' };
+  if (!device) {
+    return (
+      <div className="main-dashboard">
+        <Sidebar />
+        <main className="main-content">
+          <div className="main-canvas">
+            <TopAppBar />
+            <div className="scrollable-content" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+              <p>Device not found or still loading...</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  const d = device;
 
   return (
     <div className="main-dashboard">
@@ -48,13 +64,13 @@ export default function NodeDetailsPage() {
           <div className="page-header-controls">
             <div className="page-title-section">
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div className="heading-1"><h1>{d.name || d.device_name || 'Node Details'}</h1></div>
+                <div className="heading-1"><h1>{d.name || d.device_name || d.node_id || 'Node Details'}</h1></div>
                 <div className="status-indicator-pill">
                   <div className="status-dot"></div>
                   <span>{d.status === 'offline' ? 'Offline' : 'Online'}</span>
                 </div>
               </div>
-              <div className="status-indicator" style={{ marginTop: '4px' }}>ESP32 Environmental Sensor • Deployed Zone A</div>
+              <div className="status-indicator" style={{ marginTop: '4px' }}>ESP32 Environmental Sensor • {d.location || 'B-Monitor Node'}</div>
             </div>
             <div className="page-controls">
               <button className="control-btn outline">
@@ -68,10 +84,10 @@ export default function NodeDetailsPage() {
               <div className="info-card">
                 <div className="info-card-header"><h2>Device Metadata</h2></div>
                 <div className="info-list">
-                  <div className="info-item"><span className="info-label">MAC Address</span><span className="info-value mono">{d.mac_address || '00:1B:44:11:3A:B7'}</span></div>
-                  <div className="info-item"><span className="info-label">Firmware</span><span className="info-value">{d.firmware || 'v2.4.1-stable'}</span></div>
-                  <div className="info-item"><span className="info-label">Uptime</span><span className="info-value">42d 14h 22m</span></div>
-                  <div className="info-item"><span className="info-label">Last Seen</span><span className="info-value">Just now</span></div>
+                  <div className="info-item"><span className="info-label">Node ID / MAC</span><span className="info-value mono">{d.mac_address || d.node_id || '—'}</span></div>
+                  <div className="info-item"><span className="info-label">Firmware</span><span className="info-value">{d.firmware_version || d.firmware || 'v1.0.0'}</span></div>
+                  <div className="info-item"><span className="info-label">Status</span><span className="info-value">{d.status || 'Active'}</span></div>
+                  <div className="info-item"><span className="info-label">Last Seen</span><span className="info-value">{d.last_seen ? new Date(d.last_seen).toLocaleString() : 'Recent'}</span></div>
                 </div>
               </div>
               <div className="metric-cards-2-col">

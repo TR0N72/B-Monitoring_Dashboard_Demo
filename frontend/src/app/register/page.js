@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import { useApi } from '@/hooks/useApi';
 import '@/styles/auth.css';
 
 export default function RegisterPage() {
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -18,6 +20,16 @@ export default function RegisterPage() {
   const [tooltipActive, setTooltipActive] = useState(false);
   const router = useRouter();
   const { apiFetch } = useApi();
+
+  useEffect(() => {
+    if (!authLoading && (!isAuthenticated || user?.role !== 'admin')) {
+      router.push('/login');
+    }
+  }, [authLoading, isAuthenticated, user, router]);
+
+  if (authLoading || !isAuthenticated || user?.role !== 'admin') {
+    return null;
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
