@@ -112,10 +112,10 @@ export default function DashboardPage() {
   const turbidityFill = turbidity !== null ? `${Math.min(100, Math.max(0, (turbidity / 30) * 100)).toFixed(0)}%`  : '0%';
 
   // Display values — show '—' when data is unavailable (never show phantom numbers)
-  const displayTemp     = temp     !== null ? temp     : '—';
-  const displayPh       = ph       !== null ? ph       : '—';
-  const displaySalinity = salinity  !== null ? salinity  : '—';
-  const displayTurbidity = turbidity !== null ? turbidity : '—';
+  const displayTemp     = temp     !== null ? Number(temp).toFixed(1)     : '—';
+  const displayPh       = ph       !== null ? Number(ph).toFixed(2)       : '—';
+  const displaySalinity = salinity  !== null ? Number(salinity).toFixed(1)  : '—';
+  const displayTurbidity = turbidity !== null ? Number(turbidity).toFixed(1) : '—';
 
   return (
     <div className="main-dashboard">
