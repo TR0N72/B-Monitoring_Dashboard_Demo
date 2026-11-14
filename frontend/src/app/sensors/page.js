@@ -8,11 +8,44 @@ import Sidebar from '@/components/Sidebar';
 import TopAppBar from '@/components/TopAppBar';
 
 export default function SensorNodesPage() {
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, user } = useAuth();
   const { apiFetch } = useApi();
   const router = useRouter();
   const [devices, setDevices] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ node_id: '', name: '', mac_address: '', lokasi: '' });
+  const [formError, setFormError] = useState('');
+  const isAdmin = user?.role === 'admin';
+
+  async function loadDevices() {
+    const res = await apiFetch('/api/devices');
+    if (res.ok) {
+      const data = await res.json();
+      setDevices(data.devices || data || []);
+    }
+  }
+
+  async function addDevice(e) {
+    e.preventDefault();
+    setFormError('');
+    const res = await apiFetch('/api/devices', { method: 'POST', body: JSON.stringify(form) });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      setFormError(j.error || 'Failed to add device.');
+      return;
+    }
+    setForm({ node_id: '', name: '', mac_address: '', lokasi: '' });
+    setShowForm(false);
+    await loadDevices();
+  }
+
+  async function removeDevice(e, device) {
+    e.stopPropagation();
+    if (!window.confirm(`Delete device "${device.name || device.node_id}"? Sensor history is removed too.`)) return;
+    const res = await apiFetch(`/api/devices/${device.id}`, { method: 'DELETE' });
+    if (res.ok) await loadDevices();
+  }
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/login');
@@ -53,12 +86,22 @@ export default function SensorNodesPage() {
                 <div className="status-indicator"><p>Monitor and configure hardware nodes across the network.</p></div>
               </div>
               <div className="page-controls">
-                <button className="control-btn solid">
+                {isAdmin && <button className="control-btn solid" onClick={() => setShowForm(v => !v)}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                   Add Device
-                </button>
+                </button>}
               </div>
             </div>
+            {showForm && (
+              <form className="data-table-container" onSubmit={addDevice} style={{ padding: '1rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                <input required placeholder="Node ID (e.g. node02)" value={form.node_id} onChange={e => setForm({ ...form, node_id: e.target.value })} />
+                <input required placeholder="Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+                <input placeholder="MAC address" value={form.mac_address} onChange={e => setForm({ ...form, mac_address: e.target.value })} />
+                <input placeholder="Location" value={form.lokasi} onChange={e => setForm({ ...form, lokasi: e.target.value })} />
+                <button type="submit" className="control-btn solid">Save</button>
+                {formError && <span role="alert" style={{ color: 'var(--dss-bahaya)' }}>{formError}</span>}
+              </form>
+            )}
             <div className="data-table-container">
               {displayDevices.length === 0 ? (
                 <div style={{ padding: '3.5rem 1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
@@ -89,9 +132,9 @@ export default function SensorNodesPage() {
                             </div>
                           </td>
                           <td className="text-right">
-                            <button className="icon-btn" onClick={(e) => e.stopPropagation()}>
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
-                            </button>
+                            {isAdmin && <button className="icon-btn" aria-label={`Delete ${device.name || device.node_id}`} title="Delete device" onClick={(e) => removeDevice(e, device)}>
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>
+                            </button>}
                           </td>
                         </tr>
                       ))}

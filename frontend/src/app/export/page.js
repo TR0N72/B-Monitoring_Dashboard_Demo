@@ -8,8 +8,8 @@ import Sidebar from '@/components/Sidebar';
 import TopAppBar from '@/components/TopAppBar';
 
 const parameters = [
-  { key: 'temperature', label: 'Water Temperature', unit: '°C', checked: true },
-  { key: 'salinity', label: 'Salinity', unit: 'ppt', checked: true },
+  { key: 'suhu', label: 'Water Temperature', unit: '°C', checked: true },
+  { key: 'salinitas', label: 'Salinity', unit: 'ppt', checked: true },
   { key: 'ph', label: 'pH Level', unit: 'pH', checked: true },
   { key: 'turbidity', label: 'Turbidity', unit: 'NTU', checked: true },
   { key: 'baterai', label: 'Battery Level', unit: '%', checked: true },
@@ -74,7 +74,8 @@ export default function ExportLogsPage() {
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const res = await apiFetch(`/api/logs/export?type=${exportType}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`);
+      const cols = Object.keys(checkedParams).filter(k => checkedParams[k]).join(',');
+      const res = await apiFetch(`/api/logs/export?type=${exportType}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&columns=${encodeURIComponent(cols)}`);
       if (res.ok) {
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);

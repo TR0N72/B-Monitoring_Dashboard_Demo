@@ -13,8 +13,8 @@ router.get('/', async (req, res) => {
       start_date,
       end_date,
     } = req.query;
-    const offset = (Math.max(1, parseInt(page, 10)) - 1) * parseInt(limit, 10);
-    const pageLimit = Math.min(100, Math.max(1, parseInt(limit, 10)));
+    const pageLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+    const offset = (Math.max(1, parseInt(page, 10) || 1) - 1) * pageLimit;
     const conditions = [];
     const params = [];
     if (level) {
@@ -42,7 +42,7 @@ router.get('/', async (req, res) => {
       params
     );
     const total = countResult[0].total;
-    const [rows] = await pool.execute(`
+    const [rows] = await pool.query(`
       SELECT
         al.id, al.parameter, al.measured_value, al.threshold_min, al.threshold_max,
         al.level_peringatan, al.pesan_notifikasi, al.acknowledged, al.created_at,
@@ -107,10 +107,18 @@ router.get('/export', async (req, res) => {
         LIMIT 10000
       `, params);
 
-      const headers = [
-        'ID', 'Hardware ID', 'Device Name', 'Suhu (C)', 'Salinitas (ppt)',
-        'pH Level', 'Turbidity (NTU)', 'Battery (%)', 'RSSI (dBm)', 'Timestamp'
+      // Optional `columns` (csv of sensor keys) limits sensor columns; identity columns always kept.
+      const sensorCols = [
+        ['suhu', 'Suhu (C)', 'suhu'], ['salinitas', 'Salinitas (ppt)', 'salinitas'],
+        ['ph', 'pH Level', 'ph_level'], ['turbidity', 'Turbidity (NTU)', 'turbidity'],
+        ['baterai', 'Battery (%)', 'baterai'], ['rssi', 'RSSI (dBm)', 'rssi'],
       ];
+      const aliases = { temperature: 'suhu', salinity: 'salinitas' };
+      const wanted = typeof req.query.columns === 'string' && req.query.columns
+        ? new Set(req.query.columns.split(',').map((c) => aliases[c.trim()] || c.trim()))
+        : null;
+      const picked = sensorCols.filter(([k]) => !wanted || wanted.has(k));
+      const headers = ['ID', 'Hardware ID', 'Device Name', ...picked.map((c) => c[1]), 'Timestamp'];
       const csvLines = [headers.join(',')];
       for (const row of rows) {
         const hwId = (row.hardware_id || '').replace(/"/g, '""');
@@ -119,12 +127,7 @@ router.get('/export', async (req, res) => {
           row.id,
           `"${hwId}"`,
           `"${devName}"`,
-          row.suhu ?? '',
-          row.salinitas ?? '',
-          row.ph_level ?? '',
-          row.turbidity ?? '',
-          row.baterai ?? '',
-          row.rssi ?? '',
+          ...picked.map((c) => row[c[2]] ?? ''),
           row.recorded_at,
         ].join(','));
       }
@@ -133,7 +136,7 @@ router.get('/export', async (req, res) => {
       return res.send(csvLines.join('\n'));
     }
 
-    const [rows] = await pool.execute(`
+    const [rows] = await pool.query(`
       SELECT
         al.id, d.node_id AS hardware_id, d.name AS device_name,
         al.parameter, al.measured_value, al.threshold_min, al.threshold_max,

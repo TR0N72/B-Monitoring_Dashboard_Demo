@@ -100,7 +100,7 @@ router.get('/history', async (req, res) => {
     query += ` ORDER BY sd.recorded_at DESC LIMIT ?`;
     params.push(Number(finalLimit));
 
-    const [rows] = await pool.execute(query, params);
+    const [rows] = await pool.query(query, params);
 
     if (parameter && ['suhu', 'ph_level', 'salinitas', 'turbidity', 'baterai', 'rssi'].includes(parameter)) {
       const mappedData = rows.map(r => ({

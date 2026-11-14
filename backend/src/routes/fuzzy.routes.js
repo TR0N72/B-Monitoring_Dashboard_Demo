@@ -113,8 +113,8 @@ router.post('/simulate', (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const { device_id, start_date, end_date, page = 1, limit = 50 } = req.query;
-    const offset    = (Math.max(1, parseInt(page, 10)) - 1) * Math.min(100, parseInt(limit, 10));
-    const pageLimit = Math.min(100, parseInt(limit, 10));
+    const pageLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
+    const offset    = (Math.max(1, parseInt(page, 10) || 1) - 1) * pageLimit;
 
     let query = `
       SELECT
@@ -150,7 +150,7 @@ router.get('/', async (req, res) => {
     params.push(Number(pageLimit), Number(offset));
 
     const pool   = getPool();
-    const [rows] = await pool.execute(query, params);
+    const [rows] = await pool.query(query, params);
 
     // Parse fired_rules JSON jika masih string
     const data = rows.map(row => ({

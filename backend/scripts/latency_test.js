@@ -1,6 +1,7 @@
 const mqtt = require('mqtt');
 const io = require('socket.io-client');
 const axios = require('axios');
+const jwt = require('jsonwebtoken');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
@@ -43,30 +44,32 @@ async function testTelegramLatency() {
 function testMQTTtoWSTLatency() {
   return new Promise((resolve) => {
     console.log('\nMulai menguji Latensi MQTT -> Node.js -> WebSocket...');
-    const mqttClient = mqtt.connect(MQTT_URL);
-    const socket = io(API_URL);
+    const mqttOpts = {};
+    if (process.env.MQTT_USER) mqttOpts.username = process.env.MQTT_USER;
+    if (process.env.MQTT_PASSWORD) mqttOpts.password = process.env.MQTT_PASSWORD;
+    const mqttClient = mqtt.connect(MQTT_URL, mqttOpts);
+    const token = jwt.sign({ id: 1, username: 'admin', role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '5m' });
+    const socket = io(API_URL, { path: '/ws', auth: { token }, transports: ['websocket'] });
     
     let startTime;
     
-    socket.on('connect', () => {
-      console.log('✓ WebSocket Terhubung');
-      
-      mqttClient.on('connect', () => {
-        console.log('✓ MQTT Terhubung. Mengirim payload dummy...');
-        
-        // Data pemicu alert (suhu sangat tinggi)
-        const payload = {
-          node_id: 'INTEGRATION-NODE-01',
-          suhu: 40.0,
-          salinitas: 15.0
-        };
-        
-        startTime = Date.now();
-        mqttClient.publish('tambak/sensor/data', JSON.stringify(payload));
-      });
-    });
+    let wsReady = false;
+    let mqttReady = false;
+    const fire = () => {
+      if (!wsReady || !mqttReady || startTime) return;
+      console.log('✓ WebSocket + MQTT Terhubung. Mengirim payload dummy...');
+      // Data pemicu alert (suhu sangat tinggi)
+      const payload = { suhu: 40.0, salinitas: 15.0, baterai: 95, rssi: -72 };
+      startTime = Date.now();
+      mqttClient.publish('tambak/ESP32-NODE-01/sensor', JSON.stringify(payload));
+    };
+    socket.on('connect', () => { wsReady = true; fire(); });
+    socket.on('connect_error', (e) => console.log(`WS error: ${e.message}`));
+    mqttClient.on('connect', () => { mqttReady = true; fire(); });
+    mqttClient.on('error', (e) => console.log(`MQTT error: ${e.message}`));
 
-    socket.on('new_alert', (data) => {
+    socket.on('dss:update', (data) => {
+      if (data.node_id !== 'ESP32-NODE-01' || !startTime) return;
       const latency = Date.now() - startTime;
       console.log(`✓ Node.js Processing + WS Latency: ${latency}ms`);
       

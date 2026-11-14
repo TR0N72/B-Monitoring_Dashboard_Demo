@@ -106,7 +106,7 @@ const mockExecute = jest.fn(async (query, params) => {
   return [[], {}];
 });
 
-const mockPool = { execute: mockExecute, getConnection: jest.fn(() => ({ execute: mockExecute, beginTransaction: jest.fn(), commit: jest.fn(), rollback: jest.fn(), release: jest.fn() })) };
+const mockPool = { execute: mockExecute, query: mockExecute, getConnection: jest.fn(() => ({ execute: mockExecute, beginTransaction: jest.fn(), commit: jest.fn(), rollback: jest.fn(), release: jest.fn() })) };
 
 jest.mock('../config/db', () => ({
   getPool: jest.fn(() => mockPool),

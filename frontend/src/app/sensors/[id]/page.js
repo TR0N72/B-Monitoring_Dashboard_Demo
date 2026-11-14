@@ -13,6 +13,7 @@ export default function NodeDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const [device, setDevice] = useState(null);
+  const [readings, setReadings] = useState([]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/login');
@@ -25,7 +26,13 @@ export default function NodeDetailsPage() {
         const res = await apiFetch(`/api/devices/${params.id}`);
         if (res.ok) {
           const data = await res.json();
-          setDevice(data.device || data);
+          const dev = data.device || data;
+          setDevice(dev);
+          const hr = await apiFetch(`/api/sensors/history?device_id=${encodeURIComponent(dev.node_id || params.id)}&limit=100`);
+          if (hr.ok) {
+            const hj = await hr.json();
+            setReadings(hj.data || hj.readings || []);
+          }
         }
       } catch (err) {
         console.error('Failed to fetch device:', err);
@@ -53,6 +60,10 @@ export default function NodeDetailsPage() {
   }
 
   const d = device;
+  const temps = readings.filter(r => r.suhu != null).map(r => Number(r.suhu));
+  const avgTemp = temps.length ? (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1) : '—';
+  const lastRssi = readings.length && readings[0].rssi != null ? readings[0].rssi : '—';
+  const lastSeen = readings.length ? new Date(readings[0].recorded_at).toLocaleString() : (d.last_seen ? new Date(d.last_seen).toLocaleString() : '—');
 
   return (
     <div className="main-dashboard">
@@ -87,17 +98,17 @@ export default function NodeDetailsPage() {
                   <div className="info-item"><span className="info-label">Node ID / MAC</span><span className="info-value mono">{d.mac_address || d.node_id || '—'}</span></div>
                   <div className="info-item"><span className="info-label">Firmware</span><span className="info-value">{d.firmware_version || d.firmware || 'v1.0.0'}</span></div>
                   <div className="info-item"><span className="info-label">Status</span><span className="info-value">{d.status || 'Active'}</span></div>
-                  <div className="info-item"><span className="info-label">Last Seen</span><span className="info-value">{d.last_seen ? new Date(d.last_seen).toLocaleString() : 'Recent'}</span></div>
+                  <div className="info-item"><span className="info-label">Last Seen</span><span className="info-value">{lastSeen}</span></div>
                 </div>
               </div>
               <div className="metric-cards-2-col">
                 <div className="metric-card">
                   <div className="card-header">AVG TEMP</div>
-                  <div className="card-value"><span className="value">24.2</span><span className="unit">°C</span></div>
+                  <div className="card-value"><span className="value">{avgTemp}</span><span className="unit">°C</span></div>
                 </div>
                 <div className="metric-card">
                   <div className="card-header" style={{ flexDirection: 'column' }}><span>SIGNAL</span><span>STRENGTH</span></div>
-                  <div className="card-value"><span className="value">-65</span><span className="unit">dBm</span></div>
+                  <div className="card-value"><span className="value">{lastRssi}</span><span className="unit">dBm</span></div>
                 </div>
               </div>
               <div className="info-card">
@@ -125,7 +136,16 @@ export default function NodeDetailsPage() {
                   <h2 style={{ fontFamily: "'Manrope', sans-serif", fontSize: '20px' }}>Real-time Telemetry</h2>
                 </div>
                 <div className="chart-area" style={{ backgroundColor: '#f6f3f5', borderColor: '#e4e2e4' }}>
-                  <span className="chart-placeholder">[Grafana Stacked Chart — Device Filtered]</span>
+                  {temps.length > 1 ? (() => {
+                    const pts = [...temps].reverse();
+                    const lo = Math.min(...pts), hi = Math.max(...pts), span = hi - lo || 1;
+                    const line = pts.map((v, i) => `${(i / (pts.length - 1)) * 300},${55 - ((v - lo) / span) * 50}`).join(' ');
+                    return (
+                      <svg viewBox="0 0 300 60" width="100%" height="100%" preserveAspectRatio="none" role="img" aria-label={`Temperature, last ${pts.length} readings, ${lo.toFixed(1)} to ${hi.toFixed(1)} °C`}>
+                        <polyline points={line} fill="none" stroke="#3b82f6" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+                      </svg>
+                    );
+                  })() : <span className="chart-placeholder">No telemetry yet.</span>}
                 </div>
               </div>
               <div className="recent-logs-card">
@@ -143,10 +163,17 @@ export default function NodeDetailsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      <tr><td>2023-10-27 14:32:01</td><td><span className="log-badge info">INFO</span></td><td>Telemetry payload sent successfully.</td></tr>
-                      <tr><td>2023-10-27 14:31:01</td><td><span className="log-badge info">INFO</span></td><td>Telemetry payload sent successfully.</td></tr>
-                      <tr><td>2023-10-27 14:28:45</td><td><span className="log-badge warn">WARN</span></td><td>Signal strength dropped below threshold (-75 dBm).</td></tr>
-                      <tr><td>2023-10-27 14:25:01</td><td><span className="log-badge info">INFO</span></td><td>Telemetry payload sent successfully.</td></tr>
+                      {readings.slice(0, 8).map(r => {
+                        const weak = r.rssi != null && Number(r.rssi) < -75;
+                        return (
+                          <tr key={r.id}>
+                            <td>{new Date(r.recorded_at).toLocaleString()}</td>
+                            <td><span className={`log-badge ${weak ? 'warn' : 'info'}`}>{weak ? 'WARN' : 'INFO'}</span></td>
+                            <td>{weak ? `Signal strength below threshold (${r.rssi} dBm).` : `Telemetry received: ${r.suhu ?? '—'} °C, ${r.salinitas ?? '—'} ppt.`}</td>
+                          </tr>
+                        );
+                      })}
+                      {readings.length === 0 && <tr><td colSpan={3}>No telemetry yet.</td></tr>}
                     </tbody>
                   </table>
                 </div>

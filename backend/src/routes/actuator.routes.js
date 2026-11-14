@@ -103,8 +103,8 @@ router.post('/command', authorize('admin'), async (req, res) => {
 router.get('/logs', async (req, res) => {
   try {
     const { device_id, start_date, end_date, trigger_source, page = 1, limit = 50 } = req.query;
-    const offset    = (Math.max(1, parseInt(page, 10)) - 1) * Math.min(100, parseInt(limit, 10));
-    const pageLimit = Math.min(100, parseInt(limit, 10));
+    const pageLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
+    const offset    = (Math.max(1, parseInt(page, 10) || 1) - 1) * pageLimit;
 
     let query = `
       SELECT
@@ -143,7 +143,7 @@ router.get('/logs', async (req, res) => {
     params.push(Number(pageLimit), Number(offset));
 
     const pool   = getPool();
-    const [rows] = await pool.execute(query, params);
+    const [rows] = await pool.query(query, params);
 
     return res.json({ data: rows, pagination: { page: parseInt(page, 10), limit: pageLimit } });
   } catch (err) {

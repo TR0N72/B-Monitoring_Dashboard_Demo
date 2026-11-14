@@ -19,8 +19,8 @@ router.get('/:id', async (req, res) => {
   try {
     const pool = getPool();
     const [rows] = await pool.execute(
-      'SELECT id, node_id, name, type, mac_address, lokasi, status, last_seen, created_at, updated_at FROM devices WHERE id = ?',
-      [req.params.id]
+      'SELECT id, node_id, name, type, mac_address, lokasi, status, last_seen, created_at, updated_at FROM devices WHERE id = ? OR node_id = ?',
+      [req.params.id, req.params.id]
     );
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Device not found.' });

@@ -215,11 +215,11 @@ export default function DSSPage() {
                   </div>
                   <div className="dss-mem-value" style={{ textTransform: 'capitalize' }}>{visualLabel}</div>
                   <div className="dss-mem-bar-group">
-                    {['jernih', 'keruh', 'anomali', 'none'].map(m => {
-                      const isActive = String(visualLabel).toLowerCase() === m;
+                    {['Normal', 'Caution', 'Warning', 'none'].map(m => {
+                      const isActive = String(visualLabel).toLowerCase() === m.toLowerCase();
                       return (
                         <div key={m} className={`dss-mem-indicator ${isActive ? 'active' : ''}`}>
-                          <div className="dss-mem-dot" style={{ backgroundColor: isActive ? (m === 'jernih' ? 'var(--dss-aman)' : m === 'keruh' ? 'var(--dss-waspada)' : m === 'anomali' ? 'var(--dss-bahaya)' : 'var(--card-border)') : 'var(--card-border)' }}></div>
+                          <div className="dss-mem-dot" style={{ backgroundColor: isActive ? (m === 'Normal' ? 'var(--dss-aman)' : m === 'Caution' ? 'var(--dss-waspada)' : m === 'Warning' ? 'var(--dss-bahaya)' : 'var(--card-border)') : 'var(--card-border)' }}></div>
                           <span>{m}</span>
                         </div>
                       );

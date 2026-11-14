@@ -14,6 +14,7 @@ export default function AnalyticsPage() {
   const [activeFilter, setActiveFilter] = useState('24h');
   const [stats, setStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(true);
+  const [byNode, setByNode] = useState([]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/login');
@@ -55,6 +56,26 @@ export default function AnalyticsPage() {
             if (d.salinitas != null) { sumSal += Number(d.salinitas); countSal++; }
             if (d.turbidity != null) { sumTurb += Number(d.turbidity); countTurb++; }
           });
+
+          const dr = await apiFetch('/api/devices');
+          const devList = dr.ok ? ((await dr.json()).devices || []) : [];
+          const groups = {};
+          devList.forEach(dv => { groups[dv.node_id] = { name: dv.name, rows: [] }; });
+          dataset.forEach(r => {
+            (groups[r.node_id] ||= { name: r.node_id, rows: [] }).rows.push(r);
+          });
+          const avg = (rows, k) => {
+            const v = rows.filter(r => r[k] != null).map(r => Number(r[k]));
+            return v.length ? (v.reduce((a, b) => a + b, 0) / v.length).toFixed(1) : '—';
+          };
+          if (!ignore) {
+            setByNode(Object.entries(groups).map(([id, g]) => ({
+              id, name: g.name || id,
+              temp: avg(g.rows, 'suhu'), ph: avg(g.rows, 'ph_level'),
+              sal: avg(g.rows, 'salinitas'), turb: avg(g.rows, 'turbidity'),
+              online: g.rows.length > 0 && Date.now() - new Date(g.rows[0].recorded_at).getTime() < 10 * 60 * 1000,
+            })));
+          }
 
           setStats({
             avgTemp: countTemp > 0 ? (sumTemp / countTemp).toFixed(1) : '—',
@@ -167,13 +188,13 @@ export default function AnalyticsPage() {
               <div className="table-title-bar"><h2>Data Summary — By Node</h2></div>
               <table className="data-table">
                 <thead>
-                  <tr><th>NODE</th><th>AVG TEMP (°C)</th><th>AVG pH</th><th>AVG SALINITY (ppt)</th><th>AVG TURBIDITY (NTU)</th><th>ALERTS</th><th>STATUS</th></tr>
+                  <tr><th>NODE</th><th>AVG TEMP (°C)</th><th>AVG pH</th><th>AVG SALINITY (ppt)</th><th>AVG TURBIDITY (NTU)</th><th>STATUS</th></tr>
                 </thead>
                 <tbody>
-                  <tr><td className="fw-500">Alpha-Node-01</td><td>24.2</td><td>7.1</td><td>22.5</td><td>11.3</td><td>2</td><td><div className="status-indicator"><div className="status-dot active"></div><span>Normal</span></div></td></tr>
-                  <tr><td className="fw-500">Beta-Node-04</td><td>25.1</td><td>7.3</td><td>23.1</td><td>14.7</td><td>5</td><td><div className="status-indicator"><div className="status-dot active"></div><span>Normal</span></div></td></tr>
-                  <tr><td className="fw-500">Delta-Node-09</td><td>—</td><td>—</td><td>—</td><td>—</td><td>12</td><td><div className="status-indicator"><div className="status-dot offline"></div><span>Offline</span></div></td></tr>
-                  <tr><td className="fw-500">Gamma-Node-02</td><td>23.8</td><td>7.0</td><td>21.9</td><td>10.1</td><td>0</td><td><div className="status-indicator"><div className="status-dot active"></div><span>Normal</span></div></td></tr>
+                  {byNode.map(n => (
+                    <tr key={n.id}><td className="fw-500">{n.name}</td><td>{n.temp}</td><td>{n.ph}</td><td>{n.sal}</td><td>{n.turb}</td><td><div className="status-indicator"><div className={`status-dot ${n.online ? 'active' : 'offline'}`}></div><span>{n.online ? 'Online' : 'Offline'}</span></div></td></tr>
+                  ))}
+                  {byNode.length === 0 && <tr><td colSpan={6}>No data.</td></tr>}
                 </tbody>
               </table>
             </div>
