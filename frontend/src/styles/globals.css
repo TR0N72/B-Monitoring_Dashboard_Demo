@@ -2101,3 +2101,32 @@ h1, h2, h3, .brand-title {
     0%   { background-position: 200% 0; }
     100% { background-position: -200% 0; }
 }
+
+/* Mobile nav drawer: toggled via body.nav-open (TopAppBar button) */
+.nav-toggle, .sidebar-backdrop { display: none; }
+@media (max-width: 900px) {
+    .main-content { padding-left: 0; }
+    .top-app-bar { padding: 12px 16px; gap: 8px; }
+    .top-app-bar .header-title { margin-right: auto; }
+    .scrollable-content { padding: 16px; }
+    .nav-toggle { display: inline-flex; color: var(--text-primary); }
+    .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.2s ease, visibility 0s 0.2s;
+        visibility: hidden;
+        overflow-y: auto;
+        z-index: 30;
+        box-shadow: none;
+    }
+    body.nav-open .sidebar { visibility: visible; transition-delay: 0s; transform: none; box-shadow: 4px 0 24px rgba(0,0,0,0.25); }
+    body.nav-open .sidebar-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.45);
+        z-index: 20;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .sidebar { transition: none; }
+}

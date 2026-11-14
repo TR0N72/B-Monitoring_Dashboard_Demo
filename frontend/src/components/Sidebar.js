@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -23,6 +24,14 @@ export default function Sidebar() {
   if (user?.role === 'admin') {
     navItems.push({ href: '/users', label: 'User Management', iconSvg: 'users' });
   }
+
+  // close drawer on navigation (state lives in body class, see TopAppBar)
+  useEffect(() => { document.body.classList.remove('nav-open'); }, [pathname]);
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') document.body.classList.remove('nav-open'); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
 
   const isActive = (href) => {
     if (href === '/') return pathname === '/';
@@ -75,6 +84,8 @@ export default function Sidebar() {
   };
 
   return (
+    <>
+    <div className="sidebar-backdrop" onClick={() => document.body.classList.remove('nav-open')} />
     <aside className="sidebar">
       <div className="sidebar-header">
         <div className="sidebar-brand">
@@ -120,5 +131,6 @@ export default function Sidebar() {
         </a>
       </div>
     </aside>
+    </>
   );
 }
