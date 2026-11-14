@@ -64,6 +64,7 @@ function initMQTT() {
         'tambak/+/sensor',
         'tambak/+/actuator/status',
         'tambak/+/sensor/vibration',
+        'tambak/+/camera/result',
       ];
 
       topics.forEach(topic => {
@@ -90,6 +91,8 @@ function initMQTT() {
 
         if (msgType === 'sensor' && msgSubtype === 'vibration') {
           await handleVibrationMessage(nodeId, payload);
+        } else if (msgType === 'camera' && msgSubtype === 'result') {
+          await require('../services/aiDetection').saveDetection({ ...payload, node_id: nodeId });
         } else if (msgType === 'sensor') {
           await handleSensorData(nodeId, payload);
         } else if (msgType === 'actuator' && msgSubtype === 'status') {

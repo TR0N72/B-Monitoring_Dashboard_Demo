@@ -12,7 +12,27 @@ async function initMySQL() {
     queueLimit: 0,
   });
   const conn = await pool.getConnection();
-  conn.release();
+  try {
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS ai_detection_logs (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        device_id INT NOT NULL,
+        sensor_data_id BIGINT DEFAULT NULL,
+        image_path VARCHAR(255) DEFAULT NULL,
+        detection_type VARCHAR(50) DEFAULT 'visual_classification',
+        label VARCHAR(20) NOT NULL,
+        confidence FLOAT NOT NULL,
+        model_version VARCHAR(50) DEFAULT 'XGBoost_v1.0',
+        hsv_metadata JSON DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE,
+        FOREIGN KEY (sensor_data_id) REFERENCES sensor_data(id) ON DELETE SET NULL,
+        INDEX idx_ai_device_created (device_id, created_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+  } finally {
+    conn.release();
+  }
   return pool;
 }
 function getPool() {
