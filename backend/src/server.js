@@ -8,6 +8,7 @@ const cookieParser = require('cookie-parser');
 const { initMySQL, closeMySQL } = require('./config/db');
 const { initMQTT, closeMQTT } = require('./config/mqtt');
 const { initSocket } = require('./socket/alerts');
+const { startCycleScheduler } = require('./services/cycleScheduler');
 const authRoutes = require('./routes/auth.routes');
 const devicesRoutes = require('./routes/devices.routes');
 const thresholdsRoutes = require('./routes/thresholds.routes');
@@ -69,6 +70,7 @@ async function start() {
       console.warn('⚠ MQTT not available:', err.message);
     });
     initSocket(server);
+    startCycleScheduler();
     console.log('✓ Socket.io initialized');
     verifyBot().catch(() => {});
     server.listen(PORT, () => {
