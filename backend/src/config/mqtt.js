@@ -424,12 +424,12 @@ async function handleActuatorStatus(nodeId, payload) {
       if (payload.command_id) {
         await connection.execute(
           'UPDATE actuator_logs SET status = ?, trigger_detail = ? WHERE id = ?',
-          [payload.status || 'executed', payload.trigger_detail || null, payload.command_id]
+          [String(payload.status || 'executed').slice(0, 20), payload.trigger_detail || payload.detail || null, payload.command_id]
         );
       } else {
         await connection.execute(
           'INSERT INTO actuator_logs (device_id, aksi, trigger_source, status, trigger_detail) VALUES (?, ?, ?, ?, ?)',
-          [internalId, payload.aksi || 'UNKNOWN', 'edge', payload.status || 'executed', payload.trigger_detail || null]
+          [internalId, payload.aksi || 'UNKNOWN', 'edge', String(payload.status || 'executed').slice(0, 20), payload.trigger_detail || payload.detail || null]
         );
       }
 

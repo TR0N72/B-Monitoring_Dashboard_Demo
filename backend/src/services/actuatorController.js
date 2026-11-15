@@ -54,13 +54,13 @@ const ACTUATOR_ACTIONS = {
   EMERGENCY_STOP    : 'EMERGENCY_STOP',      // Hentikan semua sistem (darurat)
   START_MEASURE     : 'START_MEASURE',       // Gateway: 1x siklus ukur salinitas
   FILL_AND_MEASURE  : 'FILL_AND_MEASURE',    // Gateway: isi lalu ukur
-  FULL_CYCLE        : 'FULL_CYCLE',          // Gateway: isi, ukur, kuras
+  START_CYCLE       : 'START_CYCLE',         // Gateway: siklus penuh isi, ukur, kuras
 };
 
 /** Kode 1 karakter untuk Gateway (dikirim di field `cmd`); aksi tanpa kode tidak punya field cmd */
 const ACTION_CMD = {
   OPEN_FILL_VALVE: 'f', OPEN_DRAIN_VALVE: 'k', START_MEASURE: 'm',
-  FILL_AND_MEASURE: 'x', FULL_CYCLE: 'c', EMERGENCY_STOP: 's',
+  FILL_AND_MEASURE: 'x', START_CYCLE: 'c', EMERGENCY_STOP: 's',
 };
 
 /** DSS Score thresholds untuk penentuan level tindakan */
