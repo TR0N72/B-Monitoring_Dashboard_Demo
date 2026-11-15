@@ -38,6 +38,10 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      # Dipakai provisioning datasource (docker/grafana/provisioning/datasources/mysql.yaml)
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
       GF_SECURITY_ALLOW_EMBEDDING: "true"
       # Izinkan akses anonim ke Grafana agar iframe tidak di-redirect ke /login
       GF_AUTH_ANONYMOUS_ENABLED: "true"
