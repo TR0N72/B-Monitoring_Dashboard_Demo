@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { useSocket } from '@/context/SocketContext';
 import { useApi } from '@/hooks/useApi';
 import Sidebar from '@/components/Sidebar';
 import TopAppBar from '@/components/TopAppBar';
@@ -10,6 +11,7 @@ import TopAppBar from '@/components/TopAppBar';
 export default function NodeDetailsPage() {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { apiFetch } = useApi();
+  const { subscribe } = useSocket();
   const router = useRouter();
   const params = useParams();
   const [device, setDevice] = useState(null);
@@ -40,6 +42,16 @@ export default function NodeDetailsPage() {
     }
     fetchDevice();
   }, [isAuthenticated, params.id, apiFetch]);
+
+  // Live: tambahkan pembacaan baru dari backend tanpa refetch
+  const nodeId = device?.node_id || params.id;
+  useEffect(() => {
+    if (!isAuthenticated || !device) return;
+    return subscribe('sensor_update', (p) => {
+      if (!p || p.node_id !== nodeId) return;
+      setReadings((prev) => (prev.some((r) => r.id === p.id) ? prev : [p, ...prev].slice(0, 100)));
+    });
+  }, [isAuthenticated, device, nodeId, subscribe]);
 
   if (authLoading || !isAuthenticated) return null;
 
