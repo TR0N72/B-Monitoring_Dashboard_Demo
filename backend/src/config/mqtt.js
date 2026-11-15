@@ -168,7 +168,7 @@ async function handleSensorData(nodeId, payload) {
 
       const suhu      = sanitizeFloat(payload.suhu,      0,   45, (v, min, max) => recordAnomaly('suhu', v, min, max));
       const ph_level  = sanitizeFloat(payload.ph,        0,   14, (v, min, max) => recordAnomaly('ph', v, min, max));
-      const salinitas = sanitizeFloat(payload.salinitas ?? payload.sal_ppt, 0,  100, (v, min, max) => recordAnomaly('salinitas', v, min, max));
+      let   salinitas = sanitizeFloat(payload.salinitas ?? payload.sal_ppt, 0,  100, (v, min, max) => recordAnomaly('salinitas', v, min, max));
       const turbidity = sanitizeFloat(payload.kekeruhan, 0, 1000, (v, min, max) => recordAnomaly('turbidity', v, min, max));
       const baterai   = sanitizeFloat(payload.baterai,   0,  100, (v, min, max) => recordAnomaly('baterai', v, min, max));
       const rssi      = sanitizeFloat(payload.rssi,   -150,    0, (v, min, max) => recordAnomaly('rssi', v, min, max));
@@ -184,6 +184,22 @@ async function handleSensorData(nodeId, payload) {
       if (suhu === null && salinitas === null && baterai === null) {
         console.warn(`[MQTT] Payload tidak valid dari node ${nodeId} — diabaikan:`, payload);
         return;
+      }
+
+      // Dedup: Gateway menahan salinitas final dan mengirimnya berulang di paket IDLE/DRAIN.
+      // Paket ulang tetap disimpan (suhu dll), tetapi salinitas jadi NULL agar tidak dievaluasi ulang.
+      // Rantai putus oleh paket FILL/SETTLE/MEASURE, jadi siklus baru bernilai sama tetap tercatat.
+      if (salinitas !== null && (siklus === 'IDLE' || siklus === 'DRAIN')) {
+        const [prev] = await connection.execute(
+          `SELECT salinitas, siklus_status FROM sensor_data
+            WHERE device_id = ? AND (salinitas IS NOT NULL OR siklus_status IN ('FILL','SETTLE','MEASURE'))
+            ORDER BY id DESC LIMIT 1`,
+          [internalId]
+        );
+        if (prev.length && ['IDLE', 'DRAIN'].includes(prev[0].siklus_status)
+            && prev[0].salinitas !== null && Math.abs(Number(prev[0].salinitas) - salinitas) < 1e-6) {
+          salinitas = null;
+        }
       }
 
       const [insertResult] = await connection.execute(
