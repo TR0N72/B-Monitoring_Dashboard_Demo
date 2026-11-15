@@ -34,21 +34,22 @@
  */
 const MEMBERSHIP_SPEC = {
   suhu: {
-    rendah: [-Infinity, 24, 26, 28],
-    normal: [26, 28, 30, 32],          // plateau = rentang optimal 28–30 °C
-    tinggi: [30, 32, Infinity, Infinity],
+    rendah: [-Infinity, 25, 25, 28.5],
+    normal: [25, 28.5, 31.5, 32],      // plateau = rentang normal 28.5–31.5 °C (narasumber)
+    tinggi: [31.5, 32, Infinity, Infinity],
   },
   salinitas: {
-    rendah: [-Infinity, 8, 12, 15],
-    normal: [12, 15, 25, 28],          // plateau = rentang optimal 15–25 ppt
-    tinggi: [25, 28, Infinity, Infinity],
+    // Air tawar (0 ppt) aman: tidak ada himpunan "rendah" yang bermakna (hanya untuk nilai < 0)
+    rendah: [-Infinity, -1, -1, 0],
+    normal: [-1, 0, 5, 8],             // plateau 0–5 ppt, ideal ±3 ppt
+    tinggi: [5, 8, Infinity, Infinity],
   },
 };
 
 /** Batas kondisi KRITIS satu-faktor: [bawah_penuh, bawah_mulai, atas_mulai, atas_penuh] */
 const CRITICAL_SPEC = {
-  suhu     : [21, 24, 33, 36],
-  salinitas: [4, 8, 35, 45],
+  suhu     : [23, 25, 32, 35],                       // Caution <25 / >32, Warning <23 / >35
+  salinitas: [-Infinity, -Infinity, 8, 10],          // Bahaya penuh ≥10 ppt; tidak ada batas bawah
 };
 
 function trapezoid(x, [a, b, c, d]) {

@@ -64,6 +64,9 @@ const ACTION_CMD = {
 };
 
 /** DSS Score thresholds untuk penentuan level tindakan */
+/** Node chamber ukur: BAHAYA hanya notifikasi, tanpa rantai aktuator kolam */
+const CHAMBER_NODES = (process.env.CHAMBER_NODES || 'N1').split(',').map(s => s.trim()).filter(Boolean);
+
 const DSS_THRESHOLD_WASPADA = 36;
 const DSS_THRESHOLD_BAHAYA  = 66;
 
@@ -299,6 +302,21 @@ async function evaluateAndActuate({ mqttClient, deviceId, nodeId, fuzzyResult, r
   if (score >= DSS_THRESHOLD_BAHAYA) {
     if (isInBahayaCooldown(deviceId)) {
       console.log(`[AutoActuator] BAHAYA on ${nodeId} — skipping (in cooldown)`);
+      return;
+    }
+
+    // ── Node chamber ukur (mis. N1): relay hanya isi/kuras chamber, bukan kolam → notifikasi saja ──
+    if (CHAMBER_NODES.includes(nodeId)) {
+      setBahayaCooldown(deviceId);
+      console.log(`[AutoActuator] BAHAYA on ${nodeId} (score: ${score}) — chamber node, notifying only`);
+      if (io) {
+        io.emit('system:status', {
+          device_id: deviceId, node_id: nodeId, level: 'bahaya', dss_score: score,
+          recommendation, auto_action: false, timestamp: new Date(),
+          message: `Kondisi BAHAYA pada node ${nodeId}. DSS Score: ${score}/100. Tidak ada aksi otomatis.`,
+        });
+      }
+      tq.sendDssAlert({ deviceId, nodeId, dssScore: score, recommendation, readings, level: 'bahaya' });
       return;
     }
 

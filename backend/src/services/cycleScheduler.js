@@ -8,7 +8,20 @@ const { isEmergencyActive } = require('./emergencyState');
 
 const PENDING_WINDOW_MIN = 20; // START_CYCLE tanpa ack dianggap masih berjalan selama ini
 
+// Perintah tanpa ack = Gateway putus / paket hilang (MQTT QoS 0, LoRa tanpa retry). Tandai gagal agar tidak pending selamanya.
+// START_CYCLE: Gateway timeout 850 dtk (~14 mnt) → 15 mnt. Lainnya: maks 600 dtk → 12 mnt.
+async function expirePending() {
+  const [r] = await getPool().execute(
+    `UPDATE actuator_logs SET status = 'gagal',
+       trigger_detail = CONCAT(COALESCE(trigger_detail, ''), ' | kedaluwarsa: tidak ada ack dari Gateway')
+     WHERE status = 'pending'
+       AND executed_at < NOW() - INTERVAL (CASE WHEN aksi = 'START_CYCLE' THEN 15 ELSE 12 END) MINUTE`);
+  if (r.affectedRows) console.warn(`[Scheduler] ${r.affectedRows} perintah pending kedaluwarsa → gagal`);
+  return r.affectedRows;
+}
+
 async function tick(nodes) {
+  await expirePending();
   const pool = getPool();
   const sent = [];
   for (const nodeId of nodes) {
@@ -39,6 +52,8 @@ async function tick(nodes) {
 }
 
 function startCycleScheduler() {
+  const e = setInterval(() => expirePending().catch((err) => console.error('[Scheduler] expire:', err.message)), 60000);
+  e.unref();
   const min = Number(process.env.CYCLE_INTERVAL_MIN);
   if (!(min > 0)) { console.log('Scheduler siklus ukur: mati (CYCLE_INTERVAL_MIN kosong)'); return null; }
   const nodes = (process.env.CYCLE_NODES || 'N1').split(',').map((s) => s.trim()).filter(Boolean);
@@ -48,4 +63,4 @@ function startCycleScheduler() {
   return t;
 }
 
-module.exports = { startCycleScheduler, tick };
+module.exports = { startCycleScheduler, tick, expirePending };

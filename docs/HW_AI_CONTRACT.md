@@ -22,3 +22,13 @@
 - Perintah `tambak/N1/actuator/command`: `{"aksi":"START_MEASURE","cmd":"m","command_id":48}`
   - cmd: f=isi, k=kuras, m=ukur, x=isi+ukur, c=siklus penuh, s=stop.
 - Ack: publish ke `tambak/N1/actuator/status` `{"command_id":48,"status":"executed"}`.
+
+## Perilaku DSS dan perintah (diperbarui 2026-11-15)
+- Ambang DSS (suhu, salinitas), skor 0-100: Waspada >= 36, Bahaya >= 66.
+  - Suhu: normal 28,5-31,5 C; Waspada di bawah 25 atau di atas 32; Bahaya di bawah 23 atau di atas 35.
+  - Salinitas: 0-5 ppt Normal (air tawar aman); Waspada mulai 8 ppt; Bahaya penuh >= 10 ppt.
+  - Suhu dan salinitas tinggi tetap memicu Bahaya walau label visual `Normal` (air tidak keruh).
+  - Sensor salinitas Node mendatar sekitar 8 ppt dan menahan nilai di atas 12 ppt (ADC > 3241): pembacaan 8 ppt ke atas dinilai Waspada atau Bahaya.
+  - Kekeruhan/warna masuk fuzzy hanya lewat label AI kamera (`Normal`, `Caution`, `Warning`).
+- Node chamber (env `CHAMBER_NODES`, default `N1`): Bahaya hanya notifikasi (dashboard + Telegram). Backend tidak mengirim perintah pompa otomatis. Perintah manual dan `START_CYCLE` dari scheduler tetap jalan.
+- Perintah `pending` tanpa ack dianggap `gagal` setelah 15 menit (`START_CYCLE`) atau 12 menit (lainnya). Detail diberi akhiran `kedaluwarsa: tidak ada ack dari Gateway`.

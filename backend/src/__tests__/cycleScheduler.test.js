@@ -4,9 +4,9 @@ jest.mock('../config/mqtt', () => ({ publishMQTT: jest.fn() }));
 jest.mock('../services/emergencyState', () => ({ isEmergencyActive: jest.fn(() => false) }));
 const { publishMQTT } = require('../config/mqtt');
 const { isEmergencyActive } = require('../services/emergencyState');
-const { tick } = require('../services/cycleScheduler');
+const { tick, expirePending } = require('../services/cycleScheduler');
 
-const run = (rows) => { mockQuery.mockReset(); rows.forEach((r) => mockQuery.mockResolvedValueOnce([r])); publishMQTT.mockClear(); return tick(['N1']); };
+const run = (rows) => { mockQuery.mockReset(); [{ affectedRows: 0 }, ...rows].forEach((r) => mockQuery.mockResolvedValueOnce([r])); publishMQTT.mockClear(); return tick(['N1']); };
 
 test('kirim START_CYCLE bila IDLE dan tidak ada pending', async () => {
   expect(await run([[{ id: 4 }], [{ siklus_status: 'IDLE', fresh: 1 }], [], { insertId: 77 }])).toEqual(['N1']);
@@ -24,4 +24,9 @@ test('skip bila emergency aktif', async () => {
 });
 test('skip bila node tidak terdaftar', async () => {
   expect(await run([[]])).toEqual([]);
+});
+test('expirePending tandai pending basi jadi gagal', async () => {
+  mockQuery.mockReset(); mockQuery.mockResolvedValueOnce([{ affectedRows: 2 }]);
+  expect(await expirePending()).toBe(2);
+  expect(mockQuery.mock.calls[0][0]).toMatch(/SET status = 'gagal'[\s\S]*status = 'pending'/);
 });

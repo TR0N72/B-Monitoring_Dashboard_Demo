@@ -55,8 +55,8 @@ describe('🌡️ fuzzySuhu() — Membership Function', () => {
     expect(mu.tinggi).toBe(0);
   });
 
-  test('t = 27°C → rendah = 0.5, normal = 0.5 (tengah transisi 26–28)', () => {
-    const mu = fuzzySuhu(27);
+  test('t = 26.75°C → rendah = 0.5, normal = 0.5 (tengah transisi 25–28.5)', () => {
+    const mu = fuzzySuhu(26.75);
     expect(r4(mu.rendah)).toBe(0.5);
     expect(r4(mu.normal)).toBe(0.5);
   });
@@ -69,8 +69,8 @@ describe('🌡️ fuzzySuhu() — Membership Function', () => {
     expect(mu.tinggi).toBe(0);
   });
 
-  test('t = 28°C → normal = 1, rendah = 0 (awal plateau)', () => {
-    const mu = fuzzySuhu(28);
+  test('t = 28.5°C → normal = 1, rendah = 0 (awal plateau)', () => {
+    const mu = fuzzySuhu(28.5);
     expect(mu.normal).toBe(1);
     expect(mu.rendah).toBe(0);
   });
@@ -81,8 +81,8 @@ describe('🌡️ fuzzySuhu() — Membership Function', () => {
     expect(mu.tinggi).toBe(0);
   });
 
-  test('t = 31°C → normal = 0.5, tinggi = 0.5 (tengah transisi 30–32)', () => {
-    const mu = fuzzySuhu(31);
+  test('t = 31.75°C → normal = 0.5, tinggi = 0.5 (tengah transisi 31.5–32)', () => {
+    const mu = fuzzySuhu(31.75);
     expect(r4(mu.normal)).toBe(0.5);
     expect(r4(mu.tinggi)).toBe(0.5);
   });
@@ -134,59 +134,38 @@ describe('🌡️ fuzzySuhu() — Membership Function', () => {
 // SUITE 2: fuzzySalinitas — Fungsi Keanggotaan Salinitas
 // ─────────────────────────────────────────────────────────────────────────────
 describe('🧂 fuzzySalinitas() — Membership Function', () => {
-  // ── Titik ekstrem bawah ──────────────────────────────────────────────────
-  test('s = 5 ppt → rendah = 1 (di bawah plateau)', () => {
-    const mu = fuzzySalinitas(5);
-    expect(mu.rendah).toBe(1);
-    expect(mu.normal).toBe(0);
-    expect(mu.tinggi).toBe(0);
-  });
-
-  test('s = 8 ppt → rendah = 1 (tepat di batas plateau)', () => {
-    const mu = fuzzySalinitas(8);
-    expect(mu.rendah).toBe(1);
-  });
-
-  test('s = 10 ppt → rendah = 1 (plateau rendah ≤12)', () => {
-    const mu = fuzzySalinitas(10);
-    expect(mu.rendah).toBe(1);
-    expect(mu.normal).toBe(0);
-  });
-
-  test('s = 13.5 ppt → rendah = 0.5, normal = 0.5 (tengah transisi 12–15)', () => {
-    const mu = fuzzySalinitas(13.5);
-    expect(r4(mu.rendah)).toBe(0.5);
-    expect(r4(mu.normal)).toBe(0.5);
-  });
-
-  // ── Zona normal (trapezoidal plateau optimal 15–25) ──────────────────────
-  test('s = 17 ppt → normal = 1 (masuk plateau)', () => {
-    const mu = fuzzySalinitas(17);
-    expect(mu.normal).toBe(1);
-  });
-
-  test('s = 20 ppt → normal = 1 (tengah plateau optimal)', () => {
-    const mu = fuzzySalinitas(20);
+  // Spec: normal [-1, 0, 5, 8] (air tawar 0 ppt aman), tinggi [5, 8, ∞, ∞]
+  test('s = 0 ppt (air tawar) → normal = 1, rendah = 0, tinggi = 0', () => {
+    const mu = fuzzySalinitas(0);
     expect(mu.normal).toBe(1);
     expect(mu.rendah).toBe(0);
     expect(mu.tinggi).toBe(0);
   });
 
-  test('s = 22 ppt → normal = 1 (ujung plateau)', () => {
-    const mu = fuzzySalinitas(22);
-    expect(mu.normal).toBe(1);
+  test('s = 3 ppt → normal = 1 (ideal)', () => {
+    expect(fuzzySalinitas(3).normal).toBe(1);
   });
 
-  test('s = 25 ppt → normal = 1 (akhir plateau), tinggi = 0', () => {
-    const mu = fuzzySalinitas(25);
+  test('s = 5 ppt → normal = 1 (akhir plateau), tinggi = 0', () => {
+    const mu = fuzzySalinitas(5);
     expect(mu.normal).toBe(1);
     expect(mu.tinggi).toBe(0);
   });
 
-  test('s = 26.5 ppt → normal = 0.5, tinggi = 0.5 (tengah transisi 25–28)', () => {
-    const mu = fuzzySalinitas(26.5);
+  test('s = 6.5 ppt → normal = 0.5, tinggi = 0.5 (tengah transisi 5–8)', () => {
+    const mu = fuzzySalinitas(6.5);
     expect(r4(mu.normal)).toBe(0.5);
     expect(r4(mu.tinggi)).toBe(0.5);
+  });
+
+  test('s = 8 ppt → tinggi = 1, normal = 0', () => {
+    const mu = fuzzySalinitas(8);
+    expect(mu.tinggi).toBe(1);
+    expect(mu.normal).toBe(0);
+  });
+
+  test('s = 13 ppt → tinggi = 1 (di atas rentang sensor)', () => {
+    expect(fuzzySalinitas(13).tinggi).toBe(1);
   });
 
   test('Partition of unity: Σμ = 1 di seluruh rentang salinitas', () => {
@@ -196,28 +175,8 @@ describe('🧂 fuzzySalinitas() — Membership Function', () => {
     }
   });
 
-  // ── Zona tinggi ─────────────────────────────────────────────────────────
-  test('s = 28.5 ppt → normal = 0 (di atas 28), tinggi = 1', () => {
-    const mu = fuzzySalinitas(28.5);
-    expect(mu.normal).toBe(0);
-    expect(mu.tinggi).toBe(1);
-  });
-
-  test('s = 32 ppt → tinggi = 1', () => {
-    const mu = fuzzySalinitas(32);
-    expect(mu.tinggi).toBe(1);
-  });
-
-  test('s = 40 ppt → tinggi = 1 (jauh di atas)', () => {
-    const mu = fuzzySalinitas(40);
-    expect(mu.tinggi).toBe(1);
-    expect(mu.rendah).toBe(0);
-    expect(mu.normal).toBe(0);
-  });
-
-  // ── Properti umum ─────────────────────────────────────────────────────────
   test('Semua nilai membership antara 0 dan 1 di berbagai salinitas', () => {
-    [0, 5, 8, 10, 12, 15, 17, 20, 22, 25, 28, 32, 40].forEach((s) => {
+    [0, 3, 5, 6.5, 8, 10, 13, 40].forEach((s) => {
       const mu = fuzzySalinitas(s);
       ['rendah', 'normal', 'tinggi'].forEach((k) => {
         expect(mu[k]).toBeGreaterThanOrEqual(0);
@@ -344,8 +303,8 @@ describe('📋 getRecommendation() — Score Classification', () => {
 describe('🐟 processFuzzy() — Skenario Nyata Tambak Juwana', () => {
   // ── Kondisi Ideal ────────────────────────────────────────────────────────
   describe('Kondisi Ideal', () => {
-    test('Suhu 29°C, Salinitas 20ppt, Visual Normal → Aman', () => {
-      const result = processFuzzy(29, 20, 'Normal');
+    test('Suhu 29°C, Salinitas 3ppt, Visual Normal → Aman', () => {
+      const result = processFuzzy(29, 3, 'Normal');
       expect(result.recommendation).toBe('Aman');
       expect(result.score).toBeLessThanOrEqual(35);
       expect(result.suhu_membership).toBe('normal');
@@ -354,7 +313,7 @@ describe('🐟 processFuzzy() — Skenario Nyata Tambak Juwana', () => {
     });
 
     test('Kondisi ideal harus mengaktifkan R13 (Aman)', () => {
-      const result = processFuzzy(29, 20, 'Normal');
+      const result = processFuzzy(29, 3, 'Normal');
       const r13 = result.fired_rules.find(r => r.rule_id === 'R13');
       expect(r13).toBeDefined();
       expect(r13.weight).toBeGreaterThan(0);
@@ -364,8 +323,8 @@ describe('🐟 processFuzzy() — Skenario Nyata Tambak Juwana', () => {
 
   // ── Kondisi Suhu Terlalu Rendah ──────────────────────────────────────────
   describe('Suhu Rendah', () => {
-    test('Suhu 20°C, Salinitas 20ppt, Visual Normal → Bahaya/Waspada', () => {
-      const result = processFuzzy(20, 20, 'Normal');
+    test('Suhu 20°C, Salinitas 3ppt, Visual Normal → Bahaya/Waspada', () => {
+      const result = processFuzzy(20, 3, 'Normal');
       // Suhu sangat rendah → setidaknya Waspada
       expect(['Waspada', 'Bahaya']).toContain(result.recommendation);
       expect(result.suhu_membership).toBe('rendah');
@@ -378,7 +337,7 @@ describe('🐟 processFuzzy() — Skenario Nyata Tambak Juwana', () => {
     });
 
     test('Suhu rendah mengaktifkan aturan R01-R09', () => {
-      const result = processFuzzy(20, 20, 'Normal');
+      const result = processFuzzy(20, 3, 'Normal');
       const rendahRules = result.fired_rules.filter(r =>
         ['R01','R02','R03','R04','R05','R06','R07','R08','R09'].includes(r.rule_id)
       );
@@ -388,8 +347,8 @@ describe('🐟 processFuzzy() — Skenario Nyata Tambak Juwana', () => {
 
   // ── Kondisi Suhu Terlalu Tinggi ──────────────────────────────────────────
   describe('Suhu Tinggi', () => {
-    test('Suhu 35°C, Salinitas 20ppt, Visual Normal → Waspada atau Bahaya', () => {
-      const result = processFuzzy(35, 20, 'Normal');
+    test('Suhu 35°C, Salinitas 3ppt, Visual Normal → Waspada atau Bahaya', () => {
+      const result = processFuzzy(35, 3, 'Normal');
       expect(['Waspada', 'Bahaya']).toContain(result.recommendation);
       expect(result.suhu_membership).toBe('tinggi');
     });
@@ -403,10 +362,20 @@ describe('🐟 processFuzzy() — Skenario Nyata Tambak Juwana', () => {
 
   // ── Kondisi Salinitas Bermasalah ─────────────────────────────────────────
   describe('Salinitas Bermasalah', () => {
-    test('Salinitas 5ppt (terlalu tawar), suhu normal → Waspada/Bahaya', () => {
-      const result = processFuzzy(29, 5, 'Normal');
-      expect(['Waspada', 'Bahaya']).toContain(result.recommendation);
-      expect(result.salinitas_membership).toBe('rendah');
+    test('Salinitas 0ppt (air tawar), suhu normal → Aman', () => {
+      const result = processFuzzy(29, 0, 'Normal');
+      expect(result.recommendation).toBe('Aman');
+      expect(result.salinitas_membership).toBe('normal');
+    });
+
+    test('Salinitas 10ppt, suhu normal, visual Normal → Bahaya (narasumber: tetap mati meski air jernih)', () => {
+      const result = processFuzzy(29, 10, 'Normal');
+      expect(result.recommendation).toBe('Bahaya');
+      expect(result.salinitas_membership).toBe('tinggi');
+    });
+
+    test('Suhu 33°C + salinitas 9ppt, visual Normal → Bahaya (suhu+salinitas tinggi, air tidak keruh)', () => {
+      expect(processFuzzy(33, 9, 'Normal').recommendation).toBe('Bahaya');
     });
 
     test('Salinitas 40ppt (terlalu asin), suhu normal → Waspada/Bahaya', () => {
@@ -419,22 +388,22 @@ describe('🐟 processFuzzy() — Skenario Nyata Tambak Juwana', () => {
   // ── Efek Visual Label ────────────────────────────────────────────────────
   describe('Pengaruh Visual Label', () => {
     test('Kondisi fisik ideal + Visual Warning → minimal Waspada', () => {
-      const ideal   = processFuzzy(29, 20, 'Normal');
-      const warning = processFuzzy(29, 20, 'Warning');
+      const ideal   = processFuzzy(29, 3, 'Normal');
+      const warning = processFuzzy(29, 3, 'Warning');
       expect(warning.score).toBeGreaterThan(ideal.score);
       expect(['Waspada', 'Bahaya']).toContain(warning.recommendation);
     });
 
     test('Visual = Caution meningkatkan skor dibanding Normal', () => {
-      const normal  = processFuzzy(29, 20, 'Normal');
-      const caution = processFuzzy(29, 20, 'Caution');
+      const normal  = processFuzzy(29, 3, 'Normal');
+      const caution = processFuzzy(29, 3, 'Caution');
       expect(caution.score).toBeGreaterThan(normal.score);
     });
 
     test('Visual Warning (default) sama dengan tanpa parameter ke-3', () => {
       // processFuzzy default param = 'Normal'
-      const withDefault = processFuzzy(29, 20);
-      const withNormal  = processFuzzy(29, 20, 'Normal');
+      const withDefault = processFuzzy(29, 3);
+      const withNormal  = processFuzzy(29, 3, 'Normal');
       expect(withDefault.score).toBe(withNormal.score);
       expect(withDefault.recommendation).toBe(withNormal.recommendation);
     });
@@ -443,7 +412,7 @@ describe('🐟 processFuzzy() — Skenario Nyata Tambak Juwana', () => {
   // ── Format Output ────────────────────────────────────────────────────────
   describe('Format Output', () => {
     test('Hasil processFuzzy memiliki semua field yang diperlukan', () => {
-      const result = processFuzzy(29, 20, 'Normal');
+      const result = processFuzzy(29, 3, 'Normal');
       expect(result).toHaveProperty('suhu_membership');
       expect(result).toHaveProperty('salinitas_membership');
       expect(result).toHaveProperty('visual_label');
@@ -466,14 +435,14 @@ describe('🐟 processFuzzy() — Skenario Nyata Tambak Juwana', () => {
     });
 
     test('score dibulatkan ke 2 desimal', () => {
-      const result = processFuzzy(29, 20, 'Normal');
+      const result = processFuzzy(29, 3, 'Normal');
       const str = result.score.toString();
       const decimals = str.includes('.') ? str.split('.')[1].length : 0;
       expect(decimals).toBeLessThanOrEqual(2);
     });
 
     test('fired_rules adalah array dan setiap rule punya field wajib', () => {
-      const result = processFuzzy(29, 20, 'Normal');
+      const result = processFuzzy(29, 3, 'Normal');
       expect(Array.isArray(result.fired_rules)).toBe(true);
       result.fired_rules.forEach((rule) => {
         expect(rule).toHaveProperty('rule_id');
@@ -499,8 +468,8 @@ describe('🐟 processFuzzy() — Skenario Nyata Tambak Juwana', () => {
 // SUITE 7: Skenario Batas & Edge Cases
 // ─────────────────────────────────────────────────────────────────────────────
 describe('🔧 Edge Cases & Boundary Values', () => {
-  test('Suhu tepat di akhir plateau rendah (26°C) — rendah = 1, normal = 0', () => {
-    const mu = fuzzySuhu(26);
+  test('Suhu tepat di akhir plateau rendah (25°C) — rendah = 1, normal = 0', () => {
+    const mu = fuzzySuhu(25);
     expect(mu.rendah).toBe(1);
     expect(mu.normal).toBe(0);
     expect(mu.tinggi).toBe(0);
@@ -513,27 +482,21 @@ describe('🔧 Edge Cases & Boundary Values', () => {
     expect(mu.tinggi).toBe(0);
   });
 
-  test('Salinitas di zona overlap rendah-normal (14ppt)', () => {
-    const mu = fuzzySalinitas(14);
-    // rendah: (15-14)/(15-12) = 1/3 ; normal: (14-12)/(15-12) = 2/3
-    expect(r4(mu.rendah)).toBe(r4(1 / 3));
-    expect(r4(mu.normal)).toBe(r4(2 / 3));
-  });
 
   test('Anomali satu faktor ekstrem mencapai Bahaya (lantai keparahan)', () => {
-    expect(processFuzzy(45, 20, 'Normal').recommendation).toBe('Bahaya');
+    expect(processFuzzy(45, 3, 'Normal').recommendation).toBe('Bahaya');
     expect(processFuzzy(29, 80, 'Normal').recommendation).toBe('Bahaya');
-    expect(processFuzzy(15, 20, 'Normal').recommendation).toBe('Bahaya');
+    expect(processFuzzy(15, 3, 'Normal').recommendation).toBe('Bahaya');
   });
 
   test('Deviasi ringan satu faktor tetap Waspada, bukan Bahaya', () => {
-    expect(processFuzzy(32, 20, 'Normal').recommendation).toBe('Waspada');
+    expect(processFuzzy(32, 3, 'Normal').recommendation).toBe('Waspada');
   });
 
   test('Spec endpoint = spec implementasi (single source of truth)', () => {
     const { MEMBERSHIP_SPEC } = require('../services/fuzzyDSS');
-    expect(MEMBERSHIP_SPEC.suhu.normal).toEqual([26, 28, 30, 32]);
-    expect(MEMBERSHIP_SPEC.salinitas.normal).toEqual([12, 15, 25, 28]);
+    expect(MEMBERSHIP_SPEC.suhu.normal).toEqual([25, 28.5, 31.5, 32]);
+    expect(MEMBERSHIP_SPEC.salinitas.normal).toEqual([-1, 0, 5, 8]);
   });
 
   test('Seluruh 9 skenario ekstrem crisp menghasilkan rekomendasi valid', () => {
@@ -650,7 +613,7 @@ describe('📐 Konsistensi Logika Bisnis', () => {
   });
 
   test('Normal < Caution < Warning dari sisi skor visual', () => {
-    const base = [29, 20]; // suhu & salinitas normal
+    const base = [29, 3]; // suhu & salinitas normal
     const scoreNormal  = processFuzzy(...base, 'Normal').score;
     const scoreCaution = processFuzzy(...base, 'Caution').score;
     const scoreWarning = processFuzzy(...base, 'Warning').score;
@@ -659,9 +622,9 @@ describe('📐 Konsistensi Logika Bisnis', () => {
   });
 
   test('Kondisi ideal (suhu + salinitas normal) selalu lebih aman dari kondisi buruk', () => {
-    const ideal  = processFuzzy(29, 20, 'Normal').score;
-    const bad1   = processFuzzy(15, 20, 'Normal').score;
-    const bad2   = processFuzzy(29, 5, 'Normal').score;
+    const ideal  = processFuzzy(29, 3, 'Normal').score;
+    const bad1   = processFuzzy(15, 3, 'Normal').score;
+    const bad2   = processFuzzy(29, 10, 'Normal').score;
     const bad3   = processFuzzy(38, 40, 'Normal').score;
     expect(ideal).toBeLessThan(bad1);
     expect(ideal).toBeLessThan(bad2);
