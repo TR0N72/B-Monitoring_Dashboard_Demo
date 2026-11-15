@@ -30,6 +30,16 @@ async function initMySQL() {
         INDEX idx_ai_device_created (device_id, created_at)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
+    // Gateway LoRa: kolom tambahan telemetri siklus ukur (idempotent)
+    const cols = { seq: 'INT NULL', adc: 'INT NULL', jarak_cm: 'FLOAT NULL', siklus_status: 'VARCHAR(10) NULL' };
+    const [have] = await conn.query(
+      "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sensor_data'");
+    const names = new Set(have.map((r) => r.COLUMN_NAME));
+    for (const [c, def] of Object.entries(cols)) {
+      if (!names.has(c)) await conn.query(`ALTER TABLE sensor_data ADD COLUMN ${c} ${def}`);
+    }
+    await conn.query(
+      "INSERT IGNORE INTO devices (node_id, name, type, lokasi, status) VALUES ('N1', 'Gateway Node N1', 'sensor_node', 'Expo', 'offline')");
   } finally {
     conn.release();
   }

@@ -51,6 +51,7 @@ jest.mock('../services/actuatorController', () => ({
     AERATOR_ON: 'AERATOR_ON', AERATOR_OFF: 'AERATOR_OFF',
     PUMP_ON: 'PUMP_ON',       PUMP_OFF: 'PUMP_OFF',
   },
+  ACTION_CMD: {},
   sendActuatorCommand:  jest.fn().mockResolvedValue(42),
   sendCommandSequence:  jest.fn().mockResolvedValue([42, 43]),
 }));

@@ -52,6 +52,15 @@ const ACTUATOR_ACTIONS = {
   PUMP_ENGINE_START : 'PUMP_ENGINE_START',   // Nyalakan pompa sirkulasi
   PUMP_ENGINE_STOP  : 'PUMP_ENGINE_STOP',    // Matikan pompa diesel
   EMERGENCY_STOP    : 'EMERGENCY_STOP',      // Hentikan semua sistem (darurat)
+  START_MEASURE     : 'START_MEASURE',       // Gateway: 1x siklus ukur salinitas
+  FILL_AND_MEASURE  : 'FILL_AND_MEASURE',    // Gateway: isi lalu ukur
+  FULL_CYCLE        : 'FULL_CYCLE',          // Gateway: isi, ukur, kuras
+};
+
+/** Kode 1 karakter untuk Gateway (dikirim di field `cmd`); aksi tanpa kode tidak punya field cmd */
+const ACTION_CMD = {
+  OPEN_FILL_VALVE: 'f', OPEN_DRAIN_VALVE: 'k', START_MEASURE: 'm',
+  FILL_AND_MEASURE: 'x', FULL_CYCLE: 'c', EMERGENCY_STOP: 's',
 };
 
 /** DSS Score thresholds untuk penentuan level tindakan */
@@ -152,7 +161,7 @@ async function dispatchActuatorCommand({ mqttClient, deviceId, nodeId, aksi, tri
   if (mqttClient && mqttClient.connected) {
     mqttClient.publish(
       `tambak/${nodeId}/actuator/command`,
-      JSON.stringify({ aksi, command_id: commandId }),
+      JSON.stringify({ aksi, cmd: ACTION_CMD[aksi], command_id: commandId }),
       { qos: 1 }
     );
     console.log(`[AutoActuator] ✓ Sent ${aksi} → ${nodeId} (cmd_id: ${commandId})`);
@@ -394,6 +403,7 @@ module.exports = {
   dispatchActuatorCommand,
   abortSequence,
   ACTUATOR_ACTIONS,
+  ACTION_CMD,
   DSS_THRESHOLD_WASPADA,
   DSS_THRESHOLD_BAHAYA,
 };

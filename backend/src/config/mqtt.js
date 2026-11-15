@@ -168,10 +168,18 @@ async function handleSensorData(nodeId, payload) {
 
       const suhu      = sanitizeFloat(payload.suhu,      0,   45, (v, min, max) => recordAnomaly('suhu', v, min, max));
       const ph_level  = sanitizeFloat(payload.ph,        0,   14, (v, min, max) => recordAnomaly('ph', v, min, max));
-      const salinitas = sanitizeFloat(payload.salinitas, 0,  100, (v, min, max) => recordAnomaly('salinitas', v, min, max));
+      const salinitas = sanitizeFloat(payload.salinitas ?? payload.sal_ppt, 0,  100, (v, min, max) => recordAnomaly('salinitas', v, min, max));
       const turbidity = sanitizeFloat(payload.kekeruhan, 0, 1000, (v, min, max) => recordAnomaly('turbidity', v, min, max));
       const baterai   = sanitizeFloat(payload.baterai,   0,  100, (v, min, max) => recordAnomaly('baterai', v, min, max));
       const rssi      = sanitizeFloat(payload.rssi,   -150,    0, (v, min, max) => recordAnomaly('rssi', v, min, max));
+
+      // Field siklus ukur dari Gateway (opsional)
+      const siklus   = ['IDLE', 'FILL', 'SETTLE', 'MEASURE', 'DRAIN'].includes(payload.status) ? payload.status : null;
+      const seq      = Number.isInteger(payload.seq) ? payload.seq : null;
+      const adc      = Number.isInteger(payload.adc) ? payload.adc : null;
+      const jarak_cm = sanitizeFloat(payload.jarak_cm, 0, 1000);
+      // Nilai salinitas baru final saat IDLE/DRAIN; selama FILL/SETTLE/MEASURE hanya disimpan
+      const isFinal  = siklus === null || siklus === 'IDLE' || siklus === 'DRAIN';
 
       if (suhu === null && salinitas === null && baterai === null) {
         console.warn(`[MQTT] Payload tidak valid dari node ${nodeId} — diabaikan:`, payload);
@@ -179,8 +187,8 @@ async function handleSensorData(nodeId, payload) {
       }
 
       const [insertResult] = await connection.execute(
-        'INSERT INTO sensor_data (device_id, suhu, ph_level, salinitas, turbidity, baterai, rssi) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [internalId, suhu, ph_level, salinitas, turbidity, baterai, rssi]
+        'INSERT INTO sensor_data (device_id, suhu, ph_level, salinitas, turbidity, baterai, rssi, seq, adc, jarak_cm, siklus_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [internalId, suhu, ph_level, salinitas, turbidity, baterai, rssi, seq, adc, jarak_cm, siklus]
       );
       const sensorDataId = insertResult.insertId;
 
@@ -198,12 +206,16 @@ async function handleSensorData(nodeId, payload) {
           turbidity,
           baterai,
           rssi,
+          seq,
+          jarak_cm,
+          siklus_status: siklus,
+          is_final: isFinal,
           recorded_at: new Date().toISOString()
         });
       }
 
       // ── Tangani Sensor Anomaly / Hardware Failure ─────────────────────
-      if (anomalies.length > 0) {
+      if (anomalies.length > 0 && isFinal) {
         const { getIo } = require('../socket/alerts');
         const io = getIo();
 
@@ -253,7 +265,7 @@ async function handleSensorData(nodeId, payload) {
       // ── DSS Fuzzy + Closed-Loop Actuator ──────────────────────────────
       // Hanya jalankan DSS & Actuator jika BUKAN hardware failure/anomali ekstrem pada sensor utama
       const mainSensorAnomaly = anomalies.some(a => ['suhu', 'salinitas'].includes(a.parameter));
-      if (suhu !== null && salinitas !== null && !mainSensorAnomaly) {
+      if (isFinal && suhu !== null && salinitas !== null && !mainSensorAnomaly) {
         const { processFuzzy } = require('../services/fuzzyDSS');
         
         // Ekstrak label visual dari MQTT Edge Computing (jika ada), default ke 'Normal'
@@ -301,7 +313,9 @@ async function handleSensorData(nodeId, payload) {
       }
 
       // ── Cek threshold statis dan kirim alert ──────────────────────────
-      await checkThresholds(connection, internalId, sensorDataId, { suhu, salinitas, ph: ph_level, turbidity }, nodeId);
+      if (isFinal) {
+        await checkThresholds(connection, internalId, sensorDataId, { suhu, salinitas, ph: ph_level, turbidity }, nodeId);
+      }
 
     } finally {
       connection.release();

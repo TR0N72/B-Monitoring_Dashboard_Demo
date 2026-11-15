@@ -36,6 +36,10 @@ CREATE TABLE IF NOT EXISTS sensor_data (
     turbidity FLOAT,
     baterai FLOAT,
     rssi INT,
+    seq INT NULL,
+    adc INT NULL,
+    jarak_cm FLOAT NULL,
+    siklus_status VARCHAR(10) NULL,
     recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE,
     INDEX idx_device_recorded (device_id, recorded_at)
@@ -126,7 +130,8 @@ INSERT INTO devices (node_id, name, type, mac_address, lokasi, status) VALUES
     ('ESP32-NODE-01', 'Sensor Node 01', 'sensor_node', 'AA:BB:CC:DD:EE:01', 'Pond Unit 04 - North', 'online'),
     ('ESP32-NODE-02', 'Sensor Node 02', 'sensor_node', 'AA:BB:CC:DD:EE:02', 'Pond Unit 04 - South', 'offline'),
     ('ESP32-NODE-03', 'Sensor Node 03', 'sensor_node', 'AA:BB:CC:DD:EE:03', 'Pond Unit 04 - East', 'online'),
-    ('LORA-GW-01', 'LoRa Gateway 01', 'gateway', 'AA:BB:CC:DD:FF:01', 'Pond Unit 04 - Central', 'online')
+    ('LORA-GW-01', 'LoRa Gateway 01', 'gateway', 'AA:BB:CC:DD:FF:01', 'Pond Unit 04 - Central', 'online'),
+    ('N1', 'Gateway Node N1', 'sensor_node', NULL, 'Expo', 'offline')
 ON DUPLICATE KEY UPDATE name = VALUES(name);
 
 INSERT INTO threshold_config (device_id, user_id, parameter, batas_bawah, batas_atas) VALUES

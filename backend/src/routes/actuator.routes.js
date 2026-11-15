@@ -15,7 +15,7 @@ const express    = require('express');
 const { getPool } = require('../config/db');
 const { authenticate, authorize } = require('../middleware/auth');
 const { publishMQTT }             = require('../config/mqtt');
-const { ACTUATOR_ACTIONS, abortSequence } = require('../services/actuatorController');
+const { ACTUATOR_ACTIONS, ACTION_CMD, abortSequence } = require('../services/actuatorController');
 const {
   getAllEmergencyStates,
   resetEmergencyState,
@@ -82,7 +82,7 @@ router.post('/command', authorize('admin'), async (req, res) => {
       abortSequence(internalId);
     }
 
-    publishMQTT(`tambak/${nodeId}/actuator/command`, { aksi, command_id: result.insertId }, { qos: 1 });
+    publishMQTT(`tambak/${nodeId}/actuator/command`, { aksi, cmd: ACTION_CMD[aksi], command_id: result.insertId }, { qos: 1 });
 
     return res.status(202).json({
       message   : 'Command sent successfully',
