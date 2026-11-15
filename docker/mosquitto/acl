@@ -1,0 +1,11 @@
+# ACL broker B-Monitor. Akun baru tanpa baris di sini = tidak punya akses (default tolak).
+# Backend: akses penuh ke semua topik tambak.
+user bmonitor_backend
+topic readwrite tambak/#
+
+# Gateway hardware: hanya kirim sensor + ack, dan terima perintah.
+user hw_gateway
+topic write tambak/+/sensor
+topic write tambak/+/sensor/#
+topic write tambak/+/actuator/status
+topic read tambak/+/actuator/command
