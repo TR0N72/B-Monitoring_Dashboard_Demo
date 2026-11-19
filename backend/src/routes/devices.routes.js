@@ -59,13 +59,29 @@ router.post('/', authorize('admin'), async (req, res) => {
 router.put('/:id', authorize('admin'), async (req, res) => {
   try {
     const { name, type, mac_address, lokasi, status } = req.body;
+    // node_id sengaja tak bisa diubah: dipakai sebagai topik MQTT dan relasi data
+    if (name !== undefined && (typeof name !== 'string' || !name.trim() || name.length > 100)) {
+      return res.status(400).json({ error: 'name must be 1-100 characters.' });
+    }
+    if (type !== undefined && !['sensor_node', 'gateway'].includes(type)) {
+      return res.status(400).json({ error: 'type must be sensor_node or gateway.' });
+    }
+    if (status !== undefined && !['online', 'offline', 'maintenance'].includes(status)) {
+      return res.status(400).json({ error: 'status must be online, offline or maintenance.' });
+    }
+    if (mac_address && !/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(mac_address)) {
+      return res.status(400).json({ error: 'mac_address must look like AA:BB:CC:DD:EE:FF.' });
+    }
+    if (lokasi && (typeof lokasi !== 'string' || lokasi.length > 255)) {
+      return res.status(400).json({ error: 'lokasi must be at most 255 characters.' });
+    }
     const pool = getPool();
     const fields = [];
     const values = [];
-    if (name !== undefined) { fields.push('name = ?'); values.push(name); }
+    if (name !== undefined) { fields.push('name = ?'); values.push(name.trim()); }
     if (type !== undefined) { fields.push('type = ?'); values.push(type); }
-    if (mac_address !== undefined) { fields.push('mac_address = ?'); values.push(mac_address); }
-    if (lokasi !== undefined) { fields.push('lokasi = ?'); values.push(lokasi); }
+    if (mac_address !== undefined) { fields.push('mac_address = ?'); values.push(mac_address || null); }
+    if (lokasi !== undefined) { fields.push('lokasi = ?'); values.push(lokasi || null); }
     if (status !== undefined) { fields.push('status = ?'); values.push(status); }
     if (fields.length === 0) {
       return res.status(400).json({ error: 'No fields to update.' });

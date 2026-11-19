@@ -239,12 +239,18 @@ describe('🔗 E2E Integration Testing: B-Monitor (Mocked DB State)', () => {
   // SKENARIO 3: Trigger Notifikasi dan Respon Aktuator
   // ─────────────────────────────────────────────────────────────────────────────
   describe('Skenario 3: Alur Kritis Notifikasi ke Aktuator', () => {
+    test('3.0 Role user ditolak 403 di /trigger', async () => {
+      const res = await request(app).post('/api/notifications/trigger').set('Authorization', userToken)
+        .send({ device_id: 'X', parameter: 'suhu', measured_value: 1 });
+      expect(res.status).toBe(403);
+    });
+
     test('3.1 Sistem trigger alert manual/otomatis karena threshold terlampaui', async () => {
       mockDevices.push({ id: 1, node_id: 'INTEGRATION-NODE-01', name: 'Node Tambak Utama' });
       
       const res = await request(app)
         .post('/api/notifications/trigger')
-        .set('Authorization', userToken) // Any role can trigger via MQTT logic normally, here we simulate API trigger
+        .set('Authorization', adminToken)
         .send({
           device_id: 'INTEGRATION-NODE-01',
           parameter: 'suhu',

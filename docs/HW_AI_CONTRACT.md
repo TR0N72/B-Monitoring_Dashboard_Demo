@@ -32,3 +32,14 @@
   - Kekeruhan/warna masuk fuzzy hanya lewat label AI kamera (`Normal`, `Caution`, `Warning`).
 - Node chamber (env `CHAMBER_NODES`, default `N1`): Bahaya hanya notifikasi (dashboard + Telegram). Backend tidak mengirim perintah pompa otomatis. Perintah manual dan `START_CYCLE` dari scheduler tetap jalan.
 - Perintah `pending` tanpa ack dianggap `gagal` setelah 15 menit (`START_CYCLE`) atau 12 menit (lainnya). Detail diberi akhiran `kedaluwarsa: tidak ada ack dari Gateway`.
+
+## Analisis foto AI (diperbarui 2026-11-17)
+- Model resmi: `TSS2_HGB_exp11` (HistGradientBoosting, file `tss2_deployment_model.joblib`). `model_metadata.json` (KNN) tidak dipakai.
+- Jalur aktif: upload manual di halaman `/ai-vision` -> `POST /api/ai/analyze?node_id=N1` (JWT, body = gambar jpeg/png, maks 5 MB) -> service `ai` (FastAPI, internal Docker) -> `ai_detection_logs`.
+  - Belum ada kamera otomatis. Input visual masih manual. Pilihan ESP32-CAM (kirim foto via HTTP ke endpoint di atas, atau kirim fitur via gateway) belum diputuskan tim hardware/AI.
+- Pemetaan kelas -> label (sementara, belum divalidasi pada foto tambak): Class 1-2 `Normal`, Class 3-4 `Caution`, Class 5 `Warning`.
+- Cek kualitas foto sebelum prediksi. Foto ditolak HTTP 422 dengan `reason`: `too_dark`, `too_bright`, `blank`, `blurry`. Gambar tak terbaca atau terlalu besar (> 12 juta piksel) juga 422.
+- Ambang confidence 0,60 (`AI_MIN_CONFIDENCE`, usulan tim AI, belum dituning). Di bawah ambang: disimpan, respons `used_for_dss:false`, tidak dipakai fuzzy.
+- Fuzzy hanya memakai deteksi terbaru dalam 30 menit terakhir; setelahnya label visual `Normal`.
+- Hasil uji 50 foto TSS2 (10 per kelas): kelas dan label benar 50/50. Belum ada uji foto tambak asli.
+- Kode respons `/api/ai/analyze`: 201, 400 (tanpa `node_id`/gambar), 404 (node tak dikenal), 422 (foto ditolak), 502 (service AI mati).

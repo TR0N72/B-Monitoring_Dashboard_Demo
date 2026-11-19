@@ -10,6 +10,7 @@ const baseNavItems = [
   { href: '/sensors', label: 'Sensor Nodes', icon: '/assets/af67b97eb2179670ffc08ddbb7d9cf1c70b126d9.svg' },
   { href: '/analytics', label: 'Analytics', icon: '/assets/a3cf9e83a6d2c6bae4c1e1b26c4f0b60ca53a101.svg' },
   { href: '/dss', label: 'DSS Engine', iconSvg: 'brain' },
+  { href: '/ai-vision', label: 'AI Vision', iconSvg: 'eye' },
   { href: '/actuator', label: 'Actuator', iconSvg: 'zap' },
 
   { href: '/export', label: 'Export Logs', icon: '/assets/9d40389f2a1880afd833b2f14daebc6e3ce6bbf0.svg' },

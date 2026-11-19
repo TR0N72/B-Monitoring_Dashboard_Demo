@@ -288,6 +288,8 @@ describe('📋 getRecommendation() — Score Classification', () => {
   test('score 20 → Aman', () => expect(getRecommendation(20)).toBe('Aman'));
   test('score 35 → Aman (batas atas)', () => expect(getRecommendation(35)).toBe('Aman'));
 
+  test('skor pecahan 35.86 → Aman (selaras ambang aktuator 36)', () => expect(getRecommendation(35.86)).toBe('Aman'));
+  test('skor pecahan 65.75 → Waspada (selaras ambang aktuator 66)', () => expect(getRecommendation(65.75)).toBe('Waspada'));
   test('score 36 → Waspada (batas bawah)', () => expect(getRecommendation(36)).toBe('Waspada'));
   test('score 50 → Waspada', () => expect(getRecommendation(50)).toBe('Waspada'));
   test('score 65 → Waspada (batas atas)', () => expect(getRecommendation(65)).toBe('Waspada'));

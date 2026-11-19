@@ -3,6 +3,7 @@
   "title": "B-Monitor Main",
   "schemaVersion": 38,
   "timezone": "browser",
+  "time": { "from": "now-7d", "to": "now" },
   "panels": [
     {
       "id": 1,

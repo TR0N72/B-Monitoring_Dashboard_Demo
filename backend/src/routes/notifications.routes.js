@@ -7,7 +7,10 @@ const { broadcastAlert } = require('../socket/alerts');
 
 router.use(authenticate);
 
-router.post('/trigger', authorize('admin', 'operator', 'user'), async (req, res) => {
+// Cegah banjir Telegram lewat /trigger
+const triggerLimiter = require('express-rate-limit')({ windowMs: 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false, message: { error: 'Terlalu banyak trigger notifikasi.' } });
+
+router.post('/trigger', triggerLimiter, authorize('admin', 'operator'), async (req, res) => {
   try {
     const { device_id, parameter, measured_value, threshold_min, threshold_max, level_peringatan, pesan_notifikasi } = req.body;
 
@@ -60,7 +63,7 @@ router.post('/trigger', authorize('admin', 'operator', 'user'), async (req, res)
       message: 'Alert created and dispatched',
       alert_id: result.insertId,
       websocket_broadcast: true,
-      telegram_sent: true,
+      telegram_queued: true, // Telegram dikirim async lewat antrean; hasil kirim tidak diketahui di sini
     });
   } catch (err) {
     console.error('[Alerts] Trigger error:', err.message);

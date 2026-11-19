@@ -149,7 +149,7 @@ async function handleSensorData(nodeId, payload) {
       if (internalId === null) return;
 
       await connection.execute(
-        'UPDATE devices SET last_seen = NOW(), status = "online" WHERE id = ?',
+        'UPDATE devices SET last_seen = NOW(), status = IF(status = "maintenance", "maintenance", "online") WHERE id = ?',
         [internalId]
       );
 
@@ -285,7 +285,14 @@ async function handleSensorData(nodeId, payload) {
         const { processFuzzy } = require('../services/fuzzyDSS');
         
         // Ekstrak label visual dari MQTT Edge Computing (jika ada), default ke 'Normal'
-        const visualLabel = payload.visual_label || payload.visualLabel || 'Normal';
+        let visualLabel = payload.visual_label || payload.visualLabel;
+        if (!visualLabel) {
+          // fallback: latest AI detection for this node within 30 min, else 'Normal'
+          const [vis] = await connection.execute(
+            `SELECT label FROM ai_detection_logs WHERE device_id = ? AND confidence >= ? AND created_at >= (NOW() - INTERVAL 30 MINUTE)
+             ORDER BY created_at DESC LIMIT 1`, [internalId, require('../services/aiDetection').MIN_CONFIDENCE]);
+          visualLabel = vis[0]?.label || 'Normal';
+        }
         const fuzzyResult = processFuzzy(suhu, salinitas, visualLabel);
 
         await connection.execute(

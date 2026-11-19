@@ -9,9 +9,8 @@ import { useSocket } from '@/context/SocketContext';
 import Sidebar from '@/components/Sidebar';
 import TopAppBar from '@/components/TopAppBar';
 import AlertBanner from '@/components/AlertBanner';
-import MetricCard from '@/components/MetricCard';
+import NodeCard from '@/components/NodeCard';
 
-/** Maximum number of log rows kept in memory to avoid unbounded growth. */
 const MAX_LOG_ROWS = 50;
 
 export default function DashboardPage() {
@@ -20,10 +19,10 @@ export default function DashboardPage() {
   const { isDarkMode, toggleDarkMode } = useTheme();
   const { subscribe } = useSocket();
   const router = useRouter();
-  const [sensorData, setSensorData] = useState(null);
+  const [devices, setDevices] = useState([]);
+  const [readingsMap, setReadingsMap] = useState({});
   const [logs, setLogs] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
-  // Track the last WebSocket event timestamp to deduplicate rapid bursts
   const lastWsTimestampRef = useRef(null);
 
   useEffect(() => {
@@ -37,15 +36,25 @@ export default function DashboardPage() {
 
     async function fetchData() {
       try {
-        const [sensorRes, logsRes] = await Promise.allSettled([
+        const [devicesRes, latestRes, logsRes] = await Promise.allSettled([
+          apiFetch('/api/devices'),
           apiFetch('/api/sensors/latest'),
-          apiFetch('/api/sensors/history?limit=5'),
+          apiFetch('/api/sensors/history?limit=50'),
         ]);
 
-        if (sensorRes.status === 'fulfilled' && sensorRes.value.ok) {
-          const data = await sensorRes.value.json();
-          // API returns { readings: [...] } — take the first (most recent) entry
-          setSensorData(data.readings?.[0] ?? null);
+        if (devicesRes.status === 'fulfilled' && devicesRes.value.ok) {
+          const data = await devicesRes.value.json();
+          setDevices(data.devices || []);
+        }
+
+        if (latestRes.status === 'fulfilled' && latestRes.value.ok) {
+          const data = await latestRes.value.json();
+          const map = {};
+          (data.readings || []).forEach((r) => {
+            const key = r.node_id || r.device_id;
+            if (key) map[key] = r;
+          });
+          setReadingsMap(map);
         }
 
         if (logsRes.status === 'fulfilled' && logsRes.value.ok) {
@@ -62,33 +71,23 @@ export default function DashboardPage() {
     fetchData();
   }, [isAuthenticated, apiFetch]);
 
-  /**
-   * WebSocket subscription — updates metric cards and prepends the new reading
-   * to the historical log table without triggering a full refetch.
-   *
-   * Wrapped in useCallback so the reference is stable across renders, which
-   * prevents the subscribe/unsubscribe cycle from firing on every render.
-   */
   const handleSensorUpdate = useCallback((payload) => {
-    // Payload shape: { suhu, ph_level, salinitas, turbidity, recorded_at, node_id, ... }
     if (!payload || typeof payload !== 'object') return;
 
-    // Deduplicate: ignore if this exact timestamp was already processed
     const ts = payload.recorded_at || payload.created_at || null;
     if (ts && ts === lastWsTimestampRef.current) return;
     lastWsTimestampRef.current = ts;
 
-    // Update the live metric cards
-    setSensorData((prev) => ({ ...(prev ?? {}), ...payload }));
+    const key = payload.node_id || payload.device_id;
+    if (key) {
+      setReadingsMap((prev) => ({ ...prev, [key]: payload }));
+    }
 
-    // Prepend to historical log, capped at MAX_LOG_ROWS
     setLogs((prev) => [payload, ...prev].slice(0, MAX_LOG_ROWS));
   }, []);
 
   useEffect(() => {
     if (!isAuthenticated) return;
-
-    // Subscribe returns an unsubscribe function — call it on cleanup
     const unsubscribe = subscribe('sensor_update', handleSensorUpdate);
     return unsubscribe;
   }, [isAuthenticated, subscribe, handleSensorUpdate]);
@@ -96,26 +95,7 @@ export default function DashboardPage() {
   if (authLoading) return null;
   if (!isAuthenticated) return null;
 
-  // Use null when no real data is available — avoids phantom alarm states
-  const temp     = sensorData?.suhu     ?? null;
-  const ph       = sensorData?.ph_level ?? null;
-  const salinity = sensorData?.salinitas ?? null;
-  const turbidity = sensorData?.turbidity ?? null;
-
-  // Danger flag only when we have real data exceeding threshold
-  const isTurbidityDanger = turbidity !== null && turbidity > 15;
-
-  // Progress bar widths derived from sensor ranges (show 0% when no data)
-  const tempFill     = temp     !== null ? `${Math.min(100, Math.max(0, ((temp - 20) / 20) * 100)).toFixed(0)}%` : '0%';
-  const phFill       = ph       !== null ? `${Math.min(100, Math.max(0, (ph / 14) * 100)).toFixed(0)}%`           : '0%';
-  const salinityFill = salinity  !== null ? `${Math.min(100, Math.max(0, (salinity / 50) * 100)).toFixed(0)}%`    : '0%';
-  const turbidityFill = turbidity !== null ? `${Math.min(100, Math.max(0, (turbidity / 30) * 100)).toFixed(0)}%`  : '0%';
-
-  // Display values — show '—' when data is unavailable (never show phantom numbers)
-  const displayTemp     = temp     !== null ? Number(temp).toFixed(1)     : '—';
-  const displayPh       = ph       !== null ? Number(ph).toFixed(2)       : '—';
-  const displaySalinity = salinity  !== null ? Number(salinity).toFixed(1)  : '—';
-  const displayTurbidity = turbidity !== null ? Number(turbidity).toFixed(1) : '—';
+  const sensorNodes = devices.filter((d) => d.type === 'sensor_node');
 
   return (
     <div className="main-dashboard">
@@ -142,22 +122,24 @@ export default function DashboardPage() {
                   </div>
                   <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
                 </button>
-                {/* Table Mode - Future Development
-                <button className="control-btn solid">
-                  <div className="btn-icon">
-                    <img src="/assets/8b9e5a6b17142aaccf9de7da53652d2c80a0ae45.svg" alt="Table Mode" />
-                  </div>
-                  <span>Table Mode</span>
-                </button>
-                */}
               </div>
             </div>
 
-            <div className="metric-cards-grid">
-              <MetricCard label="TEMPERATURE" value={displayTemp} unit={temp !== null ? '°C' : ''} icon="/assets/aa1f13350a63705391a2fd719fbfea1ec8a0d775.svg" fillWidth={tempFill} fillColor="var(--progress-fill-blue)" />
-              <MetricCard label="PH LEVEL" value={displayPh} unit="" icon="/assets/175d2836fad0f392a3e0301c7f021e3b9233f740.svg" fillWidth={phFill} fillColor="var(--progress-fill-green)" />
-              <MetricCard label="SALINITY" value={displaySalinity} unit={salinity !== null ? 'ppt' : ''} icon="/assets/aa1f13350a63705391a2fd719fbfea1ec8a0d775.svg" fillWidth={salinityFill} fillColor="var(--progress-fill-blue)" />
-              <MetricCard label="TURBIDITY" value={displayTurbidity} unit={turbidity !== null ? 'NTU' : ''} isDanger={isTurbidityDanger} fillWidth={turbidityFill} />
+            <div className="node-cards-grid">
+              {sensorNodes.length === 0 ? (
+                <div className="no-nodes">Belum ada node sensor terdaftar.</div>
+              ) : (
+                sensorNodes.map((device) => {
+                  const key = device.node_id || device.id;
+                  return (
+                    <NodeCard
+                      key={key}
+                      device={device}
+                      initialReading={readingsMap[key] || null}
+                    />
+                  );
+                })
+              )}
             </div>
 
             <div className="chart-container">
@@ -188,19 +170,22 @@ export default function DashboardPage() {
                   <thead>
                     <tr>
                       <th>Timestamp</th>
+                      <th>Node</th>
                       <th>Temp (°C)</th>
                       <th>pH</th>
                       <th>Salinity (ppt)</th>
                       <th>Turbidity (NTU)</th>
+                      <th>Cycle</th>
                       <th>Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loadingData ? (
-                      // Skeleton rows while fetching — no false data
                       [1, 2, 3].map((n) => (
                         <tr key={`skel-${n}`} className="skeleton-row">
                           <td><span className="skeleton-cell" /></td>
+                          <td><span className="skeleton-cell skeleton-cell--sm" /></td>
+                          <td><span className="skeleton-cell skeleton-cell--sm" /></td>
                           <td><span className="skeleton-cell skeleton-cell--sm" /></td>
                           <td><span className="skeleton-cell skeleton-cell--sm" /></td>
                           <td><span className="skeleton-cell skeleton-cell--sm" /></td>
@@ -215,10 +200,12 @@ export default function DashboardPage() {
                         return (
                           <tr key={log.id || i}>
                             <td>{new Date(log.recorded_at || log.created_at).toLocaleString()}</td>
+                            <td>{log.node_id || '—'}</td>
                             <td>{log.suhu ?? '—'}</td>
                             <td>{log.ph_level ?? '—'}</td>
                             <td>{log.salinitas ?? '—'}</td>
                             <td className={isDanger ? 'warning-text' : ''}>{turbVal ?? '—'}</td>
+                            <td>{log.siklus_status ?? '—'}</td>
                             <td>
                               <span className={`status-badge ${isDanger ? 'warning' : 'normal'}`}>
                                 {isDanger ? 'Warning' : 'Normal'}
@@ -228,9 +215,8 @@ export default function DashboardPage() {
                         );
                       })
                     ) : (
-                      // True empty state — no phantom rows
                       <tr>
-                        <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0', fontStyle: 'italic' }}>
+                        <td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0', fontStyle: 'italic' }}>
                           No sensor readings recorded yet.
                         </td>
                       </tr>

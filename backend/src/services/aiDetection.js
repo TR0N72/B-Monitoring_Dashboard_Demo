@@ -1,6 +1,9 @@
 'use strict';
 const { getPool } = require('../config/db');
 
+// Detections below this confidence are stored but not fed to fuzzy DSS (AI team proposal, untuned).
+const MIN_CONFIDENCE = Number(process.env.AI_MIN_CONFIDENCE) || 0.6;
+
 function normalizeLabel(raw) {
   const s = String(raw ?? '').trim().toLowerCase();
   if (['caution', 'sakit', 'waspada'].includes(s)) return 'Caution';
@@ -37,4 +40,4 @@ async function saveDetection(body) {
   return out;
 }
 
-module.exports = { saveDetection, normalizeLabel };
+module.exports = { saveDetection, normalizeLabel, MIN_CONFIDENCE };

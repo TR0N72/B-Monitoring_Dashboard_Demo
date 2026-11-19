@@ -30,3 +30,5 @@ Thumbs.db
 docker/mosquitto/passwd
 docker/mosquitto/data/
 docker/mosquitto/log/
+__pycache__/
+*.pyc

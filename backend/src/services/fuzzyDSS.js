@@ -12,7 +12,7 @@
  *   DSS Score (0–100) → Aman / Waspada / Bahaya
  *
  * Jumlah Aturan:
- *   3 (Suhu) × 3 (Salinitas) = 9 kombinasi utama
+ *   27 aturan (R1–R27) pada RULES; lihat tabel di bawah.
  *
  * Referensi pakar:
  *   - Suhu optimal bandeng Juwana: 28–30 °C
@@ -428,8 +428,9 @@ function defuzzify(activeRules) {
  * @returns {string}
  */
 function getRecommendation(score) {
-  if (score <= 35) return 'Aman';
-  if (score <= 65) return 'Waspada';
+  // Ambang sama dengan actuatorController (36 / 66, skor dibulatkan di sana)
+  if (score < 36) return 'Aman';
+  if (score < 66) return 'Waspada';
   return 'Bahaya';
 }
 

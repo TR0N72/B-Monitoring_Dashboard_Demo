@@ -5,6 +5,11 @@ const router = express.Router();
 
 router.use(authenticate);
 
+// Keputusan DSS terbaru per perangkat, ikut dikirim agar dashboard tidak perlu request per node.
+const DSS_COLS = `
+  (SELECT f.dss_score FROM fuzzy_decisions f WHERE f.device_id = sd.device_id ORDER BY f.id DESC LIMIT 1) AS dss_score,
+  (SELECT f.dss_recommendation FROM fuzzy_decisions f WHERE f.device_id = sd.device_id ORDER BY f.id DESC LIMIT 1) AS dss_recommendation`;
+
 router.get('/latest', async (req, res) => {
   try {
     const { device_id } = req.query;
@@ -16,7 +21,7 @@ router.get('/latest', async (req, res) => {
     if (device_id) {
       if (!isNaN(device_id)) {
         query = `
-          SELECT sd.*, d.node_id 
+          SELECT sd.*, d.node_id,${DSS_COLS}
           FROM sensor_data sd
           JOIN devices d ON sd.device_id = d.id
           WHERE (d.node_id = ? OR d.id = ?)
@@ -26,7 +31,7 @@ router.get('/latest', async (req, res) => {
         params.push(device_id, device_id);
       } else {
         query = `
-          SELECT sd.*, d.node_id 
+          SELECT sd.*, d.node_id,${DSS_COLS}
           FROM sensor_data sd
           JOIN devices d ON sd.device_id = d.id
           WHERE d.node_id = ?
@@ -37,7 +42,7 @@ router.get('/latest', async (req, res) => {
       }
     } else {
       query = `
-        SELECT sd.*, d.node_id 
+        SELECT sd.*, d.node_id,${DSS_COLS}
         FROM sensor_data sd
         JOIN devices d ON sd.device_id = d.id
         INNER JOIN (
@@ -69,7 +74,7 @@ router.get('/history', async (req, res) => {
     const pool = getPool();
     
     let query = `
-      SELECT sd.id, sd.suhu, sd.ph_level, sd.salinitas, sd.turbidity, sd.baterai, sd.rssi, sd.recorded_at, d.node_id
+      SELECT sd.id, sd.suhu, sd.ph_level, sd.salinitas, sd.turbidity, sd.baterai, sd.rssi, sd.seq, sd.jarak_cm, sd.adc, sd.siklus_status, sd.recorded_at, d.node_id
       FROM sensor_data sd
       JOIN devices d ON sd.device_id = d.id
       WHERE 1=1

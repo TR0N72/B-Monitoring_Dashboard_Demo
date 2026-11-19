@@ -2,13 +2,13 @@
 
 const express = require('express');
 const { getPool } = require('../config/db');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/auth');
 const router = express.Router();
 
-const { saveDetection, normalizeLabel } = require('../services/aiDetection');
+const { saveDetection, normalizeLabel, MIN_CONFIDENCE } = require('../services/aiDetection');
 
 /** POST /api/ai/detections — simpan hasil inferensi visual (JWT wajib) */
-router.post('/detections', authenticate, async (req, res) => {
+router.post('/detections', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
     const data = await saveDetection(req.body);
     return res.status(201).json({ message: 'AI detection processed successfully', data });
@@ -16,6 +16,38 @@ router.post('/detections', authenticate, async (req, res) => {
     if (err.status) return res.status(err.status).json({ error: err.message });
     console.error('[AI] save error:', err.message);
     return res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+/**
+ * POST /api/ai/analyze?node_id=N1 — body = raw image bytes (Content-Type image/*).
+ * Forwards to the Python AI service, stores the result as a detection (feeds DSS visual input).
+ */
+router.post('/analyze', authenticate, authorize('admin', 'operator'), express.raw({ type: 'image/*', limit: '5mb' }), async (req, res) => {
+  const nodeId = String(req.query.node_id || '').trim();
+  if (!nodeId) return res.status(400).json({ error: 'node_id query param is required.' });
+  if (!Buffer.isBuffer(req.body) || !req.body.length) {
+    return res.status(400).json({ error: 'Image body required (Content-Type: image/jpeg or image/png, max 5 MB).' });
+  }
+  try {
+    const r = await fetch(`${process.env.AI_SERVICE_URL || 'http://ai:8000'}/predict`, {
+      method: 'POST', body: req.body, signal: AbortSignal.timeout(15000),
+    });
+    if (r.status === 422) {
+      const reason = (await r.json().catch(() => ({}))).detail;
+      const msg = { too_dark: 'too dark', too_bright: 'too bright', blank: 'blank (no water sample visible)', blurry: 'blurry or out of focus' }[reason] || 'below minimum quality';
+      return res.status(422).json({ error: `Photo rejected: ${msg}. Retake the photo.`, reason });
+    }
+    if (r.status === 400 || r.status === 413) return res.status(422).json({ error: 'Image could not be decoded or is too large.' });
+    if (!r.ok) throw new Error(`AI service HTTP ${r.status}`);
+    const p = await r.json();
+    const data = await saveDetection({ node_id: nodeId, label: p.label, confidence: p.confidence,
+      model_version: p.model_version, hsv_metadata: p.hsv_metadata });
+    return res.status(201).json({ message: 'Image analyzed', data: { ...data, used_for_dss: data.confidence >= MIN_CONFIDENCE } });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error('[AI] analyze error:', err.message);
+    return res.status(502).json({ error: 'AI service unavailable.' });
   }
 });
 
@@ -131,10 +163,14 @@ router.get('/detections', authenticate, async (req, res) => {
  * POST /api/ai/capture — LORA-13: captureAndAnalyze
  * Mentriggerr ESP32-CAM via MQTT topik tambak/{node_id}/camera/capture
  */
-router.post('/capture', authenticate, async (req, res) => {
+router.post('/capture', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
     const { node_id } = req.body;
-    const targetNode = node_id || 'ESP32-NODE-01';
+    const targetNode = node_id || 'N1';
+    // Cegah wildcard/level topik MQTT (+ # /) lewat node_id
+    if (!/^[A-Za-z0-9_-]{1,32}$/.test(targetNode)) {
+      return res.status(400).json({ error: 'node_id tidak valid' });
+    }
 
     const requestId = `cap_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`;
     const captureTopic = `tambak/${targetNode}/camera/capture`;
