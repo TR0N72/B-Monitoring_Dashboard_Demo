@@ -99,7 +99,7 @@ router.get('/export', async (req, res) => {
       const [rows] = await pool.execute(`
         SELECT
           sd.id, d.node_id AS hardware_id, d.name AS device_name,
-          sd.suhu, sd.salinitas, sd.ph_level, sd.turbidity, sd.baterai, sd.rssi, sd.recorded_at
+          sd.suhu, sd.salinitas, sd.turbidity, sd.baterai, sd.rssi, sd.jarak_cm, sd.recorded_at
         FROM sensor_data sd
         JOIN devices d ON sd.device_id = d.id
         ${whereClause}
@@ -110,8 +110,9 @@ router.get('/export', async (req, res) => {
       // Optional `columns` (csv of sensor keys) limits sensor columns; identity columns always kept.
       const sensorCols = [
         ['suhu', 'Suhu (C)', 'suhu'], ['salinitas', 'Salinitas (ppt)', 'salinitas'],
-        ['ph', 'pH Level', 'ph_level'], ['turbidity', 'Turbidity (NTU)', 'turbidity'],
+        ['turbidity', 'Turbidity (NTU)', 'turbidity'],
         ['baterai', 'Battery (%)', 'baterai'], ['rssi', 'RSSI (dBm)', 'rssi'],
+        ['jarak', 'Jarak Air (cm)', 'jarak_cm'],
       ];
       const aliases = { temperature: 'suhu', salinity: 'salinitas' };
       const wanted = typeof req.query.columns === 'string' && req.query.columns

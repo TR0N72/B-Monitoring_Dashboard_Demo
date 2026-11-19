@@ -108,7 +108,7 @@ export default function DashboardPage() {
             <div className="page-header-controls">
               <div className="page-title-section">
                 <div className="heading-1">
-                  <h1>Unit 04 Overview</h1>
+                  <h1>Tambak Bandeng</h1>
                 </div>
                 <div className="status-indicator">
                   <div className="status-dot"></div>
@@ -172,7 +172,7 @@ export default function DashboardPage() {
                       <th>Timestamp</th>
                       <th>Node</th>
                       <th>Temp (°C)</th>
-                      <th>pH</th>
+                      <th>Jarak (cm)</th>
                       <th>Salinity (ppt)</th>
                       <th>Turbidity (NTU)</th>
                       <th>Cycle</th>
@@ -202,7 +202,7 @@ export default function DashboardPage() {
                             <td>{new Date(log.recorded_at || log.created_at).toLocaleString()}</td>
                             <td>{log.node_id || '—'}</td>
                             <td>{log.suhu ?? '—'}</td>
-                            <td>{log.ph_level ?? '—'}</td>
+                            <td>{log.jarak_cm ?? '—'}</td>
                             <td>{log.salinitas ?? '—'}</td>
                             <td className={isDanger ? 'warning-text' : ''}>{turbVal ?? '—'}</td>
                             <td>{log.siklus_status ?? '—'}</td>

@@ -98,7 +98,7 @@ export default function Sidebar() {
               <p>B-Monitor</p>
             </div>
             <div className="brand-subtitle">
-              <p>{user ? `Session: ${user.name}` : 'Active Session: Unit 04'}</p>
+              <p>{user ? `Session: ${user.name}` : 'Not signed in'}</p>
             </div>
           </div>
         </div>

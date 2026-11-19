@@ -51,6 +51,7 @@ export default function NodeCard({ device, initialReading }) {
   const { subscribe } = useSocket();
   const [reading, setReading] = useState(initialReading);
   const [now, setNow] = useState(() => Date.now());
+  const [ai, setAi] = useState(null);
 
   useEffect(() => {
     if (!device) return;
@@ -59,7 +60,11 @@ export default function NodeCard({ device, initialReading }) {
       if (!p || (p.node_id !== nodeId && p.device_id !== device.id)) return;
       setReading(p);
     });
-    return unsub;
+    const unsubAi = subscribe('ai:detection', (p) => {
+      if (!p || (p.node_id !== nodeId && p.device_id !== device.id)) return;
+      setAi({ label: p.label, confidence: p.confidence, cls: p.hsv_metadata?.predicted_class ?? null, at: p.created_at });
+    });
+    return () => { unsub(); unsubAi(); };
   }, [device, subscribe]);
 
   useEffect(() => {
@@ -69,6 +74,7 @@ export default function NodeCard({ device, initialReading }) {
 
   const d = device;
   const r = reading;
+  const aiView = ai || (r?.ai_label ? { label: r.ai_label, confidence: r.ai_confidence, cls: r.ai_class, at: r.ai_at } : null);
   const stale = !!r?.recorded_at && (now - new Date(r.recorded_at).getTime()) / 1000 > 60;
 
   if (!r) {
@@ -106,8 +112,8 @@ export default function NodeCard({ device, initialReading }) {
       <div className="metrics-main">
         {metricBox('Suhu', r.suhu, '°C')}
         {metricBox('Salinitas', r.salinitas, 'ppt')}
-        {r.ph_level !== null && r.ph_level !== undefined && metricBox('pH', r.ph_level, '')}
         {r.turbidity !== null && r.turbidity !== undefined && metricBox('Kekeruhan', r.turbidity, 'NTU')}
+        {r.jarak_cm !== null && r.jarak_cm !== undefined && metricBox('Jarak Air', r.jarak_cm, 'cm')}
       </div>
 
       <div className="metrics-secondary">
@@ -116,6 +122,16 @@ export default function NodeCard({ device, initialReading }) {
         {metricBox('RSSI', r.rssi, 'dBm')}
         {metricBox('Seq', r.seq, '')}
       </div>
+
+      {aiView && (
+        <div className="ai-inline" aria-label="Deteksi visual terbaru">
+          <span className="ai-title">Visual</span>
+          {aiView.cls && <span>{aiView.cls}</span>}
+          <span className={`ai-label ai-${String(aiView.label).toLowerCase()}`}>{aiView.label}</span>
+          <span>{(Number(aiView.confidence) * 100).toFixed(1)}%</span>
+          <span className="ai-age">{formatRelative(aiView.at)}</span>
+        </div>
+      )}
 
       {(score !== null || rec) && (
         <div className="dss-inline">

@@ -168,7 +168,6 @@ export default function NodeDetailsPage() {
                   <div className="info-list">
                     {metricBox('Suhu', last?.suhu, '°C')}
                     {metricBox('Salinitas', last?.salinitas, 'ppt')}
-                    {last?.ph_level !== null && last?.ph_level !== undefined && metricBox('pH', last.ph_level, '')}
                     {last?.turbidity !== null && last?.turbidity !== undefined && metricBox('Kekeruhan', last.turbidity, 'NTU')}
                     {metricBox('Baterai', last?.baterai, '%')}
                     {metricBox('RSSI', last?.rssi, 'dBm')}

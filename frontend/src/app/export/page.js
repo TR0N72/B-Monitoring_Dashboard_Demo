@@ -10,10 +10,10 @@ import TopAppBar from '@/components/TopAppBar';
 const parameters = [
   { key: 'suhu', label: 'Water Temperature', unit: '°C', checked: true },
   { key: 'salinitas', label: 'Salinity', unit: 'ppt', checked: true },
-  { key: 'ph', label: 'pH Level', unit: 'pH', checked: true },
   { key: 'turbidity', label: 'Turbidity', unit: 'NTU', checked: true },
   { key: 'baterai', label: 'Battery Level', unit: '%', checked: true },
   { key: 'rssi', label: 'Signal Strength (RSSI)', unit: 'dBm', checked: true },
+  { key: 'jarak', label: 'Water Distance', unit: 'cm', checked: true },
 ];
 
 function getIsoDate(date) {

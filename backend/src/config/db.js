@@ -38,6 +38,10 @@ async function initMySQL() {
     for (const [c, def] of Object.entries(cols)) {
       if (!names.has(c)) await conn.query(`ALTER TABLE sensor_data ADD COLUMN ${c} ${def}`);
     }
+    // Sensor pH dihapus (diganti sensor jarak). Idempotent; enum diubah hanya jika tak ada baris 'ph'.
+    if (names.has('ph_level')) await conn.query('ALTER TABLE sensor_data DROP COLUMN ph_level');
+    await conn.query("DELETE FROM threshold_config WHERE parameter = 'ph'");
+    await conn.query("ALTER TABLE threshold_config MODIFY parameter ENUM('suhu','salinitas','turbidity') NOT NULL COMMENT 'Sensor parameter name'");
     await conn.query(
       "INSERT IGNORE INTO devices (node_id, name, type, lokasi, status) VALUES ('N1', 'Gateway Node N1', 'sensor_node', 'Expo', 'offline')");
   } finally {

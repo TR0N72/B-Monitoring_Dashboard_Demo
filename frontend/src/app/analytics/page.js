@@ -46,13 +46,13 @@ export default function AnalyticsPage() {
           const dataset = filtered.length > 0 ? filtered : list; // ponytail: fallback to recent batch if empty in strict window
 
           let sumTemp = 0, countTemp = 0;
-          let sumPh = 0, countPh = 0;
+          let sumJarak = 0, countJarak = 0;
           let sumSal = 0, countSal = 0;
           let sumTurb = 0, countTurb = 0;
 
           dataset.forEach(d => {
             if (d.suhu != null) { sumTemp += Number(d.suhu); countTemp++; }
-            if (d.ph_level != null) { sumPh += Number(d.ph_level); countPh++; }
+            if (d.jarak_cm != null) { sumJarak += Number(d.jarak_cm); countJarak++; }
             if (d.salinitas != null) { sumSal += Number(d.salinitas); countSal++; }
             if (d.turbidity != null) { sumTurb += Number(d.turbidity); countTurb++; }
           });
@@ -71,7 +71,7 @@ export default function AnalyticsPage() {
           if (!ignore) {
             setByNode(Object.entries(groups).map(([id, g]) => ({
               id, name: g.name || id,
-              temp: avg(g.rows, 'suhu'), ph: avg(g.rows, 'ph_level'),
+              temp: avg(g.rows, 'suhu'), jarak: avg(g.rows, 'jarak_cm'),
               sal: avg(g.rows, 'salinitas'), turb: avg(g.rows, 'turbidity'),
               online: g.rows.length > 0 && Date.now() - new Date(g.rows[0].recorded_at).getTime() < 10 * 60 * 1000,
             })));
@@ -79,7 +79,7 @@ export default function AnalyticsPage() {
 
           setStats({
             avgTemp: countTemp > 0 ? (sumTemp / countTemp).toFixed(1) : '—',
-            avgPh: countPh > 0 ? (sumPh / countPh).toFixed(1) : '—',
+            avgJarak: countJarak > 0 ? (sumJarak / countJarak).toFixed(1) : '—',
             avgSal: countSal > 0 ? (sumSal / countSal).toFixed(1) : '—',
             avgTurb: countTurb > 0 ? (sumTurb / countTurb).toFixed(1) : '—',
             count: dataset.length
@@ -130,8 +130,8 @@ export default function AnalyticsPage() {
                 </div>
               </div>
               <div className="analytics-stat-card">
-                <div className="stat-card-label">AVG pH LEVEL</div>
-                <div className="stat-card-value"><span className="value">{loadingStats ? '…' : (stats?.avgPh ?? '—')}</span><span className="unit">pH</span></div>
+                <div className="stat-card-label">AVG WATER DISTANCE</div>
+                <div className="stat-card-value"><span className="value">{loadingStats ? '…' : (stats?.avgJarak ?? '—')}</span><span className="unit">cm</span></div>
                 <div className="stat-card-trend stable">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="1" y1="12" x2="23" y2="12"></line></svg>
                   <span>{stats?.count ? `${stats.count} samples` : 'Awaiting data'}</span>
@@ -161,7 +161,7 @@ export default function AnalyticsPage() {
                   <h2>Water Quality Trends</h2>
                   <div className="chart-legend">
                     <span className="legend-item"><span className="legend-dot" style={{ backgroundColor: '#3b82f6' }}></span> Temperature</span>
-                    <span className="legend-item"><span className="legend-dot" style={{ backgroundColor: '#22c55e' }}></span> pH</span>
+                    <span className="legend-item"><span className="legend-dot" style={{ backgroundColor: '#22c55e' }}></span> Water Distance</span>
                     <span className="legend-item"><span className="legend-dot" style={{ backgroundColor: '#f59e0b' }}></span> Salinity</span>
                     <span className="legend-item"><span className="legend-dot" style={{ backgroundColor: '#ef4444' }}></span> Turbidity</span>
                   </div>
@@ -188,11 +188,11 @@ export default function AnalyticsPage() {
               <div className="table-title-bar"><h2>Data Summary — By Node</h2></div>
               <table className="data-table">
                 <thead>
-                  <tr><th>NODE</th><th>AVG TEMP (°C)</th><th>AVG pH</th><th>AVG SALINITY (ppt)</th><th>AVG TURBIDITY (NTU)</th><th>STATUS</th></tr>
+                  <tr><th>NODE</th><th>AVG TEMP (°C)</th><th>AVG DISTANCE (cm)</th><th>AVG SALINITY (ppt)</th><th>AVG TURBIDITY (NTU)</th><th>STATUS</th></tr>
                 </thead>
                 <tbody>
                   {byNode.map(n => (
-                    <tr key={n.id}><td className="fw-500">{n.name}</td><td>{n.temp}</td><td>{n.ph}</td><td>{n.sal}</td><td>{n.turb}</td><td><div className="status-indicator"><div className={`status-dot ${n.online ? 'active' : 'offline'}`}></div><span>{n.online ? 'Online' : 'Offline'}</span></div></td></tr>
+                    <tr key={n.id}><td className="fw-500">{n.name}</td><td>{n.temp}</td><td>{n.jarak}</td><td>{n.sal}</td><td>{n.turb}</td><td><div className="status-indicator"><div className={`status-dot ${n.online ? 'active' : 'offline'}`}></div><span>{n.online ? 'Online' : 'Offline'}</span></div></td></tr>
                   ))}
                   {byNode.length === 0 && <tr><td colSpan={6}>No data.</td></tr>}
                 </tbody>

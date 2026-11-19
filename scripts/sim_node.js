@@ -7,9 +7,9 @@ require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') }
 const [node = 'ESP32-NODE-01', count = '5', gap = '2000', mode = 'normal'] = process.argv.slice(2);
 const r = (a, b) => +(a + Math.random() * (b - a)).toFixed(2);
 const profiles = {
-  normal: () => ({ suhu: r(27, 30), ph: r(7.4, 8.2), salinitas: r(18, 25), kekeruhan: r(10, 40) }),
-  hot: () => ({ suhu: r(36, 38), ph: r(7.4, 8.2), salinitas: r(18, 25), kekeruhan: r(10, 40) }),
-  anomaly: () => ({ suhu: 99, ph: r(7.4, 8.2), salinitas: r(18, 25), kekeruhan: r(10, 40) }),
+  normal: () => ({ suhu: r(27, 30), jarak_cm: r(27, 33), salinitas: r(18, 25), kekeruhan: r(10, 40) }),
+  hot: () => ({ suhu: r(36, 38), jarak_cm: r(27, 33), salinitas: r(18, 25), kekeruhan: r(10, 40) }),
+  anomaly: () => ({ suhu: 99, jarak_cm: r(27, 33), salinitas: r(18, 25), kekeruhan: r(10, 40) }),
 };
 if (!profiles[mode]) { console.error('mode must be normal|hot|anomaly'); process.exit(1); }
 const c = mqtt.connect(process.env.MQTT_BROKER_URL || 'mqtt://localhost:1883', {

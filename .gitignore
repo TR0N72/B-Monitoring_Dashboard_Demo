@@ -32,3 +32,8 @@ docker/mosquitto/data/
 docker/mosquitto/log/
 __pycache__/
 *.pyc
+
+# Public documentation is tracked
+!/README.md
+!docs/
+!docs/*.md

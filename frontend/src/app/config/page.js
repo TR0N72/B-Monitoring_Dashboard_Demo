@@ -10,7 +10,6 @@ import Toast from '@/components/Toast';
 
 const defaultThresholds = {
   temperature: { min: 18.5, max: 28.0 },
-  ph: { min: 6.5, max: 8.5 },
   salinity: { min: 10.0, max: 35.0 },
   turbidity: { min: 0.0, max: 25.0 },
 };
@@ -65,8 +64,6 @@ export default function SystemConfigPage() {
                 mapped.temperature = { min: Number(t.batas_bawah), max: Number(t.batas_atas) };
               } else if (t.parameter === 'salinitas') {
                 mapped.salinity = { min: Number(t.batas_bawah), max: Number(t.batas_atas) };
-              } else if (t.parameter === 'ph') {
-                mapped.ph = { min: Number(t.batas_bawah), max: Number(t.batas_atas) };
               } else if (t.parameter === 'turbidity') {
                 mapped.turbidity = { min: Number(t.batas_bawah), max: Number(t.batas_atas) };
               }
@@ -104,7 +101,6 @@ export default function SystemConfigPage() {
       const thresholdsArray = [
         { parameter: 'suhu', batas_bawah: thresholds.temperature.min, batas_atas: thresholds.temperature.max },
         { parameter: 'salinitas', batas_bawah: thresholds.salinity.min, batas_atas: thresholds.salinity.max },
-        { parameter: 'ph', batas_bawah: thresholds.ph.min, batas_atas: thresholds.ph.max },
         { parameter: 'turbidity', batas_bawah: thresholds.turbidity.min, batas_atas: thresholds.turbidity.max },
       ];
       const res = await apiFetch(`/api/config/thresholds/${selectedDeviceId}`, {
@@ -134,7 +130,6 @@ export default function SystemConfigPage() {
 
   const cards = [
     { key: 'temperature', label: 'Temperature (°C)', icon: '/assets/6f3510a1dbb99babca2e52252df845e0f6a7941e.svg', minMax: [0, 50] },
-    { key: 'ph', label: 'pH Level', icon: '/assets/7cbc8d37ade756484e345e40d2c92b51f08d8a1d.svg', minMax: [0, 14] },
     { key: 'salinity', label: 'Salinity (ppt)', icon: '/assets/8ceabc24f95c1ef1a379cf49d24d68a56493acb4.svg', minMax: [0, 50] },
     { key: 'turbidity', label: 'Turbidity (NTU)', icon: '/assets/90dd09ce6d6dcf0865ad04a71caf4c1138acf2b1.svg', minMax: [0, 1000] },
   ];

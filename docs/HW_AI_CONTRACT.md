@@ -2,10 +2,11 @@
 
 | Direction | Topic | Payload (JSON) |
 |---|---|---|
-| HW -> backend | `tambak/{node_id}/sensor` | `suhu, ph, salinitas, kekeruhan, baterai, rssi` (numbers) |
+| HW -> backend | `tambak/{node_id}/sensor` | `suhu, salinitas, kekeruhan, baterai, rssi, jarak_cm` (numbers; `ph` is no longer used and is ignored) |
 | HW -> backend | `tambak/{node_id}/sensor/vibration` | vibration reading (failsafe) |
 | HW -> backend | `tambak/{node_id}/actuator/status` | actuator confirmation |
 | AI -> backend | `tambak/{node_id}/camera/result` | `label` Normal/Caution/Warning, `confidence` 0-1, `model_version`, `hsv_metadata{}` |
+| Hardware vision -> backend | `tambak/{node_id}/vision` | `{"node":"N1","kelas":"Class 4","kondisi":"Caution","confidence":0.91,"ts":...}`. `kondisi` = Normal/Caution/Warning (label of the DSS), `kelas` stored as `predicted_class`, node from the topic, `ts` ignored (server time). Stored in `ai_detection_logs` (`model_version=hw-vision`); confidence >= `AI_MIN_CONFIDENCE` feeds fuzzy DSS for 30 min. ACL: `hw_gateway` may write this topic. |
 | AI -> backend (alt) | `POST /api/ai/detections` (JWT) | same fields + `node_id` |
 | backend -> camera | `tambak/{node_id}/camera/capture` | `request_id, action:"capture_and_analyze"` |
 

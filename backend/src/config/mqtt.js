@@ -65,6 +65,7 @@ function initMQTT() {
         'tambak/+/actuator/status',
         'tambak/+/sensor/vibration',
         'tambak/+/camera/result',
+        'tambak/+/vision',
       ];
 
       topics.forEach(topic => {
@@ -93,6 +94,12 @@ function initMQTT() {
           await handleVibrationMessage(nodeId, payload);
         } else if (msgType === 'camera' && msgSubtype === 'result') {
           await require('../services/aiDetection').saveDetection({ ...payload, node_id: nodeId });
+        } else if (msgType === 'vision' && !msgSubtype) {
+          // Hasil visi tim hardware {node,kelas,kondisi,confidence,ts}: node dari topik, ts diabaikan (waktu simpan = backend).
+          await require('../services/aiDetection').saveDetection({
+            node_id: nodeId, label: payload.kondisi, confidence: payload.confidence,
+            model_version: 'hw-vision', hsv_metadata: { predicted_class: payload.kelas ?? null, source: 'mqtt' },
+          });
         } else if (msgType === 'sensor') {
           await handleSensorData(nodeId, payload);
         } else if (msgType === 'actuator' && msgSubtype === 'status') {
@@ -138,7 +145,7 @@ function sanitizeFloat(value, min = -Infinity, max = Infinity, onAnomaly = null)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Handler: Data Sensor Utama (suhu, ph, salinitas, kekeruhan, baterai, rssi)
+// Handler: Data Sensor Utama (suhu, salinitas, kekeruhan, baterai, rssi, jarak_cm)
 // ─────────────────────────────────────────────────────────────────────────────
 async function handleSensorData(nodeId, payload) {
   try {
@@ -167,7 +174,7 @@ async function handleSensorData(nodeId, payload) {
       };
 
       const suhu      = sanitizeFloat(payload.suhu,      0,   45, (v, min, max) => recordAnomaly('suhu', v, min, max));
-      const ph_level  = sanitizeFloat(payload.ph,        0,   14, (v, min, max) => recordAnomaly('ph', v, min, max));
+      if (payload.ph !== undefined) console.warn(`[MQTT] ${nodeId}: field "ph" diabaikan (sensor pH tidak dipakai)`);
       let   salinitas = sanitizeFloat(payload.salinitas ?? payload.sal_ppt, 0,  100, (v, min, max) => recordAnomaly('salinitas', v, min, max));
       const turbidity = sanitizeFloat(payload.kekeruhan, 0, 1000, (v, min, max) => recordAnomaly('turbidity', v, min, max));
       const baterai   = sanitizeFloat(payload.baterai,   0,  100, (v, min, max) => recordAnomaly('baterai', v, min, max));
@@ -203,8 +210,8 @@ async function handleSensorData(nodeId, payload) {
       }
 
       const [insertResult] = await connection.execute(
-        'INSERT INTO sensor_data (device_id, suhu, ph_level, salinitas, turbidity, baterai, rssi, seq, adc, jarak_cm, siklus_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [internalId, suhu, ph_level, salinitas, turbidity, baterai, rssi, seq, adc, jarak_cm, siklus]
+        'INSERT INTO sensor_data (device_id, suhu, salinitas, turbidity, baterai, rssi, seq, adc, jarak_cm, siklus_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [internalId, suhu, salinitas, turbidity, baterai, rssi, seq, adc, jarak_cm, siklus]
       );
       const sensorDataId = insertResult.insertId;
 
@@ -217,7 +224,6 @@ async function handleSensorData(nodeId, payload) {
           device_id: internalId,
           node_id: nodeId,
           suhu,
-          ph_level,
           salinitas,
           turbidity,
           baterai,
@@ -337,7 +343,7 @@ async function handleSensorData(nodeId, payload) {
 
       // ── Cek threshold statis dan kirim alert ──────────────────────────
       if (isFinal) {
-        await checkThresholds(connection, internalId, sensorDataId, { suhu, salinitas, ph: ph_level, turbidity }, nodeId);
+        await checkThresholds(connection, internalId, sensorDataId, { suhu, salinitas, turbidity }, nodeId);
       }
 
     } finally {

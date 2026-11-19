@@ -31,7 +31,6 @@ CREATE TABLE IF NOT EXISTS sensor_data (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     device_id INT NOT NULL,
     suhu FLOAT,
-    ph_level FLOAT,
     salinitas FLOAT,
     turbidity FLOAT,
     baterai FLOAT,
@@ -76,7 +75,7 @@ CREATE TABLE IF NOT EXISTS threshold_config (
     id INT AUTO_INCREMENT PRIMARY KEY,
     device_id INT NOT NULL,
     user_id INT NOT NULL COMMENT 'User who last modified this threshold',
-    parameter ENUM('suhu', 'salinitas', 'ph', 'turbidity') NOT NULL COMMENT 'Sensor parameter name',
+    parameter ENUM('suhu', 'salinitas', 'turbidity') NOT NULL COMMENT 'Sensor parameter name',
     batas_bawah DECIMAL(10, 2) NOT NULL COMMENT 'Minimum threshold',
     batas_atas DECIMAL(10, 2) NOT NULL COMMENT 'Maximum threshold',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -127,16 +126,6 @@ INSERT INTO users (name, username, email, password_hash, role) VALUES
 ON DUPLICATE KEY UPDATE name = VALUES(name);
 
 INSERT INTO devices (node_id, name, type, mac_address, lokasi, status) VALUES
-    ('ESP32-NODE-01', 'Sensor Node 01', 'sensor_node', 'AA:BB:CC:DD:EE:01', 'Pond Unit 04 - North', 'online'),
-    ('ESP32-NODE-02', 'Sensor Node 02', 'sensor_node', 'AA:BB:CC:DD:EE:02', 'Pond Unit 04 - South', 'offline'),
-    ('ESP32-NODE-03', 'Sensor Node 03', 'sensor_node', 'AA:BB:CC:DD:EE:03', 'Pond Unit 04 - East', 'online'),
-    ('LORA-GW-01', 'LoRa Gateway 01', 'gateway', 'AA:BB:CC:DD:FF:01', 'Pond Unit 04 - Central', 'online'),
     ('N1', 'Gateway Node N1', 'sensor_node', NULL, 'Expo', 'offline')
 ON DUPLICATE KEY UPDATE name = VALUES(name);
 
-INSERT INTO threshold_config (device_id, user_id, parameter, batas_bawah, batas_atas) VALUES
-    (1, 1, 'suhu', 18.50, 28.00),
-    (1, 1, 'salinitas', 10.00, 35.00),
-    (1, 1, 'ph', 6.50, 8.50),
-    (1, 1, 'turbidity', 0.00, 25.00)
-ON DUPLICATE KEY UPDATE batas_bawah = VALUES(batas_bawah), batas_atas = VALUES(batas_atas);

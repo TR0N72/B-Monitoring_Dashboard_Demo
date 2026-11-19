@@ -8,4 +8,5 @@ user hw_gateway
 topic write tambak/+/sensor
 topic write tambak/+/sensor/#
 topic write tambak/+/actuator/status
+topic write tambak/+/vision
 topic read tambak/+/actuator/command

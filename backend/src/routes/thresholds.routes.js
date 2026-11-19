@@ -62,7 +62,7 @@ router.put('/:deviceId', authorize('admin'), async (req, res) => {
     if (!Array.isArray(thresholds) || thresholds.length === 0) {
       return res.status(400).json({ error: 'thresholds array is required.' });
     }
-    const validParams = ['suhu', 'salinitas', 'ph', 'turbidity'];
+    const validParams = ['suhu', 'salinitas', 'turbidity'];
     const pool = getPool();
 
     let getDeviceQuery = 'SELECT id FROM devices WHERE node_id = ?';
