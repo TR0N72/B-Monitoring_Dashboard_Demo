@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import Logo from '@/components/Logo';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -91,7 +92,7 @@ export default function Sidebar() {
       <div className="sidebar-header">
         <div className="sidebar-brand">
           <div className="brand-logo">
-            <p>SA</p>
+            <Logo size={22} />
           </div>
           <div className="brand-text">
             <div className="brand-title">

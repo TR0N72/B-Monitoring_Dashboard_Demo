@@ -2,11 +2,13 @@
   "uid": "bmonitor-telemetry",
   "title": "B-Monitor Telemetry",
   "schemaVersion": 38,
+  "time": { "from": "now-7d", "to": "now" },
+  "refresh": "30s",
   "timezone": "browser",
   "panels": [
     {
       "id": 1,
-      "title": "Live Telemetry (Last 24h)",
+      "title": "Live Telemetry (Last 7d)",
       "type": "timeseries",
       "datasource": { "type": "mysql", "uid": "mysql" },
       "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },

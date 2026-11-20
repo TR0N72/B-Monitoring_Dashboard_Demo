@@ -22,9 +22,6 @@ FEATURES = ["glcm_contrast", "glcm_correlation", "glcm_energy", "h_mean", "h_std
             "h_hist_0", "h_hist_1", "h_hist_4", "s_mean", "s_hist_0", "s_hist_1", "v_mean",
             "v_std", "v_var", "v_hist_4", "v_hist_5", "h_hist_5"]
 # 5 TSS classes -> backend labels. ponytail: mapping from AI team's Streamlit app, confirm with them.
-# Quality gate, calibrated on the 50 TSS2 test images (128x128 gray): real mean 109-174, std>=3.0,
-# Laplacian var>=3.0; blur/dark/overexposed/blank samples fall outside. ponytail: re-tune on real pond photos.
-MIN_MEAN, MAX_MEAN, MIN_STD, MIN_SHARP = 60, 215, 1.5, 2.0
 CLASS_TO_LABEL = {1: "Normal", 2: "Normal", 3: "Caution", 4: "Caution", 5: "Warning"}
 
 with warnings.catch_warnings():
@@ -87,12 +84,6 @@ def _predict(data: bytes):
     if bgr is None:
         raise HTTPException(400, "not a decodable image")
     small = cv2.resize(bgr, IMAGE_SIZE, interpolation=cv2.INTER_AREA)
-    gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
-    mean, std, sharp = float(gray.mean()), float(gray.std()), float(cv2.Laplacian(gray, cv2.CV_64F).var())
-    reason = ("too_dark" if mean < MIN_MEAN else "too_bright" if mean > MAX_MEAN
-              else "blank" if std < MIN_STD else "blurry" if sharp < MIN_SHARP else None)
-    if reason:
-        raise HTTPException(422, reason)
     rgb = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
     x = features(rgb)
     proba = model.predict_proba(x)[0]

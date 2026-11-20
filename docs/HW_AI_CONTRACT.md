@@ -39,7 +39,7 @@
 - Jalur aktif: upload manual di halaman `/ai-vision` -> `POST /api/ai/analyze?node_id=N1` (JWT, body = gambar jpeg/png, maks 5 MB) -> service `ai` (FastAPI, internal Docker) -> `ai_detection_logs`.
   - Belum ada kamera otomatis. Input visual masih manual. Pilihan ESP32-CAM (kirim foto via HTTP ke endpoint di atas, atau kirim fitur via gateway) belum diputuskan tim hardware/AI.
 - Pemetaan kelas -> label (sementara, belum divalidasi pada foto tambak): Class 1-2 `Normal`, Class 3-4 `Caution`, Class 5 `Warning`.
-- Cek kualitas foto sebelum prediksi. Foto ditolak HTTP 422 dengan `reason`: `too_dark`, `too_bright`, `blank`, `blurry`. Gambar tak terbaca atau terlalu besar (> 12 juta piksel) juga 422.
+- Tidak ada cek kualitas foto: gambar apa pun yang terbaca dan di bawah batas ukuran diprediksi. Foto bukan air tetap mendapat label. Gambar tak terbaca atau terlalu besar ditolak (400/413 di service, 422 di backend).
 - Ambang confidence 0,60 (`AI_MIN_CONFIDENCE`, usulan tim AI, belum dituning). Di bawah ambang: disimpan, respons `used_for_dss:false`, tidak dipakai fuzzy.
 - Fuzzy hanya memakai deteksi terbaru dalam 30 menit terakhir; setelahnya label visual `Normal`.
 - Hasil uji 50 foto TSS2 (10 per kelas): kelas dan label benar 50/50. Belum ada uji foto tambak asli.
