@@ -7,6 +7,16 @@ import { useApi } from '@/hooks/useApi';
 import Sidebar from '@/components/Sidebar';
 import TopAppBar from '@/components/TopAppBar';
 
+const RANGE_PARAM = { '24h': '24h', '7 Days': '7d', '30 Days': '30d', 'All Time': 'all' };
+const METRIC_CARDS = [
+  { key: 'suhu', label: 'AVG TEMPERATURE', unit: '°C' },
+  { key: 'jarak_cm', label: 'AVG WATER DISTANCE', unit: 'cm' },
+  { key: 'salinitas', label: 'AVG SALINITY', unit: 'ppt' },
+  { key: 'turbidity', label: 'AVG TURBIDITY', unit: 'NTU' },
+];
+const ARROW = { up: '▲', down: '▼', stable: '—' };
+const fmt = (v) => (v == null ? '—' : Number(v).toFixed(1));
+
 export default function AnalyticsPage() {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { apiFetch } = useApi();
@@ -26,64 +36,11 @@ export default function AnalyticsPage() {
     async function fetchStats() {
       setLoadingStats(true);
       try {
-        const res = await apiFetch('/api/sensors/history?limit=300');
+        const res = await apiFetch(`/api/sensors/stats?range=${RANGE_PARAM[activeFilter]}`);
         if (res.ok && !ignore) {
           const json = await res.json();
-          const list = json.data || json || [];
-          
-          const now = Date.now();
-          const cutoff = 
-            activeFilter === '24h' ? now - 24 * 3600 * 1000 :
-            activeFilter === '7 Days' ? now - 7 * 86400 * 1000 :
-            activeFilter === '30 Days' ? now - 30 * 86400 * 1000 : 0;
-
-          const filtered = list.filter(item => {
-            if (!cutoff) return true;
-            const ts = new Date(item.recorded_at || item.created_at || item.timestamp).getTime();
-            return !isNaN(ts) && ts >= cutoff;
-          });
-
-          const dataset = filtered.length > 0 ? filtered : list; // ponytail: fallback to recent batch if empty in strict window
-
-          let sumTemp = 0, countTemp = 0;
-          let sumJarak = 0, countJarak = 0;
-          let sumSal = 0, countSal = 0;
-          let sumTurb = 0, countTurb = 0;
-
-          dataset.forEach(d => {
-            if (d.suhu != null) { sumTemp += Number(d.suhu); countTemp++; }
-            if (d.jarak_cm != null) { sumJarak += Number(d.jarak_cm); countJarak++; }
-            if (d.salinitas != null) { sumSal += Number(d.salinitas); countSal++; }
-            if (d.turbidity != null) { sumTurb += Number(d.turbidity); countTurb++; }
-          });
-
-          const dr = await apiFetch('/api/devices');
-          const devList = dr.ok ? ((await dr.json()).devices || []) : [];
-          const groups = {};
-          devList.forEach(dv => { groups[dv.node_id] = { name: dv.name, rows: [] }; });
-          dataset.forEach(r => {
-            (groups[r.node_id] ||= { name: r.node_id, rows: [] }).rows.push(r);
-          });
-          const avg = (rows, k) => {
-            const v = rows.filter(r => r[k] != null).map(r => Number(r[k]));
-            return v.length ? (v.reduce((a, b) => a + b, 0) / v.length).toFixed(1) : '—';
-          };
-          if (!ignore) {
-            setByNode(Object.entries(groups).map(([id, g]) => ({
-              id, name: g.name || id,
-              temp: avg(g.rows, 'suhu'), jarak: avg(g.rows, 'jarak_cm'),
-              sal: avg(g.rows, 'salinitas'), turb: avg(g.rows, 'turbidity'),
-              online: g.rows.length > 0 && Date.now() - new Date(g.rows[0].recorded_at).getTime() < 10 * 60 * 1000,
-            })));
-          }
-
-          setStats({
-            avgTemp: countTemp > 0 ? (sumTemp / countTemp).toFixed(1) : '—',
-            avgJarak: countJarak > 0 ? (sumJarak / countJarak).toFixed(1) : '—',
-            avgSal: countSal > 0 ? (sumSal / countSal).toFixed(1) : '—',
-            avgTurb: countTurb > 0 ? (sumTurb / countTurb).toFixed(1) : '—',
-            count: dataset.length
-          });
+          setStats(json);
+          setByNode(json.nodes || []);
         }
       } catch (err) {
         console.error('[Analytics] Failed to fetch stats:', err);
@@ -121,38 +78,18 @@ export default function AnalyticsPage() {
             </div>
 
             <div className="analytics-stat-row">
-              <div className="analytics-stat-card">
-                <div className="stat-card-label">AVG TEMPERATURE</div>
-                <div className="stat-card-value"><span className="value">{loadingStats ? '…' : (stats?.avgTemp ?? '—')}</span><span className="unit">°C</span></div>
-                <div className="stat-card-trend stable">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="1" y1="12" x2="23" y2="12"></line></svg>
-                  <span>{stats?.count ? `${stats.count} samples` : 'Awaiting data'}</span>
-                </div>
-              </div>
-              <div className="analytics-stat-card">
-                <div className="stat-card-label">AVG WATER DISTANCE</div>
-                <div className="stat-card-value"><span className="value">{loadingStats ? '…' : (stats?.avgJarak ?? '—')}</span><span className="unit">cm</span></div>
-                <div className="stat-card-trend stable">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="1" y1="12" x2="23" y2="12"></line></svg>
-                  <span>{stats?.count ? `${stats.count} samples` : 'Awaiting data'}</span>
-                </div>
-              </div>
-              <div className="analytics-stat-card">
-                <div className="stat-card-label">AVG SALINITY</div>
-                <div className="stat-card-value"><span className="value">{loadingStats ? '…' : (stats?.avgSal ?? '—')}</span><span className="unit">ppt</span></div>
-                <div className="stat-card-trend stable">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="1" y1="12" x2="23" y2="12"></line></svg>
-                  <span>{stats?.count ? `${stats.count} samples` : 'Awaiting data'}</span>
-                </div>
-              </div>
-              <div className="analytics-stat-card">
-                <div className="stat-card-label">AVG TURBIDITY</div>
-                <div className="stat-card-value"><span className="value">{loadingStats ? '…' : (stats?.avgTurb ?? '—')}</span><span className="unit">NTU</span></div>
-                <div className="stat-card-trend stable">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="1" y1="12" x2="23" y2="12"></line></svg>
-                  <span>{stats?.count ? `${stats.count} samples` : 'Awaiting data'}</span>
-                </div>
-              </div>
+              {METRIC_CARDS.map(({ key, label, unit }) => {
+                const m = stats?.metrics?.[key];
+                return (
+                  <div className="analytics-stat-card" key={key}>
+                    <div className="stat-card-label">{label}</div>
+                    <div className="stat-card-value"><span className="value">{loadingStats ? '…' : fmt(m?.avg)}</span><span className="unit">{unit}</span></div>
+                    <div className="stat-card-trend stable">
+                      <span>{m?.count ? `${ARROW[m.trend]} ${m.change_pct != null ? `${m.change_pct > 0 ? '+' : ''}${m.change_pct}%` : ''} · min ${fmt(m.min)} · max ${fmt(m.max)} · ${m.count} samples` : 'No data in range'}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             <div className="analytics-charts-grid">
@@ -192,7 +129,7 @@ export default function AnalyticsPage() {
                 </thead>
                 <tbody>
                   {byNode.map(n => (
-                    <tr key={n.id}><td className="fw-500">{n.name}</td><td>{n.temp}</td><td>{n.jarak}</td><td>{n.sal}</td><td>{n.turb}</td><td><div className="status-indicator"><div className={`status-dot ${n.online ? 'active' : 'offline'}`}></div><span>{n.online ? 'Online' : 'Offline'}</span></div></td></tr>
+                    <tr key={n.node_id}><td className="fw-500">{n.name || n.node_id}</td><td>{fmt(n.suhu)}</td><td>{fmt(n.jarak_cm)}</td><td>{fmt(n.salinitas)}</td><td>{fmt(n.turbidity)}</td><td><div className="status-indicator"><div className={`status-dot ${n.online ? 'active' : 'offline'}`}></div><span>{n.online ? 'Online' : 'Offline'}</span></div></td></tr>
                   ))}
                   {byNode.length === 0 && <tr><td colSpan={6}>No data.</td></tr>}
                 </tbody>

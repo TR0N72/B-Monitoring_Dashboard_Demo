@@ -2,13 +2,14 @@
 
 const express = require('express');
 const { getPool } = require('../config/db');
+const { endOfDay } = require('../services/dateRange');
 const { authenticate, authorize } = require('../middleware/auth');
 const router = express.Router();
 
 const { saveDetection, normalizeLabel, MIN_CONFIDENCE } = require('../services/aiDetection');
 
 /** POST /api/ai/detections — simpan hasil inferensi visual (JWT wajib) */
-router.post('/detections', authenticate, authorize('admin', 'operator'), async (req, res) => {
+router.post('/detections', authenticate, authorize('admin'), async (req, res) => {
   try {
     const data = await saveDetection(req.body);
     return res.status(201).json({ message: 'AI detection processed successfully', data });
@@ -23,7 +24,7 @@ router.post('/detections', authenticate, authorize('admin', 'operator'), async (
  * POST /api/ai/analyze?node_id=N1 — body = raw image bytes (Content-Type image/*).
  * Forwards to the Python AI service, stores the result as a detection (feeds DSS visual input).
  */
-router.post('/analyze', authenticate, authorize('admin', 'operator'), express.raw({ type: 'image/*', limit: '5mb' }), async (req, res) => {
+router.post('/analyze', authenticate, authorize('admin'), express.raw({ type: 'image/*', limit: '5mb' }), async (req, res) => {
   const nodeId = String(req.query.node_id || '').trim();
   if (!nodeId) return res.status(400).json({ error: 'node_id query param is required.' });
   if (!Buffer.isBuffer(req.body) || !req.body.length) {
@@ -93,7 +94,7 @@ router.get('/detections', authenticate, async (req, res) => {
     }
     if (end_date) {
       whereClause += ' AND a.created_at <= ?';
-      params.push(end_date);
+      params.push(endOfDay(end_date));
     }
 
     const pool = getPool();
@@ -155,52 +156,6 @@ router.get('/detections', authenticate, async (req, res) => {
     });
   } catch (err) {
     console.error('[AI] getAIDetectionHistory error:', err.message);
-    return res.status(500).json({ error: 'Internal server error.' });
-  }
-});
-
-/**
- * POST /api/ai/capture — LORA-13: captureAndAnalyze
- * Mentriggerr ESP32-CAM via MQTT topik tambak/{node_id}/camera/capture
- */
-router.post('/capture', authenticate, authorize('admin', 'operator'), async (req, res) => {
-  try {
-    const { node_id } = req.body;
-    const targetNode = node_id || 'N1';
-    // Cegah wildcard/level topik MQTT (+ # /) lewat node_id
-    if (!/^[A-Za-z0-9_-]{1,32}$/.test(targetNode)) {
-      return res.status(400).json({ error: 'node_id tidak valid' });
-    }
-
-    const requestId = `cap_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`;
-    const captureTopic = `tambak/${targetNode}/camera/capture`;
-    const payload = {
-      request_id: requestId,
-      node_id: targetNode,
-      timestamp: new Date().toISOString(),
-      action: 'capture_and_analyze',
-      requested_by: req.user?.username || 'operator',
-    };
-
-    let published = false;
-    try {
-      const { publishMQTT } = require('../config/mqtt');
-      publishMQTT(captureTopic, payload, { qos: 1 });
-      published = true;
-    } catch (mqttErr) {
-      console.warn('[AI] Capture MQTT publish warning:', mqttErr.message);
-    }
-
-    return res.status(202).json({
-      message: 'Capture and analysis command dispatched to camera node',
-      request_id: requestId,
-      node_id: targetNode,
-      topic: captureTopic,
-      mqtt_dispatched: published,
-      timestamp: payload.timestamp,
-    });
-  } catch (err) {
-    console.error('[AI] captureAndAnalyze error:', err.message);
     return res.status(500).json({ error: 'Internal server error.' });
   }
 });

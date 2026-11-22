@@ -31,6 +31,7 @@ jest.mock('../config/telegram', () => ({
 // ── Mock telegramQueue ────────────────────────────────────────────────────────
 jest.mock('../config/telegramQueue', () => ({
   invalidateRouteCache: jest.fn(),
+  loadPersisted: jest.fn().mockResolvedValue(0),
   getQueueStatus: jest.fn(() => ({ queueLength: 0, workers: [] })),
 }));
 

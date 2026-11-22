@@ -33,7 +33,10 @@ docker/mosquitto/log/
 __pycache__/
 *.pyc
 
-# Public documentation is tracked
+# Dokumentasi tidak boleh masuk git
+*.md
+*.docx
+*.pdf
 !/README.md
-!docs/
-!docs/*.md
+docs/
+coverage/

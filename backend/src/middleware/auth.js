@@ -1,7 +1,9 @@
 const jwt = require('jsonwebtoken');
+const { isRevoked } = require('../services/tokenBlacklist');
+const { resolveUser } = require('../services/userGuard');
 const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'test' ? 'bmonitor_dev_secret' : null);
 if (!JWT_SECRET) throw new Error('JWT_SECRET environment variable is required.');
-function authenticate(req, res, next) {
+async function authenticate(req, res, next) {
   // Read from HttpOnly cookie (primary) or Authorization header (fallback)
   let token = req.cookies?.bmonitor_token;
   if (!token) {
@@ -13,9 +15,14 @@ function authenticate(req, res, next) {
   if (!token) {
     return res.status(401).json({ error: 'Access denied. No token provided.' });
   }
+  if (isRevoked(token)) {
+    return res.status(401).json({ error: 'Token revoked. Please login again.' });
+  }
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
+    const user = await resolveUser(decoded);
+    if (!user) return res.status(401).json({ error: 'Account changed or removed. Please login again.' });
+    req.user = user;
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {

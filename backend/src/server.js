@@ -10,6 +10,9 @@ const { initMQTT, closeMQTT } = require('./config/mqtt');
 const { initSocket } = require('./socket/alerts');
 const { startCycleScheduler } = require('./services/cycleScheduler');
 const { startDeviceStatusSweep } = require('./services/deviceStatus');
+const { loadRevoked } = require('./services/tokenBlacklist');
+const { loadPersisted } = require('./config/telegramQueue');
+const { startRetention } = require('./services/retention');
 const authRoutes = require('./routes/auth.routes');
 const devicesRoutes = require('./routes/devices.routes');
 const thresholdsRoutes = require('./routes/thresholds.routes');
@@ -75,12 +78,15 @@ async function start() {
         await new Promise((r) => setTimeout(r, 3000));
       }
     }
+    await loadRevoked().then((n) => console.log(`✓ Token blacklist: ${n} entri`)).catch((e) => console.warn('⚠ Token blacklist load gagal:', e.message));
+    await loadPersisted().then((n) => console.log(`✓ Antrean Telegram: ${n} pending dipulihkan`)).catch((e) => console.warn('⚠ Antrean Telegram load gagal:', e.message));
     initMQTT().then(() => {}).catch((err) => {
       console.warn('⚠ MQTT not available:', err.message);
     });
     initSocket(server);
     startCycleScheduler();
     startDeviceStatusSweep();
+    startRetention();
     console.log('✓ Socket.io initialized');
     verifyBot().catch(() => {});
     server.listen(PORT, () => {

@@ -10,6 +10,7 @@
 
 const express              = require('express');
 const { getPool }          = require('../config/db');
+const { endOfDay }         = require('../services/dateRange');
 const { authenticate }     = require('../middleware/auth');
 const { processFuzzy, getRuleDefinitions, MEMBERSHIP_SPEC } = require('../services/fuzzyDSS');
 
@@ -143,7 +144,7 @@ router.get('/', async (req, res) => {
     }
     if (end_date) {
       query += ` AND f.created_at <= ?`;
-      params.push(end_date);
+      params.push(endOfDay(end_date));
     }
 
     query += ` ORDER BY f.created_at DESC LIMIT ? OFFSET ?`;

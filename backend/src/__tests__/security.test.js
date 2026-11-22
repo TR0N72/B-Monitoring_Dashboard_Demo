@@ -21,6 +21,7 @@ process.env.JWT_SECRET = JWT_SECRET;
 const mockExecute = jest.fn();
 const mockPool    = { execute: mockExecute };
 
+jest.mock('../services/userGuard', () => ({ resolveUser: async (d) => d, invalidate: () => {} })); // akun diuji di user-guard.test.js
 jest.mock('../config/db', () => ({
   getPool:    jest.fn(() => mockPool),
   initMySQL:  jest.fn().mockResolvedValue(undefined),
@@ -377,7 +378,7 @@ describe('📋 Input Validation', () => {
     const res = await request(app)
       .post('/api/users')
       .set('Authorization', makeToken('admin'))
-      .send({ name: 'Duplikat', username: 'admin', password: 'pass123', role: 'user' });
+      .send({ name: 'Duplikat', username: 'admin', password: 'pass12345', role: 'user' });
     expect(res.status).toBe(409);
     expect(res.body.error).toMatch(/already/i);
   });

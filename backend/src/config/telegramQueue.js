@@ -76,6 +76,42 @@ let isInitialized   = false;
 /** Cooldown map: key = `device_id:parameter` → timestamp */
 const cooldownMap   = new Map();
 
+/**
+ * Persistensi write-through ke tabel telegram_queue (status 'pending' | 'dead').
+ * 'dead' = Dead-Letter Queue: item yang gagal permanen, disimpan untuk inspeksi, tidak dikirim ulang.
+ * Gagal DB tidak boleh memblokir pengiriman -> hanya log.
+ */
+function _db(sql, params) {
+  let pool;
+  try { pool = getPool(); } catch { return; }  // pool belum siap (mis. tes)
+  pool.execute(sql, params).catch((e) => console.error('[TelegramQueue] persist error:', e.message));
+}
+const _persistAdd    = (i) => _db(
+  'INSERT IGNORE INTO telegram_queue (id, priority, device_id, alert_data, retry_count, next_attempt_at, created_at) VALUES (?,?,?,?,?,?,?)',
+  [i.id, i.priority, i.deviceId ?? null, JSON.stringify(i.alertData), i.retryCount, i.nextAttemptAt, i.createdAt]);
+const _persistRetry  = (i) => _db('UPDATE telegram_queue SET retry_count=?, next_attempt_at=? WHERE id=?', [i.retryCount, i.nextAttemptAt, i.id]);
+const _persistDelete = (id) => _db('DELETE FROM telegram_queue WHERE id=?', [id]);
+const _persistDead   = (id, why) => _db("UPDATE telegram_queue SET status='dead', last_error=? WHERE id=?", [String(why).slice(0, 255), id]);
+
+/** Pulihkan item 'pending' dari DB ke memori (panggil sekali saat startup). */
+async function loadPersisted() {
+  const [rows] = await getPool().execute(
+    "SELECT id, priority, device_id, alert_data, retry_count, next_attempt_at, created_at FROM telegram_queue WHERE status='pending' ORDER BY created_at");
+  for (const r of rows) {
+    if (queue.some((q) => q.id === r.id)) continue;
+    const item = {
+      id: r.id, priority: r.priority, deviceId: r.device_id,
+      alertData: typeof r.alert_data === 'string' ? JSON.parse(r.alert_data) : r.alert_data,
+      recipients: null, retryCount: r.retry_count,
+      nextAttemptAt: Number(r.next_attempt_at), createdAt: Number(r.created_at),
+    };
+    const idx = queue.findIndex((q) => q.priority < item.priority);
+    if (idx === -1) queue.push(item); else queue.splice(idx, 0, item);
+  }
+  if (queue.length) _startWorker();
+  return rows.length;
+}
+
 /** Cache resolusi routing: deviceId → [chatId, ...] TTL 5 menit */
 const routeCache    = new Map();
 const ROUTE_TTL_MS  = 5 * 60 * 1000;
@@ -473,6 +509,7 @@ function enqueue({ priority = PRIORITY.CAUTION, deviceId, alertData, forceSend =
   if (queue.length >= MAX_QUEUE_SIZE) {
     const dropIdx = queue.findIndex(i => i.priority === PRIORITY.CAUTION);
     if (dropIdx >= 0) {
+      _persistDelete(queue[dropIdx].id);
       queue.splice(dropIdx, 1);
       console.warn('[TelegramQueue] Queue full — dropped oldest CAUTION item');
     } else {
@@ -501,6 +538,7 @@ function enqueue({ priority = PRIORITY.CAUTION, deviceId, alertData, forceSend =
     queue.splice(insertIdx, 0, item);
   }
 
+  _persistAdd(item);
   console.log(`[TelegramQueue] Enqueued [${_priorityName(priority)}] id=${item.id} device=${deviceId} queue_size=${queue.length}`);
   _startWorker();
 }
@@ -516,6 +554,7 @@ function _priorityName(p) {
 function _startWorker() {
   if (workerTimer || isProcessing) return;
   workerTimer = setInterval(_processNext, WORKER_INTERVAL_MS);
+  workerTimer.unref?.();
 }
 
 function _stopWorker() {
@@ -547,7 +586,8 @@ async function _processNext() {
       }
 
       if (item.recipients.length === 0) {
-        console.warn(`[TelegramQueue] No recipients for device=${item.deviceId} — item dropped`);
+        console.warn(`[TelegramQueue] No recipients for device=${item.deviceId} — moved to DLQ`);
+        _persistDead(item.id, 'no recipients');
         _removeFromQueue(item.id);
         return;
       }
@@ -587,6 +627,7 @@ async function _processNext() {
     }
 
     if (allSuccess) {
+      _persistDelete(item.id);
       _removeFromQueue(item.id);
     } else {
       // Hitung retry
@@ -594,7 +635,8 @@ async function _processNext() {
       const maxRetry = MAX_RETRY[item.priority] ?? 5;
 
       if (item.retryCount > maxRetry) {
-        console.error(`[TelegramQueue] ✗ Max retries (${maxRetry}) exceeded for item ${item.id} — dropped`);
+        console.error(`[TelegramQueue] ✗ Max retries (${maxRetry}) exceeded for item ${item.id} — moved to DLQ`);
+        _persistDead(item.id, `max retries (${maxRetry}) exceeded`);
         _removeFromQueue(item.id);
         return;
       }
@@ -605,6 +647,7 @@ async function _processNext() {
         item.nextAttemptAt = now + BACKOFF_SCHEDULE[backoffIdx];
         console.log(`[TelegramQueue] Retry ${item.retryCount}/${maxRetry} scheduled in ${BACKOFF_SCHEDULE[backoffIdx] / 1000}s for item=${item.id}`);
       }
+      _persistRetry(item);
     }
   } catch (err) {
     console.error('[TelegramQueue] Worker error:', err.message);
@@ -718,8 +761,7 @@ function getQueueStatus() {
   };
 }
 
-// Inisialisasi worker saat module dimuat (jika antrian ada dari restart — tidak persist,
-// tapi mekanisme ini siap untuk implementasi persistent queue ke DB di masa depan)
+// Antrean dipulihkan dari DB lewat loadPersisted() (dipanggil server.js setelah MySQL siap).
 if (!isInitialized) {
   isInitialized = true;
   // Worker akan di-start otomatis saat ada item pertama
@@ -732,6 +774,8 @@ module.exports = {
   sendDssAlert,
   sendEmergency,
   getQueueStatus,
+  sendToChat,
+  loadPersisted,
   invalidateRouteCache,
   PRIORITY,
   // Helper & Error Classes

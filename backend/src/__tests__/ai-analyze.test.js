@@ -2,6 +2,7 @@
 process.env.JWT_SECRET = 'bmonitor_dev_secret';
 const mockQuery = jest.fn();
 jest.mock('../config/db', () => ({ getPool: jest.fn(() => ({ query: mockQuery, execute: jest.fn() })) }));
+jest.mock('../services/userGuard', () => ({ resolveUser: async (d) => d, invalidate: () => {} })); // akun diuji di user-guard.test.js
 jest.mock('../socket/alerts', () => ({ getIo: () => null }));
 
 const request = require('supertest');
@@ -72,17 +73,14 @@ test('201 low confidence is stored but flagged used_for_dss=false', async () => 
   expect(r.body.data.used_for_dss).toBe(false);
 });
 
-test('403 role user on analyze, detections, capture', async () => {
+test('403 role user on analyze, detections', async () => {
   const u = { Authorization: makeToken('user') };
-  for (const p of ['/api/ai/analyze?node_id=N1', '/api/ai/detections', '/api/ai/capture']) {
+  for (const p of ['/api/ai/analyze?node_id=N1', '/api/ai/detections']) {
     const r = await request(app).post(p).set(u).set('Content-Type', 'image/jpeg').send(IMG);
     expect(r.status).toBe(403);
   }
 });
 
-test('400 capture with MQTT wildcard node_id', async () => {
-  for (const node_id of ['#', 'a/+', 'N1/../x']) {
-    const r = await request(app).post('/api/ai/capture').set(auth()).send({ node_id });
-    expect(r.status).toBe(400);
-  }
+test('/api/ai/capture sudah dihapus (404)', async () => {
+  expect((await request(app).post('/api/ai/capture').set(auth()).send({})).status).toBe(404);
 });

@@ -13,6 +13,7 @@
 
 const express    = require('express');
 const { getPool } = require('../config/db');
+const { endOfDay } = require('../services/dateRange');
 const { authenticate, authorize } = require('../middleware/auth');
 const { publishMQTT }             = require('../config/mqtt');
 const { ACTUATOR_ACTIONS, ACTION_CMD, abortSequence } = require('../services/actuatorController');
@@ -136,7 +137,7 @@ router.get('/logs', async (req, res) => {
     }
     if (end_date) {
       query += ` AND a.executed_at <= ?`;
-      params.push(end_date);
+      params.push(endOfDay(end_date));
     }
 
     query += ` ORDER BY a.executed_at DESC LIMIT ? OFFSET ?`;

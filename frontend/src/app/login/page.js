@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import Logo from '@/components/Logo';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -57,7 +58,7 @@ export default function LoginPage() {
           <div className="form-group">
             <div className="form-label-row">
               <label className="form-label" htmlFor="loginPassword">Password</label>
-              {/* <a href="#" className="form-link" id="forgotPasswordLink">Forgot?</a> */}
+              <Link href="/forgot-password" className="form-link" id="forgotPasswordLink">Forgot?</Link>
             </div>
             <div className="input-password-wrapper">
               <input

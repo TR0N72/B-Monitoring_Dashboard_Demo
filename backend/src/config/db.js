@@ -8,7 +8,7 @@ async function initMySQL() {
     user: process.env.MYSQL_USER || 'bmonitor_user',
     password: process.env.MYSQL_PASSWORD || 'bmonitor_pass',
     waitForConnections: true,
-    connectionLimit: 10,
+    connectionLimit: Number(process.env.MYSQL_POOL_SIZE) > 0 ? Number(process.env.MYSQL_POOL_SIZE) : 10,
     queueLimit: 0,
   });
   const conn = await pool.getConnection();
@@ -29,6 +29,49 @@ async function initMySQL() {
         FOREIGN KEY (sensor_data_id) REFERENCES sensor_data(id) ON DELETE SET NULL,
         INDEX idx_ai_device_created (device_id, created_at)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS sensor_hourly (
+        device_id INT NOT NULL,
+        hour_start DATETIME NOT NULL,
+        n INT NOT NULL,
+        suhu_avg FLOAT, suhu_min FLOAT, suhu_max FLOAT,
+        salinitas_avg FLOAT, salinitas_min FLOAT, salinitas_max FLOAT,
+        turbidity_avg FLOAT, turbidity_min FLOAT, turbidity_max FLOAT,
+        jarak_avg FLOAT,
+        PRIMARY KEY (device_id, hour_start),
+        FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS password_resets (
+        user_id INT PRIMARY KEY,
+        code_hash CHAR(64) NOT NULL,
+        expires_at DATETIME NOT NULL,
+        attempts TINYINT NOT NULL DEFAULT 0,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS revoked_tokens (
+        token_hash CHAR(64) PRIMARY KEY,
+        expires_at DATETIME NOT NULL,
+        INDEX idx_revoked_exp (expires_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS telegram_queue (
+        id VARCHAR(40) PRIMARY KEY,
+        priority TINYINT NOT NULL,
+        device_id INT NULL,
+        alert_data JSON NOT NULL,
+        retry_count INT NOT NULL DEFAULT 0,
+        next_attempt_at BIGINT NOT NULL DEFAULT 0,
+        created_at BIGINT NOT NULL,
+        status ENUM('pending','dead') NOT NULL DEFAULT 'pending',
+        last_error VARCHAR(255) NULL,
+        INDEX idx_tq_status (status)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
     // Gateway LoRa: kolom tambahan telemetri siklus ukur (idempotent)
     const cols = { seq: 'INT NULL', adc: 'INT NULL', jarak_cm: 'FLOAT NULL', siklus_status: 'VARCHAR(10) NULL' };

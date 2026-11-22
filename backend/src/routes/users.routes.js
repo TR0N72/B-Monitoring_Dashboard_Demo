@@ -3,6 +3,8 @@ const bcrypt  = require('bcryptjs');
 const { getPool }         = require('../config/db');
 const { authenticate, authorize } = require('../middleware/auth');
 const { invalidateRouteCache }    = require('../config/telegramQueue');
+const { passwordError } = require('../services/passwordPolicy');
+const { invalidate } = require('../services/userGuard');
 const router = express.Router();
 
 router.get('/', authenticate, authorize('admin'), async (req, res) => {
@@ -24,6 +26,8 @@ router.post('/', authenticate, authorize('admin'), async (req, res) => {
     if (!name || !username || !password) {
       return res.status(400).json({ error: 'Name, username, and password are required.' });
     }
+    const pwErr = passwordError(password);
+    if (pwErr) return res.status(400).json({ error: pwErr });
     const validRoles = ['admin', 'user'];
     const userRole = validRoles.includes(role) ? role : 'user';
     const salt = await bcrypt.genSalt(10);
@@ -58,6 +62,10 @@ router.put('/:id', authenticate, authorize('admin'), async (req, res) => {
       return res.status(400).json({ error: 'Name and username are required.' });
     }
 
+    if (password) {
+      const pwErr = passwordError(password);
+      if (pwErr) return res.status(400).json({ error: pwErr });
+    }
     const validRoles = ['admin', 'user'];
     const userRole = validRoles.includes(role) ? role : 'user';
     
@@ -84,6 +92,7 @@ router.put('/:id', authenticate, authorize('admin'), async (req, res) => {
     
     // Invalidasi cache routing Telegram agar perubahan kontak langsung berlaku
     invalidateRouteCache();
+    invalidate(id);
 
     res.json({ message: 'User updated successfully' });
   } catch (err) {
@@ -109,6 +118,7 @@ router.delete('/:id', authenticate, authorize('admin'), async (req, res) => {
     
     // Invalidasi cache routing Telegram agar user yang dihapus tidak lagi menerima alert
     invalidateRouteCache();
+    invalidate(id);
 
     res.json({ message: 'User deleted successfully' });
   } catch (err) {

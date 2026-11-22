@@ -10,7 +10,7 @@ router.use(authenticate);
 // Cegah banjir Telegram lewat /trigger
 const triggerLimiter = require('express-rate-limit')({ windowMs: 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false, message: { error: 'Terlalu banyak trigger notifikasi.' } });
 
-router.post('/trigger', triggerLimiter, authorize('admin', 'operator'), async (req, res) => {
+router.post('/trigger', triggerLimiter, authorize('admin'), async (req, res) => {
   try {
     const { device_id, parameter, measured_value, threshold_min, threshold_max, level_peringatan, pesan_notifikasi } = req.body;
 

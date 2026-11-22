@@ -1,5 +1,7 @@
 const express = require('express');
+const { once } = require('events');
 const { getPool } = require('../config/db');
+const { endOfDay } = require('../services/dateRange');
 const { authenticate } = require('../middleware/auth');
 const router = express.Router();
 router.use(authenticate);
@@ -31,7 +33,7 @@ router.get('/', async (req, res) => {
     }
     if (end_date) {
       conditions.push('al.created_at <= ?');
-      params.push(end_date);
+      params.push(endOfDay(end_date));
     }
     const whereClause = conditions.length > 0
       ? 'WHERE ' + conditions.join(' AND ')
@@ -69,6 +71,33 @@ router.get('/', async (req, res) => {
     res.status(500).json({ error: 'Internal server error.' });
   }
 });
+// Stream hasil query baris demi baris (cursor) ke response: memori tetap konstan walau jutaan baris.
+// Pakai connection.query().stream() milik mysql2 (client-side escape; hanya nilai param dari user, kolom/limit konstan).
+async function streamCsv(pool, res, filename, headers, sql, params, toFields) {
+  const conn = await pool.getConnection();   // gagal di sini -> handler luar kirim 500 sebelum header terkirim
+  let aborted = false;
+  try {
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+    res.write(headers.join(',') + '\n');
+    const rows = conn.connection.query(sql, params).stream({ highWaterMark: 500 });
+    for await (const row of rows) {
+      if (res.destroyed) { aborted = true; break; }       // klien putus: hentikan cursor
+      if (!res.write(toFields(row).join(',') + '\n')) {   // backpressure
+        await Promise.race([once(res, 'drain'), once(res, 'close')]);
+      }
+    }
+    if (!res.destroyed) res.end();
+  } catch (err) {
+    aborted = true;
+    console.error('[LOGS] Export stream error:', err.message);
+    if (!res.headersSent) res.status(500).json({ error: 'Internal server error.' });
+    else res.destroy();                                   // file terpotong: putus koneksi agar klien tahu gagal
+  } finally {
+    if (aborted) conn.destroy(); else conn.release();     // cursor yang belum habis tidak boleh kembali ke pool
+  }
+}
+
 router.get('/export', async (req, res) => {
   try {
     const { start_date, end_date, device_id, type = 'telemetry' } = req.query;
@@ -95,18 +124,11 @@ router.get('/export', async (req, res) => {
       : '';
     const pool = getPool();
 
-    if (isTelemetry) {
-      const [rows] = await pool.execute(`
-        SELECT
-          sd.id, d.node_id AS hardware_id, d.name AS device_name,
-          sd.suhu, sd.salinitas, sd.turbidity, sd.baterai, sd.rssi, sd.jarak_cm, sd.recorded_at
-        FROM sensor_data sd
-        JOIN devices d ON sd.device_id = d.id
-        ${whereClause}
-        ORDER BY sd.recorded_at DESC
-        LIMIT 10000
-      `, params);
+    const maxRows = Number(process.env.EXPORT_MAX_ROWS) > 0 ? Math.floor(Number(process.env.EXPORT_MAX_ROWS)) : 500000;
+    const ts = (d) => (d instanceof Date ? d.toISOString() : d ?? '');
+    const q = (s) => `"${String(s ?? '').replace(/"/g, '""')}"`;
 
+    if (isTelemetry) {
       // Optional `columns` (csv of sensor keys) limits sensor columns; identity columns always kept.
       const sensorCols = [
         ['suhu', 'Suhu (C)', 'suhu'], ['salinitas', 'Salinitas (ppt)', 'salinitas'],
@@ -119,26 +141,24 @@ router.get('/export', async (req, res) => {
         ? new Set(req.query.columns.split(',').map((c) => aliases[c.trim()] || c.trim()))
         : null;
       const picked = sensorCols.filter(([k]) => !wanted || wanted.has(k));
-      const headers = ['ID', 'Hardware ID', 'Device Name', ...picked.map((c) => c[1]), 'Timestamp'];
-      const csvLines = [headers.join(',')];
-      for (const row of rows) {
-        const hwId = (row.hardware_id || '').replace(/"/g, '""');
-        const devName = (row.device_name || '').replace(/"/g, '""');
-        csvLines.push([
-          row.id,
-          `"${hwId}"`,
-          `"${devName}"`,
-          ...picked.map((c) => row[c[2]] ?? ''),
-          row.recorded_at,
-        ].join(','));
-      }
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename=bmonitor_telemetry_${Date.now()}.csv`);
-      return res.send(csvLines.join('\n'));
+      return await streamCsv(pool, res, `bmonitor_telemetry_${Date.now()}.csv`,
+        ['ID', 'Hardware ID', 'Device Name', ...picked.map((c) => c[1]), 'Timestamp'],
+        `SELECT
+          sd.id, d.node_id AS hardware_id, d.name AS device_name,
+          sd.suhu, sd.salinitas, sd.turbidity, sd.baterai, sd.rssi, sd.jarak_cm, sd.recorded_at
+        FROM sensor_data sd
+        JOIN devices d ON sd.device_id = d.id
+        ${whereClause}
+        ORDER BY sd.recorded_at DESC
+        LIMIT ${maxRows}`,
+        params,
+        (row) => [row.id, q(row.hardware_id), q(row.device_name), ...picked.map((c) => row[c[2]] ?? ''), ts(row.recorded_at)]);
     }
 
-    const [rows] = await pool.query(`
-      SELECT
+    return await streamCsv(pool, res, `bmonitor_logs_${Date.now()}.csv`,
+      ['ID', 'Hardware ID', 'Device Name', 'Parameter', 'Measured Value',
+        'Threshold Min', 'Threshold Max', 'Level', 'Message', 'Acknowledged', 'Timestamp'],
+      `SELECT
         al.id, d.node_id AS hardware_id, d.name AS device_name,
         al.parameter, al.measured_value, al.threshold_min, al.threshold_max,
         al.level_peringatan, al.pesan_notifikasi, al.acknowledged, al.created_at
@@ -146,34 +166,11 @@ router.get('/export', async (req, res) => {
       JOIN devices d ON al.device_id = d.id
       ${whereClause}
       ORDER BY al.created_at DESC
-      LIMIT 10000
-    `, params);
-    const headers = [
-      'ID', 'Hardware ID', 'Device Name', 'Parameter', 'Measured Value',
-      'Threshold Min', 'Threshold Max', 'Level', 'Message', 'Acknowledged', 'Timestamp'
-    ];
-    const csvLines = [headers.join(',')];
-    for (const row of rows) {
-      const msg = (row.pesan_notifikasi || '').replace(/"/g, '""');
-      const hwId = (row.hardware_id || '').replace(/"/g, '""');
-      const devName = (row.device_name || '').replace(/"/g, '""');
-      csvLines.push([
-        row.id,
-        `"${hwId}"`,
-        `"${devName}"`,
-        row.parameter || '',
-        row.measured_value ?? '',
-        row.threshold_min ?? '',
-        row.threshold_max ?? '',
-        row.level_peringatan || '',
-        `"${msg}"`,
-        row.acknowledged ? 'Yes' : 'No',
-        row.created_at,
-      ].join(','));
-    }
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename=bmonitor_logs_${Date.now()}.csv`);
-    res.send(csvLines.join('\n'));
+      LIMIT ${maxRows}`,
+      params,
+      (row) => [row.id, q(row.hardware_id), q(row.device_name), row.parameter || '', row.measured_value ?? '',
+        row.threshold_min ?? '', row.threshold_max ?? '', row.level_peringatan || '', q(row.pesan_notifikasi),
+        row.acknowledged ? 'Yes' : 'No', ts(row.created_at)]);
   } catch (err) {
     console.error('[LOGS] Export error:', err.message);
     res.status(500).json({ error: 'Internal server error.' });

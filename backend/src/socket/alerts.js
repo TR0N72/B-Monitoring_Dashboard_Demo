@@ -25,7 +25,7 @@ function initSocket(httpServer) {
   });
 
   // ── Authentication Middleware pada Handshake ────────────────────────────
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     try {
       let token = null;
       const cookieHeader = socket.handshake.headers.cookie;
@@ -53,8 +53,11 @@ function initSocket(httpServer) {
 
       const jwt = require('jsonwebtoken');
       const { JWT_SECRET } = require('../middleware/auth');
+      if (require('../services/tokenBlacklist').isRevoked(token)) throw new Error('revoked');
       const decoded = jwt.verify(token, JWT_SECRET);
-      socket.user = decoded;
+      const user = await require('../services/userGuard').resolveUser(decoded);
+      if (!user) throw new Error('account gone');
+      socket.user = user;
       next();
     } catch (err) {
       next(new Error('Authentication error: Invalid or expired token'));

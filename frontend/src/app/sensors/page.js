@@ -7,6 +7,8 @@ import { useApi } from '@/hooks/useApi';
 import Sidebar from '@/components/Sidebar';
 import TopAppBar from '@/components/TopAppBar';
 
+const PAGE_SIZE = 5;
+
 export default function SensorNodesPage() {
   const { isAuthenticated, loading: authLoading, user } = useAuth();
   const { apiFetch } = useApi();
@@ -18,6 +20,7 @@ export default function SensorNodesPage() {
   const [formError, setFormError] = useState('');
   const [editing, setEditing] = useState(null);
   const isAdmin = user?.role === 'admin';
+  const [page, setPage] = useState(1);
 
   async function loadDevices() {
     const res = await apiFetch('/api/devices');
@@ -103,7 +106,9 @@ export default function SensorNodesPage() {
 
   if (authLoading || !isAuthenticated) return null;
 
-  const displayDevices = devices;
+  const totalPages = Math.max(1, Math.ceil(devices.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);   // klem bila daftar menyusut (hapus node)
+  const displayDevices = devices.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
     <div className="main-dashboard">
@@ -190,7 +195,14 @@ export default function SensorNodesPage() {
                     </tbody>
                   </table>
                   <div className="table-footer">
-                    <div>Showing {displayDevices.length} devices</div>
+                    <div>Showing {(currentPage - 1) * PAGE_SIZE + 1}–{(currentPage - 1) * PAGE_SIZE + displayDevices.length} of {devices.length} devices</div>
+                    {totalPages > 1 && (
+                      <nav aria-label="Device pagination" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <button className="pagination-btn" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>Previous</button>
+                        <span aria-live="polite">Page {currentPage} / {totalPages}</span>
+                        <button className="pagination-btn" disabled={currentPage === totalPages} onClick={() => setPage(currentPage + 1)}>Next</button>
+                      </nav>
+                    )}
                   </div>
                 </>
               )}

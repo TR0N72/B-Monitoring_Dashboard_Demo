@@ -24,6 +24,13 @@ export default function DashboardPage() {
   const [logs, setLogs] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
   const lastWsTimestampRef = useRef(null);
+  const [viewMode, setViewMode] = useState(() => {
+    try { return typeof window !== 'undefined' && localStorage.getItem('bmon_dash_view') === 'table' ? 'table' : 'cards'; } catch { return 'cards'; }
+  });
+  const changeView = (mode) => {
+    setViewMode(mode);
+    try { localStorage.setItem('bmon_dash_view', mode); } catch { /* abaikan */ }
+  };
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -116,6 +123,10 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="page-controls">
+                <div role="group" aria-label="Node view" className="view-toggle">
+                  <button className={`control-btn ${viewMode === 'cards' ? 'solid' : 'outline'}`} aria-pressed={viewMode === 'cards'} onClick={() => changeView('cards')}>Cards</button>
+                  <button className={`control-btn ${viewMode === 'table' ? 'solid' : 'outline'}`} aria-pressed={viewMode === 'table'} onClick={() => changeView('table')}>Table</button>
+                </div>
                 <button className="control-btn outline" onClick={toggleDarkMode}>
                   <div className="btn-icon">
                     <img src="/assets/78ae8b57bff3076f255b8b5e1fec2ccd53b32508.svg" alt="Color Mode" />
@@ -125,6 +136,43 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {viewMode === 'table' && sensorNodes.length > 0 ? (
+              <div className="data-table-container">
+                <div className="table-wrapper">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Node</th><th>Status</th><th>Temp (°C)</th><th>Jarak (cm)</th>
+                        <th>Salinity (ppt)</th><th>Turbidity (NTU)</th><th>Cycle</th><th>Last update</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sensorNodes.map((device) => {
+                        const r = readingsMap[device.node_id || device.id] || {};
+                        const ts = r.recorded_at || r.created_at;
+                        return (
+                          <tr key={device.node_id || device.id} className="clickable-row" onClick={() => router.push(`/sensors/${device.id}`)}>
+                            <td className="fw-500">{device.name || device.node_id}</td>
+                            <td>
+                              <div className="status-indicator">
+                                <div className={`status-dot ${device.status === 'online' ? 'active' : 'offline'}`}></div>
+                                <span>{{ online: 'Online', maintenance: 'Maintenance' }[device.status] || 'Offline'}</span>
+                              </div>
+                            </td>
+                            <td>{r.suhu ?? '—'}</td>
+                            <td>{r.jarak_cm ?? '—'}</td>
+                            <td>{r.salinitas ?? '—'}</td>
+                            <td>{r.turbidity ?? '—'}</td>
+                            <td>{r.siklus_status ?? '—'}</td>
+                            <td>{ts ? new Date(ts).toLocaleString() : '—'}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
             <div className="node-cards-grid">
               {sensorNodes.length === 0 ? (
                 <div className="no-nodes">Belum ada node sensor terdaftar.</div>
@@ -141,6 +189,7 @@ export default function DashboardPage() {
                 })
               )}
             </div>
+            )}
 
             <div className="chart-container">
               <div className="chart-header">

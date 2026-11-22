@@ -2201,3 +2201,6 @@ h1, h2, h3, .brand-title {
 .ai-label.ai-caution { background: #fef3c7; color: #92400e; }
 .ai-label.ai-warning { background: #fee2e2; color: #991b1b; }
 .ai-inline + .dss-inline { margin-top: 0; }
+
+.view-toggle { display: inline-flex; gap: 4px; margin-right: 8px; }
+.pagination-btn:disabled { opacity: 0.4; cursor: not-allowed; }

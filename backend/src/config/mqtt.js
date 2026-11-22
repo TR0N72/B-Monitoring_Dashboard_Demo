@@ -24,9 +24,7 @@ let client = null;
 const nodeIdCache    = new Map();
 const NODE_CACHE_TTL = 5 * 60 * 1000;
 
-// Debounce lock: mencegah Telegram ganda untuk alert/anomali yang sama dalam 60 detik
-const alertDebounce     = new Map();
-const ALERT_DEBOUNCE_MS = 60 * 1000;
+// Debounce/cooldown alert Telegram dipusatkan di telegramQueue.js (ALERT_COOLDOWN_MS).
 
 async function resolveNodeId(connection, nodeId) {
   const cached = nodeIdCache.get(nodeId);
@@ -98,7 +96,7 @@ function initMQTT() {
           // Hasil visi tim hardware {node,kelas,kondisi,confidence,ts}: node dari topik, ts diabaikan (waktu simpan = backend).
           await require('../services/aiDetection').saveDetection({
             node_id: nodeId, label: payload.kondisi, confidence: payload.confidence,
-            model_version: 'hw-vision', hsv_metadata: { predicted_class: payload.kelas ?? null, source: 'mqtt' },
+            model_version: 'hw-vision', hsv_metadata: { predicted_class: payload.kelas == null ? null : String(payload.kelas).slice(0, 40), source: 'mqtt' },
           });
         } else if (msgType === 'sensor') {
           await handleSensorData(nodeId, payload);
@@ -265,22 +263,16 @@ async function handleSensorData(nodeId, payload) {
             });
           }
 
-          // Debounce pengiriman Telegram untuk alert anomali
-          const debounceKey = `${internalId}:anomaly:${anom.parameter}`;
-          const lastSent    = alertDebounce.get(debounceKey) || 0;
-          if (Date.now() - lastSent > ALERT_DEBOUNCE_MS) {
-            alertDebounce.set(debounceKey, Date.now());
-            sendTelegramAlert({
-              device_id       : internalId,
-              node_id         : nodeId,
-              parameter       : anom.parameter,
-              measured_value  : anom.measured_value,
-              threshold_min   : anom.threshold_min,
-              threshold_max   : anom.threshold_max,
-              level_peringatan: anom.level_peringatan,
-              pesan_notifikasi: anom.pesan_notifikasi,
-            });
-          }
+          sendTelegramAlert({
+            device_id       : internalId,
+            node_id         : nodeId,
+            parameter       : anom.parameter,
+            measured_value  : anom.measured_value,
+            threshold_min   : anom.threshold_min,
+            threshold_max   : anom.threshold_max,
+            level_peringatan: anom.level_peringatan,
+            pesan_notifikasi: anom.pesan_notifikasi,
+          });
         }
       }
 
@@ -415,23 +407,16 @@ async function checkThresholds(connection, deviceId, sensorDataId, readings, nod
           [deviceId, sensorDataId, t.parameter, value, min, max, level, msg]
         );
 
-        // ── Debounce: kirim Telegram hanya jika belum dikirim dalam 60 detik ──
-        const debounceKey = `${deviceId}:${t.parameter}`;
-        const lastSent    = alertDebounce.get(debounceKey) || 0;
-        if (Date.now() - lastSent > ALERT_DEBOUNCE_MS) {
-          alertDebounce.set(debounceKey, Date.now());
-          sendTelegramAlert({
-            device_id       : deviceId,
-            node_id         : nodeId,
-            parameter       : t.parameter,
-            measured_value  : value,
-            threshold_min   : min,
-            threshold_max   : max,
-            level_peringatan: level,
-            pesan_notifikasi: msg,
-          });
-        }
-
+        sendTelegramAlert({
+          device_id       : deviceId,
+          node_id         : nodeId,
+          parameter       : t.parameter,
+          measured_value  : value,
+          threshold_min   : min,
+          threshold_max   : max,
+          level_peringatan: level,
+          pesan_notifikasi: msg,
+        });
       }
     }
   } catch (err) {

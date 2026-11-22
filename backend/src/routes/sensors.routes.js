@@ -1,5 +1,6 @@
 const express = require('express');
 const { getPool } = require('../config/db');
+const { endOfDay } = require('../services/dateRange');
 const { authenticate } = require('../middleware/auth');
 const router = express.Router();
 
@@ -103,7 +104,7 @@ router.get('/history', async (req, res) => {
     }
     if (end_date) {
       query += ` AND sd.recorded_at <= ?`;
-      params.push(end_date);
+      params.push(endOfDay(end_date));
     }
 
     const parsedLimit = limit ? parseInt(limit, 10) : 1000;
@@ -130,6 +131,69 @@ router.get('/history', async (req, res) => {
     });
   } catch (err) {
     console.error('[SENSORS] History error:', err.message);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// Agregasi statistik per rentang waktu: rata-rata/min/maks + tren (paruh akhir vs paruh awal) + ringkasan per node.
+const STAT_COLS = ['suhu', 'jarak_cm', 'salinitas', 'turbidity'];  // konstanta, bukan input user
+const RANGE_MS = { '24h': 864e5, '7d': 7 * 864e5, '30d': 30 * 864e5 };
+const round = (v, n = 2) => (v == null ? null : Math.round(Number(v) * 10 ** n) / 10 ** n);
+
+router.get('/stats', async (req, res) => {
+  try {
+    const range = String(req.query.range || '24h').toLowerCase();
+    if (!(range in RANGE_MS) && range !== 'all') {
+      return res.status(400).json({ error: "range harus '24h', '7d', '30d', atau 'all'." });
+    }
+    const pool = getPool();
+    const nowMs = Date.now();
+    let startMs;
+    if (range === 'all') {
+      const [[m]] = await pool.execute('SELECT UNIX_TIMESTAMP(MIN(recorded_at)) AS t FROM sensor_data');
+      startMs = m.t == null ? nowMs : Number(m.t) * 1000;
+    } else {
+      startMs = nowMs - RANGE_MS[range];
+    }
+    const midMs = startMs + (nowMs - startMs) / 2;
+    const start = new Date(startMs), mid = new Date(midMs);
+
+    const agg = STAT_COLS.map((c) =>
+      `AVG(${c}) AS ${c}_avg, MIN(${c}) AS ${c}_min, MAX(${c}) AS ${c}_max, COUNT(${c}) AS ${c}_n, ` +
+      `AVG(CASE WHEN recorded_at <  ? THEN ${c} END) AS ${c}_old, AVG(CASE WHEN recorded_at >= ? THEN ${c} END) AS ${c}_new`
+    ).join(', ');
+    const tsParams = STAT_COLS.flatMap(() => [mid, mid]);
+
+    const [[row]] = await pool.execute(
+      `SELECT COUNT(*) AS samples, ${agg} FROM sensor_data WHERE recorded_at >= ?`, [...tsParams, start]);
+
+    const metrics = {};
+    for (const c of STAT_COLS) {
+      const oldAvg = row[`${c}_old`], newAvg = row[`${c}_new`];
+      let trend = 'stable', changePct = null;
+      if (oldAvg != null && newAvg != null && Number(oldAvg) !== 0) {
+        changePct = ((Number(newAvg) - Number(oldAvg)) / Math.abs(Number(oldAvg))) * 100;
+        if (changePct > 5) trend = 'up'; else if (changePct < -5) trend = 'down';
+      }
+      metrics[c] = {
+        avg: round(row[`${c}_avg`]), min: round(row[`${c}_min`]), max: round(row[`${c}_max`]),
+        count: Number(row[`${c}_n`]), trend, change_pct: round(changePct, 1),
+      };
+    }
+
+    const nodeAgg = STAT_COLS.map((c) => `AVG(sd.${c}) AS ${c}`).join(', ');
+    const [nodeRows] = await pool.execute(
+      `SELECT d.node_id, d.name, d.status, COUNT(sd.id) AS samples, ${nodeAgg}
+         FROM devices d LEFT JOIN sensor_data sd ON sd.device_id = d.id AND sd.recorded_at >= ?
+        WHERE d.type = 'sensor_node' GROUP BY d.id, d.node_id, d.name, d.status ORDER BY d.node_id`, [start]);
+    const nodes = nodeRows.map((n) => ({
+      node_id: n.node_id, name: n.name, online: n.status === 'online', samples: Number(n.samples),
+      ...Object.fromEntries(STAT_COLS.map((c) => [c, round(n[c])])),
+    }));
+
+    res.json({ range, from: start.toISOString(), to: new Date(nowMs).toISOString(), samples: Number(row.samples), metrics, nodes });
+  } catch (err) {
+    console.error('[SENSORS] Stats error:', err.message);
     res.status(500).json({ error: 'Internal server error.' });
   }
 });
