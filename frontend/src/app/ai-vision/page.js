@@ -108,7 +108,7 @@ export default function AIVisionPage() {
                 <div role="alert" className="aiv-error">{error}</div>
               </div>
               <div className="aiv-preview" aria-live="polite">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
+                { }
                 {preview && <img src={preview} alt="Selected water sample" />}
                 {result && (
                   <p>

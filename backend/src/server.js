@@ -27,6 +27,8 @@ const { verifyBot } = require('./config/telegram');
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3001;
+// Di belakang reverse proxy (nginx dsb.) set TRUST_PROXY=1 agar req.ip & rate-limit memakai IP klien asli.
+if (process.env.TRUST_PROXY) app.set('trust proxy', /^\d+$/.test(process.env.TRUST_PROXY) ? Number(process.env.TRUST_PROXY) : process.env.TRUST_PROXY);
 app.use(helmet());
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3002',

@@ -73,6 +73,12 @@ router.get('/', async (req, res) => {
 });
 // Stream hasil query baris demi baris (cursor) ke response: memori tetap konstan walau jutaan baris.
 // Pakai connection.query().stream() milik mysql2 (client-side escape; hanya nilai param dari user, kolom/limit konstan).
+// Tunggu 'drain' atau 'close', lalu lepas keduanya (Promise.race + once membiarkan listener menumpuk di res).
+const drainOrClose = (res) => new Promise((resolve) => {
+  const done = () => { res.off('drain', done); res.off('close', done); resolve(); };
+  res.once('drain', done); res.once('close', done);
+});
+
 async function streamCsv(pool, res, filename, headers, sql, params, toFields) {
   const conn = await pool.getConnection();   // gagal di sini -> handler luar kirim 500 sebelum header terkirim
   let aborted = false;
@@ -84,7 +90,7 @@ async function streamCsv(pool, res, filename, headers, sql, params, toFields) {
     for await (const row of rows) {
       if (res.destroyed) { aborted = true; break; }       // klien putus: hentikan cursor
       if (!res.write(toFields(row).join(',') + '\n')) {   // backpressure
-        await Promise.race([once(res, 'drain'), once(res, 'close')]);
+        await drainOrClose(res);
       }
     }
     if (!res.destroyed) res.end();

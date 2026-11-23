@@ -3,6 +3,8 @@ import nextVitals from "eslint-config-next/core-web-vitals";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
+  // Ikon SVG statis kecil: next/image tidak memberi optimasi untuk SVG, hanya menambah wrapper.
+  { rules: { "@next/next/no-img-element": "off" } },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
