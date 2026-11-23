@@ -43,12 +43,15 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       GF_SECURITY_ALLOW_EMBEDDING: "true"
+      # Disajikan di bawah /grafana oleh nginx (lihat docker/nginx/default.conf)
+      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s/grafana/"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
       # Izinkan akses anonim ke Grafana agar iframe tidak di-redirect ke /login
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
       GF_AUTH_ANONYMOUS_ORG_NAME: "Main Org."
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"  # LAN lewat nginx saja (wajib login)
     volumes:
       - grafana_data:/var/lib/grafana
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -62,9 +65,10 @@ services:
     container_name: bmonitor-backend
     restart: unless-stopped
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     environment:
       NODE_ENV: production
+      TRUST_PROXY: "1"  # di belakang nginx
       # Di dalam jaringan Docker, service diakses via nama service-nya,
       # bukan 'localhost'. Override ini memastikan backend menemukan
       # MySQL dan MQTT Broker dengan benar saat berjalan di container.
@@ -96,16 +100,29 @@ services:
   frontend:
     build:
       context: ./frontend
+      # NEXT_PUBLIC_* tertanam saat build. Kosong = path relatif ke origin yang sama (lewat nginx).
+      args:
+        NEXT_PUBLIC_API_URL: ""
+        NEXT_PUBLIC_GRAFANA_URL: /grafana
     container_name: bmonitor-frontend
     restart: unless-stopped
     ports:
-      - "3002:3000"
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3001
-      # Harus menggunakan localhost (bukan hostname Docker) agar dapat diakses oleh browser pengguna
-      NEXT_PUBLIC_GRAFANA_URL: http://localhost:3000
+      - "127.0.0.1:3002:3000"
     depends_on:
       - backend
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: bmonitor-nginx
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./docker/nginx:/etc/nginx/conf.d:ro
+    depends_on:
+      - frontend
+      - backend
+      - grafana
 
 volumes:
   mysql_data:

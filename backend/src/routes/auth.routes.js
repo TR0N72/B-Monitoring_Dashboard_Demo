@@ -45,7 +45,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '24h', jwtid: require('crypto').randomUUID() }
     );
-    const isSecure = process.env.NODE_ENV === 'production';
+    const isSecure = req.secure; // https langsung atau via proxy (TRUST_PROXY)
     res.cookie('bmonitor_token', token, {
       httpOnly: true,
       secure: isSecure,

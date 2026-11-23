@@ -37,7 +37,7 @@ export function SocketProvider({ children }) {
     // Hindari duplikasi koneksi jika sudah ada yang aktif
     if (socketRef.current?.connected) return;
 
-    const socketUrl = API_URL || 'http://localhost:3001';
+    const socketUrl = API_URL || undefined; // kosong = origin halaman (lewat nginx)
 
     const socket = io(socketUrl, {
       path: '/ws',

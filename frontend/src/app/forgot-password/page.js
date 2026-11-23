@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Logo from '@/components/Logo';
 import '@/styles/auth.css';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
 async function post(path, body) {
   const res = await fetch(`${API_URL}/api/auth/${path}`, {
