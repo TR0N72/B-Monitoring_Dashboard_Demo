@@ -14,9 +14,9 @@
 
 const mqtt = require('mqtt');
 const db   = require('./db');
-const { evaluateAndActuate, dispatchActuatorCommand, ACTUATOR_ACTIONS } = require('../services/actuatorController');
+const { evaluateAndActuate, ACTUATOR_ACTIONS } = require('../services/actuatorController');
 const { handleVibrationData, markEngineStopSent }                       = require('../services/emergencyState');
-const { sendTelegramAlert, sendEmergencyAlert }                         = require('./telegram');
+const { sendTelegramAlert }                                              = require('./telegram');
 
 let client = null;
 

@@ -1,5 +1,4 @@
 const express = require('express');
-const { once } = require('events');
 const { getPool } = require('../config/db');
 const { endOfDay } = require('../services/dateRange');
 const { authenticate } = require('../middleware/auth');

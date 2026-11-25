@@ -24,6 +24,8 @@ const fuzzyRoutes = require('./routes/fuzzy.routes');
 const usersRoutes = require('./routes/users.routes');
 const aiRoutes = require('./routes/ai.routes');
 const { verifyBot } = require('./config/telegram');
+const { dateGuard } = require('./services/dateRange');
+const { errorHandler } = require('./middleware/errorHandler');
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3001;
@@ -40,6 +42,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 // ponytail: limiter in-memory per proses, pindah ke store Redis bila backend diskalakan.
 app.use('/api', require('express-rate-limit')({ windowMs: 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false, message: { error: 'Terlalu banyak permintaan.' } }));
+app.use('/api', dateGuard);
 app.use('/api/auth', authRoutes);
 app.use('/api/devices', devicesRoutes);
 app.use('/api/config/thresholds', thresholdsRoutes);
@@ -60,12 +63,7 @@ app.get('/api/health', (req, res) => {
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
-app.use((err, req, res, next) => {
-  console.error('[ERROR]', err.message);
-  res.status(err.status || 500).json({
-    error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error',
-  });
-});
+app.use(errorHandler);
 async function start() {
   try {
     // MySQL wajib: migrasi startup harus selesai. Gagal 5x -> exit, Docker restart.

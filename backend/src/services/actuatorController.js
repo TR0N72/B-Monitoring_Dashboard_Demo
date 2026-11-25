@@ -129,15 +129,6 @@ function setWaspadaCooldown(deviceId) {
 }
 
 /**
- * Reset cooldown — dipanggil saat kondisi kembali Aman.
- * @param {number} deviceId
- */
-function resetCooldown(deviceId) {
-  waspadaCooldowns.delete(deviceId);
-  bahayaCooldowns.delete(deviceId);
-}
-
-/**
  * Kirim perintah aktuator ke node ESP32 via MQTT dan catat ke database.
  *
  * @param {object}   opts
@@ -261,7 +252,7 @@ async function evaluateAndActuate({ mqttClient, deviceId, nodeId, fuzzyResult, r
 
   // ── Level: AMAN — tidak ada aksi (cooldown kedaluwarsa secara alami) ─────
   if (score < DSS_THRESHOLD_WASPADA) {
-    // Note: Tidak memanggil resetCooldown secara aktif untuk mencegah
+    // Note: cooldown sengaja tidak di-reset di sini untuk mencegah
     // flapping/spamming notifikasi jika pembacaan sensor berosilasi
     // di sekitar ambang batas (contoh: 35.8 <-> 36.1).
     return;
