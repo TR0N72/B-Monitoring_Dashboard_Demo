@@ -213,11 +213,11 @@ describe('🔗 E2E Integration Testing: B-Monitor (Mocked DB State)', () => {
   // SKENARIO 2: Logika Cerdas (Fuzzy DSS)
   // ─────────────────────────────────────────────────────────────────────────────
   describe('Skenario 2: Simulasi DSS Fuzzy berdasar Data Sensor', () => {
-    test('2.1 DSS memproses nilai aman (Suhu 29, Salinitas 3)', async () => {
+    test('2.1 DSS memproses nilai aman (Suhu 25, Salinitas 20)', async () => {
       const res = await request(app)
         .post('/api/dss/simulate')
         .set('Authorization', userToken)
-        .send({ suhu: 29.0, salinitas: 3.0 });
+        .send({ suhu: 25.0, salinitas: 20.0 });
       
       expect(res.status).toBe(200);
       expect(res.body.recommendation).toBe('Aman');

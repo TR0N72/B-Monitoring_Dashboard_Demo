@@ -37,12 +37,12 @@ router.get('/rules', (req, res) => {
         suhu: {
           description: 'Fungsi keanggotaan Suhu Air (°C) — Tambak Bandeng Juwana',
           sets: toSets(MEMBERSHIP_SPEC.suhu),
-          optimal_range: { min: 28, max: 30, unit: '°C' },
+          optimal_range: { min: MEMBERSHIP_SPEC.suhu.normal[1], max: MEMBERSHIP_SPEC.suhu.normal[2], unit: '°C' },
         },
         salinitas: {
           description: 'Fungsi keanggotaan Salinitas (ppt) — Tambak Bandeng Juwana',
           sets: toSets(MEMBERSHIP_SPEC.salinitas),
-          optimal_range: { min: 15, max: 25, unit: 'ppt' },
+          optimal_range: { min: MEMBERSHIP_SPEC.salinitas.normal[1], max: MEMBERSHIP_SPEC.salinitas.normal[2], unit: 'ppt' },
         },
         visual: {
           description: 'Label visual dari model XGBoost (singleton membership)',

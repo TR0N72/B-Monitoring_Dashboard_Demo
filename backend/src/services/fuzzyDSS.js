@@ -15,8 +15,8 @@
  *   27 aturan (R1–R27) pada RULES; lihat tabel di bawah.
  *
  * Referensi pakar:
- *   - Suhu optimal bandeng Juwana: 28–30 °C
- *   - Salinitas optimal          : 15–25 ppt
+ *   - Rentang normal = ambang batas spesifikasi C300 (selaras threshold_config):
+ *     suhu 18,5–28,0 °C, salinitas 10–35 ppt. Di luar rentang → Waspada/Bahaya.
  *   - Data SNI & Balai Besar Perikanan Budidaya Air Payau Jepara
  *
  * Metode Defuzzifikasi:
@@ -34,22 +34,21 @@
  */
 const MEMBERSHIP_SPEC = {
   suhu: {
-    rendah: [-Infinity, 25, 25, 28.5],
-    normal: [25, 28.5, 31.5, 32],      // plateau = rentang normal 28.5–31.5 °C (narasumber)
-    tinggi: [31.5, 32, Infinity, Infinity],
+    rendah: [-Infinity, 17, 17, 18.5],
+    normal: [17, 18.5, 28, 29.5],      // plateau = ambang C300 18,5–28,0 °C
+    tinggi: [28, 29.5, Infinity, Infinity],
   },
   salinitas: {
-    // Air tawar (0 ppt) aman: tidak ada himpunan "rendah" yang bermakna (hanya untuk nilai < 0)
-    rendah: [-Infinity, -1, -1, 0],
-    normal: [-1, 0, 5, 8],             // plateau 0–5 ppt, ideal ±3 ppt
-    tinggi: [5, 8, Infinity, Infinity],
+    rendah: [-Infinity, 8, 8, 10],
+    normal: [8, 10, 35, 37],           // plateau = ambang C300 10–35 ppt
+    tinggi: [35, 37, Infinity, Infinity],
   },
 };
 
 /** Batas kondisi KRITIS satu-faktor: [bawah_penuh, bawah_mulai, atas_mulai, atas_penuh] */
 const CRITICAL_SPEC = {
-  suhu     : [23, 25, 32, 35],                       // Caution <25 / >32, Warning <23 / >35
-  salinitas: [-Infinity, -Infinity, 8, 10],          // Bahaya penuh ≥10 ppt; tidak ada batas bawah
+  suhu     : [15.5, 18.5, 28, 31],                   // mulai kritis di luar 18,5–28; penuh pada <15,5 / >31
+  salinitas: [5, 10, 35, 40],                        // mulai kritis di luar 10–35; penuh pada <5 / >40
 };
 
 function trapezoid(x, [a, b, c, d]) {
@@ -68,7 +67,7 @@ function fuzzify(x, spec) {
 }
 
 /**
- * Fuzzifikasi Suhu Air (°C): Rendah ≤ 26, Normal 26–32 (optimal 28–30), Tinggi ≥ 30.
+ * Fuzzifikasi Suhu Air (°C): Rendah < 17, Normal 18,5–28 (transisi 17–18,5 dan 28–29,5), Tinggi > 29,5.
  * @param {number} t
  * @returns {{ rendah: number, normal: number, tinggi: number }}
  */
@@ -77,7 +76,7 @@ function fuzzySuhu(t) {
 }
 
 /**
- * Fuzzifikasi Salinitas (ppt): Rendah ≤ 15, Normal 12–28 (optimal 15–25), Tinggi ≥ 25.
+ * Fuzzifikasi Salinitas (ppt): Rendah < 8, Normal 10–35 (transisi 8–10 dan 35–37), Tinggi > 37.
  * @param {number} s
  * @returns {{ rendah: number, normal: number, tinggi: number }}
  */
