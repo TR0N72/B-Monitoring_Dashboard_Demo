@@ -17,7 +17,7 @@ This repo holds the **software**: backend, frontend, AI service, database, broke
 
 | Area | Owner | Status |
 |---|---|---|
-| Backend, frontend, DB, Docker, Grafana | Fullstack | Running, 183 Jest tests pass |
+| Backend, frontend, DB, Docker, Grafana | Fullstack | Running, 266 Jest tests pass |
 | AI image classifier integration | Fullstack + AI | Integrated, model supplied by the AI engineer |
 | Firmware and sensors | Hardware | Live test pending (gateway cannot reach the broker yet, see [Known issues](#known-issues)) |
 
@@ -84,7 +84,7 @@ Messages for a `node_id` that is not in the `devices` table are dropped, and sim
 
 | Where | Command | Purpose |
 |---|---|---|
-| `backend/` | `npm test` | Jest, 10 suites, 183 tests |
+| `backend/` | `npm test` | Jest, 20 suites, 266 tests |
 | `backend/` | `npm run test:security` | Security suite only |
 | `backend/` | `npm run dev` | Backend with `--watch` (needs MySQL and MQTT reachable) |
 | `frontend/` | `npm run dev` / `build` / `lint` | Next.js dev, production build, ESLint |
@@ -117,8 +117,8 @@ backend/            Express API, MQTT client, services, Jest tests
   src/config/       db, mqtt, telegram, telegramQueue
 frontend/           Next.js app (dashboard, sensors, actuator, DSS, AI vision, users, analytics)
 ai-service/         FastAPI service and the trained model (.joblib)
-docker/             Mosquitto config and ACL, MySQL init.sql, Grafana provisioning
-scripts/            Hardware and AI simulators
+docker/             Mosquitto config & ACL, MySQL init & migrations, Grafana provisioning, Nginx, ops scripts
+scripts/            Hardware/AI simulators and database backup script
 docs/               Architecture, API reference, hardware/AI contract
 ```
 
