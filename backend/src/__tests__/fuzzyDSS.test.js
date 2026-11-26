@@ -1,17 +1,4 @@
 'use strict';
-/**
- * Unit Testing — Fuzzy DSS (fuzzyDSS.js)
- * ========================================
- * Menguji setiap lapisan sistem Fuzzy Mamdani secara terpisah:
- *
- *  Layer 1: Fuzzifikasi Suhu       — fuzzySuhu()
- *  Layer 2: Fuzzifikasi Salinitas  — fuzzySalinitas()
- *  Layer 3: Fuzzifikasi Visual     — fuzzyVisual()
- *  Layer 4: Defuzzifikasi CoG      — defuzzify()
- *  Layer 5: Klasifikasi Output     — getRecommendation()
- *  Layer 6: Integrasi Penuh        — processFuzzy()  ← skenario nyata tambak
- *  Layer 7: Edge Cases             — nilai batas, NaN, undefined
- */
 
 const {
   fuzzySuhu,
@@ -23,16 +10,9 @@ const {
   getRuleDefinitions,
 } = require('../services/fuzzyDSS');
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helper: bulatkan ke 4 desimal untuk perbandingan float
-// ─────────────────────────────────────────────────────────────────────────────
 const r4 = (n) => parseFloat(n.toFixed(4));
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SUITE 1: fuzzySuhu — Fungsi Keanggotaan Suhu
-// ─────────────────────────────────────────────────────────────────────────────
 describe('🌡️ fuzzySuhu() — Membership Function', () => {
-  // Spec (ambang C300 18,5–28,0 °C): rendah [-∞,17,17,18.5], normal [17,18.5,28,29.5], tinggi [28,29.5,∞,∞]
   test('t = 10°C → rendah = 1, normal = 0, tinggi = 0', () => {
     const mu = fuzzySuhu(10);
     expect(mu.rendah).toBe(1);
@@ -117,11 +97,7 @@ describe('🌡️ fuzzySuhu() — Membership Function', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SUITE 2: fuzzySalinitas — Fungsi Keanggotaan Salinitas
-// ─────────────────────────────────────────────────────────────────────────────
 describe('🧂 fuzzySalinitas() — Membership Function', () => {
-  // Spec (ambang C300 10–35 ppt): rendah [-∞,8,8,10], normal [8,10,35,37], tinggi [35,37,∞,∞]
   test('s = 0 ppt (air tawar) → rendah = 1, normal = 0, tinggi = 0', () => {
     const mu = fuzzySalinitas(0);
     expect(mu.rendah).toBe(1);
@@ -187,9 +163,6 @@ describe('🧂 fuzzySalinitas() — Membership Function', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SUITE 3: fuzzyVisual — Fungsi Keanggotaan Label Visual
-// ─────────────────────────────────────────────────────────────────────────────
 describe('👁️ fuzzyVisual() — Label Membership', () => {
   test('"Normal" → { normal: 1, caution: 0, warning: 0 }', () => {
     const mu = fuzzyVisual('Normal');
@@ -228,9 +201,6 @@ describe('👁️ fuzzyVisual() — Label Membership', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SUITE 4: defuzzify — Center of Gravity
-// ─────────────────────────────────────────────────────────────────────────────
 describe('⚖️ defuzzify() — Center of Gravity', () => {
   test('Satu aturan aktif dengan weight 1 → output = nilai aturan itu', () => {
     const rules = [{ weight: 1, output: 20 }, { weight: 0, output: 80 }];
@@ -259,13 +229,10 @@ describe('⚖️ defuzzify() — Center of Gravity', () => {
 
   test('CoG formula: Σ(μ·c) / Σ(μ) — verifikasi manual', () => {
     const rules = [
-      { weight: 0.8, output: 20 },   // 0.8 × 20 = 16
-      { weight: 0.6, output: 50 },   // 0.6 × 50 = 30
-      { weight: 0.3, output: 80 },   // 0.3 × 80 = 24
+      { weight: 0.8, output: 20 },
+      { weight: 0.6, output: 50 },
+      { weight: 0.3, output: 80 },
     ];
-    // Σ numerator = 16 + 30 + 24 = 70
-    // Σ denominator = 0.8 + 0.6 + 0.3 = 1.7
-    // CoG = 70 / 1.7 ≈ 41.1765
     const expected = 70 / 1.7;
     expect(r4(defuzzify(rules))).toBe(r4(expected));
   });
@@ -281,9 +248,6 @@ describe('⚖️ defuzzify() — Center of Gravity', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SUITE 5: getRecommendation — Klasifikasi Linguistik
-// ─────────────────────────────────────────────────────────────────────────────
 describe('📋 getRecommendation() — Score Classification', () => {
   test('score 0 → Aman', () => expect(getRecommendation(0)).toBe('Aman'));
   test('score 20 → Aman', () => expect(getRecommendation(20)).toBe('Aman'));
@@ -300,11 +264,7 @@ describe('📋 getRecommendation() — Score Classification', () => {
   test('score 100 → Bahaya', () => expect(getRecommendation(100)).toBe('Bahaya'));
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SUITE 6: processFuzzy — Skenario Nyata Tambak Bandeng Juwana
-// ─────────────────────────────────────────────────────────────────────────────
 describe('🐟 processFuzzy() — Skenario Nyata Tambak Juwana', () => {
-  // ── Kondisi Ideal ────────────────────────────────────────────────────────
   describe('Kondisi Ideal', () => {
     test('Suhu 25°C, Salinitas 20ppt, Visual Normal → Aman', () => {
       const result = processFuzzy(25, 20, 'Normal');
@@ -324,11 +284,9 @@ describe('🐟 processFuzzy() — Skenario Nyata Tambak Juwana', () => {
     });
   });
 
-  // ── Kondisi Suhu Terlalu Rendah ──────────────────────────────────────────
   describe('Suhu Rendah', () => {
     test('Suhu 15°C, Salinitas 20ppt, Visual Normal → Waspada/Bahaya', () => {
       const result = processFuzzy(15, 20, 'Normal');
-      // Suhu sangat rendah → setidaknya Waspada
       expect(['Waspada', 'Bahaya']).toContain(result.recommendation);
       expect(result.suhu_membership).toBe('rendah');
     });
@@ -348,7 +306,6 @@ describe('🐟 processFuzzy() — Skenario Nyata Tambak Juwana', () => {
     });
   });
 
-  // ── Kondisi Suhu Terlalu Tinggi ──────────────────────────────────────────
   describe('Suhu Tinggi', () => {
     test('Suhu 35°C, Salinitas 20ppt, Visual Normal → Waspada atau Bahaya', () => {
       const result = processFuzzy(35, 20, 'Normal');
@@ -363,7 +320,6 @@ describe('🐟 processFuzzy() — Skenario Nyata Tambak Juwana', () => {
     });
   });
 
-  // ── Kondisi Salinitas Bermasalah ─────────────────────────────────────────
   describe('Salinitas Bermasalah', () => {
     test('Salinitas 0ppt (air tawar), suhu normal → Bahaya (di bawah ambang 10 ppt)', () => {
       const result = processFuzzy(25, 0, 'Normal');
@@ -387,7 +343,6 @@ describe('🐟 processFuzzy() — Skenario Nyata Tambak Juwana', () => {
     });
   });
 
-  // ── Efek Visual Label ────────────────────────────────────────────────────
   describe('Pengaruh Visual Label', () => {
     test('Kondisi fisik ideal + Visual Warning → minimal Waspada', () => {
       const ideal   = processFuzzy(25, 20, 'Normal');
@@ -403,7 +358,6 @@ describe('🐟 processFuzzy() — Skenario Nyata Tambak Juwana', () => {
     });
 
     test('Visual Warning (default) sama dengan tanpa parameter ke-3', () => {
-      // processFuzzy default param = 'Normal'
       const withDefault = processFuzzy(25, 20);
       const withNormal  = processFuzzy(25, 20, 'Normal');
       expect(withDefault.score).toBe(withNormal.score);
@@ -411,7 +365,6 @@ describe('🐟 processFuzzy() — Skenario Nyata Tambak Juwana', () => {
     });
   });
 
-  // ── Format Output ────────────────────────────────────────────────────────
   describe('Format Output', () => {
     test('Hasil processFuzzy memiliki semua field yang diperlukan', () => {
       const result = processFuzzy(25, 20, 'Normal');
@@ -466,9 +419,6 @@ describe('🐟 processFuzzy() — Skenario Nyata Tambak Juwana', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SUITE 7: Skenario Batas & Edge Cases
-// ─────────────────────────────────────────────────────────────────────────────
 describe('🔧 Edge Cases & Boundary Values', () => {
   test('Suhu tepat di akhir plateau rendah (17°C) — rendah = 1, normal = 0', () => {
     const mu = fuzzySuhu(17);
@@ -483,7 +433,6 @@ describe('🔧 Edge Cases & Boundary Values', () => {
     expect(mu.rendah).toBe(0);
     expect(mu.tinggi).toBe(0);
   });
-
 
   test('Anomali satu faktor ekstrem mencapai Bahaya (lantai keparahan)', () => {
     expect(processFuzzy(45, 3, 'Normal').recommendation).toBe('Bahaya');
@@ -503,15 +452,15 @@ describe('🔧 Edge Cases & Boundary Values', () => {
 
   test('Seluruh 9 skenario ekstrem crisp menghasilkan rekomendasi valid', () => {
     const extremes = [
-      [15, 5],  // suhu rendah + salinitas rendah
-      [15, 20], // suhu rendah + salinitas normal
-      [15, 40], // suhu rendah + salinitas tinggi
-      [29, 5],  // suhu normal + salinitas rendah
-      [29, 20], // suhu normal + salinitas normal (ideal)
-      [29, 40], // suhu normal + salinitas tinggi
-      [38, 5],  // suhu tinggi + salinitas rendah
-      [38, 20], // suhu tinggi + salinitas normal
-      [38, 40], // suhu tinggi + salinitas tinggi
+      [15, 5],
+      [15, 20],
+      [15, 40],
+      [29, 5],
+      [29, 20],
+      [29, 40],
+      [38, 5],
+      [38, 20],
+      [38, 40],
     ];
     extremes.forEach(([t, s]) => {
       const r = processFuzzy(t, s, 'Normal');
@@ -526,9 +475,6 @@ describe('🔧 Edge Cases & Boundary Values', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SUITE 8: getRuleDefinitions — Definisi 27 Aturan
-// ─────────────────────────────────────────────────────────────────────────────
 describe('📖 getRuleDefinitions() — Rule Catalog', () => {
   let rules;
   beforeAll(() => { rules = getRuleDefinitions(); });
@@ -592,9 +538,6 @@ describe('📖 getRuleDefinitions() — Rule Catalog', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SUITE 9: Konsistensi Logika Bisnis (Properti Monoton)
-// ─────────────────────────────────────────────────────────────────────────────
 describe('📐 Konsistensi Logika Bisnis', () => {
   test('Skor meningkat saat suhu makin di atas batas ambang (28°C)', () => {
     const scores = [25, 28.5, 30, 33, 38].map(t =>
@@ -615,7 +558,7 @@ describe('📐 Konsistensi Logika Bisnis', () => {
   });
 
   test('Normal < Caution < Warning dari sisi skor visual', () => {
-    const base = [25, 20]; // suhu & salinitas di dalam ambang
+    const base = [25, 20];
     const scoreNormal  = processFuzzy(...base, 'Normal').score;
     const scoreCaution = processFuzzy(...base, 'Caution').score;
     const scoreWarning = processFuzzy(...base, 'Warning').score;

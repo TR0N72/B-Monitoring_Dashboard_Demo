@@ -1,27 +1,13 @@
 'use strict';
-/**
- * Security & RBAC Testing — B-Monitor API
- * ==========================================
- * Menguji keamanan API secara menyeluruh meliputi:
- *
- *  1. JWT Authentication  — no token, expired, tampered, malformed
- *  2. RBAC Authorization  — user mengakses endpoint admin-only
- *  3. Privilege Escalation — self-signed token dengan role admin
- *  4. Endpoint Protection  — semua route kritis terlindungi
- *  5. Input Validation    — body yang tidak lengkap / tidak valid
- *  6. Sensitive Data Exposure — password_hash tidak pernah muncul di response
- *
- * Catatan: Test berjalan TANPA server/MySQL/MQTT yang aktif.
- */
 
 const JWT_SECRET = 'bmonitor_dev_secret';
 process.env.JWT_SECRET = JWT_SECRET;
 
-// ── Mock semua dependency eksternal SEBELUM require apapun ───────────────────
 const mockExecute = jest.fn();
 const mockPool    = { execute: mockExecute };
 
-jest.mock('../services/userGuard', () => ({ resolveUser: async (d) => d, invalidate: () => {} })); // akun diuji di userGuard.test.js
+// User account revocation is covered separately in userGuard.test.js.
+jest.mock('../services/userGuard', () => ({ resolveUser: async (d) => d, invalidate: () => {} }));
 jest.mock('../config/db', () => ({
   getPool:    jest.fn(() => mockPool),
   initMySQL:  jest.fn().mockResolvedValue(undefined),
@@ -57,7 +43,6 @@ jest.mock('../services/actuatorController', () => ({
   sendCommandSequence:  jest.fn().mockResolvedValue([42, 43]),
 }));
 
-// ── Import setelah semua mock terpasang ──────────────────────────────────────
 const request = require('supertest');
 const jwt     = require('jsonwebtoken');
 const bcrypt  = require('bcryptjs');
@@ -65,7 +50,6 @@ const express = require('express');
 const cors    = require('cors');
 const helmet  = require('helmet');
 
-// ── Build Express app (satu kali, dipakai semua suite) ───────────────────────
 const app = express();
 app.use(helmet());
 app.use(cors());
@@ -82,7 +66,6 @@ app.use('/api/sensors',           require('../routes/sensors.routes'));
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));
 
-// ── Helper: buat JWT token ────────────────────────────────────────────────────
 function makeToken(role = 'user', overrides = {}) {
   const payload = { id: 1, username: role === 'admin' ? 'admin' : 'petambak', role, ...overrides };
   return `Bearer ${jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' })}`;
@@ -99,9 +82,6 @@ function makeSelfSignedAdminToken() {
 
 beforeEach(() => { mockExecute.mockReset(); });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SUITE 1: Public Endpoints
-// ─────────────────────────────────────────────────────────────────────────────
 describe('✅ Public Endpoints', () => {
   test('GET /api/health → 200 (no auth required)', async () => {
     const res = await request(app).get('/api/health');
@@ -121,7 +101,6 @@ describe('✅ Public Endpoints', () => {
       .send({ username: 'admin', password: 'password123' });
 
     expect(res.status).toBe(200);
-    // Token is now delivered via HttpOnly cookie
     const cookies = res.headers['set-cookie'];
     expect(cookies).toBeDefined();
     const tokenCookie = cookies.find(c => c.startsWith('bmonitor_token='));
@@ -156,9 +135,6 @@ describe('✅ Public Endpoints', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SUITE 2: JWT Token Validation
-// ─────────────────────────────────────────────────────────────────────────────
 describe('🔐 JWT Token Validation', () => {
   const protectedRoutes = [
     ['GET',  '/api/devices'],
@@ -227,9 +203,6 @@ describe('🔐 JWT Token Validation', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SUITE 3: RBAC — Role-Based Access Control
-// ─────────────────────────────────────────────────────────────────────────────
 describe('🛡️ RBAC — Admin-Only Endpoints', () => {
   const adminOnlyRoutes = [
     ['POST',   '/api/devices',                    { node_id: 'TEST-01', name: 'Test' }],
@@ -287,9 +260,6 @@ describe('🛡️ RBAC — Admin-Only Endpoints', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SUITE 4: Privilege Escalation Attempts
-// ─────────────────────────────────────────────────────────────────────────────
 describe('⚠️ Privilege Escalation Attempts', () => {
   test('Modifikasi role dalam payload JWT → 403 (signature invalid)', async () => {
     const rawToken   = makeToken('user').replace('Bearer ', '');
@@ -321,7 +291,6 @@ describe('⚠️ Privilege Escalation Attempts', () => {
   });
 
   test('Kirim token dengan algoritma "none" → 403', async () => {
-    // JWT algorithm none attack: manipulasi header alg
     const header  = Buffer.from('{"alg":"none","typ":"JWT"}').toString('base64url');
     const payload = Buffer.from(JSON.stringify({ id: 1, username: 'admin', role: 'admin' })).toString('base64url');
     const noneToken = `Bearer ${header}.${payload}.`;
@@ -333,9 +302,6 @@ describe('⚠️ Privilege Escalation Attempts', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SUITE 5: Input Validation & Bad Request Handling
-// ─────────────────────────────────────────────────────────────────────────────
 describe('📋 Input Validation', () => {
   test('POST /api/actuator/command tanpa aksi → 400', async () => {
     const res = await request(app)
@@ -384,9 +350,6 @@ describe('📋 Input Validation', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SUITE 6: Sensitive Data Exposure
-// ─────────────────────────────────────────────────────────────────────────────
 describe('🔒 Sensitive Data Exposure', () => {
   test('Response login tidak mengekspos password_hash', async () => {
     const passwordHash = await bcrypt.hash('password123', 10);

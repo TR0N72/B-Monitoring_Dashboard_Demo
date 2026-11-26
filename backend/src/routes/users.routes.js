@@ -37,7 +37,7 @@ router.post('/', authenticate, authorize('admin'), async (req, res) => {
       'INSERT INTO users (name, username, password_hash, role, kontak_telegram) VALUES (?, ?, ?, ?, ?)',
       [name, username, passwordHash, userRole, kontak_telegram || null]
     );
-    // Invalidasi cache routing Telegram agar pekerja baru langsung menerima alert
+    // Invalidate route cache so newly added contacts start receiving alerts immediately.
     invalidateRouteCache();
 
     res.status(201).json({
@@ -90,7 +90,6 @@ router.put('/:id', authenticate, authorize('admin'), async (req, res) => {
       );
     }
     
-    // Invalidasi cache routing Telegram agar perubahan kontak langsung berlaku
     invalidateRouteCache();
     invalidate(id);
 
@@ -116,7 +115,6 @@ router.delete('/:id', authenticate, authorize('admin'), async (req, res) => {
       return res.status(404).json({ error: 'User not found.' });
     }
     
-    // Invalidasi cache routing Telegram agar user yang dihapus tidak lagi menerima alert
     invalidateRouteCache();
     invalidate(id);
 

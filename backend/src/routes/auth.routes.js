@@ -125,8 +125,8 @@ router.get('/me', authenticate, async (req, res) => {
   }
 });
 
-// -- Lupa password: kode 6 digit sekali pakai dikirim ke kontak_telegram user (tanpa SMTP/dependency baru) --
-// ponytail: JWT lama tetap hidup sampai kedaluwarsa (tak ada daftar token per user); tambah token_version bila perlu.
+// Password reset sends a 6-digit one-time code to kontak_telegram (no SMTP dependency).
+// Existing JWTs stay valid until expiration (no per-user token_version).
 const crypto = require('crypto');
 const RESET_TTL_MIN = 10;
 const MAX_ATTEMPTS = 5;
@@ -136,7 +136,7 @@ const resetLimiter = rateLimit({
   message: { error: 'Terlalu banyak percobaan. Coba lagi dalam 15 menit.' },
 });
 
-// ponytail: cooldown per username di memori (hilang saat restart, satu instance); pindah ke DB bila backend diskalakan.
+// In-memory per-username cooldown (resets on restart, single instance); move to DB when scaling.
 const FORGOT_COOLDOWN_MS = 60 * 1000;
 const lastForgot = new Map();
 

@@ -8,7 +8,6 @@ const router = express.Router();
 
 const { saveDetection, normalizeLabel, MIN_CONFIDENCE } = require('../services/aiDetection');
 
-/** POST /api/ai/detections — simpan hasil inferensi visual (JWT wajib) */
 router.post('/detections', authenticate, authorize('admin'), async (req, res) => {
   try {
     const data = await saveDetection(req.body);
@@ -20,10 +19,7 @@ router.post('/detections', authenticate, authorize('admin'), async (req, res) =>
   }
 });
 
-/**
- * POST /api/ai/analyze?node_id=N1 — body = raw image bytes (Content-Type image/*).
- * Forwards to the Python AI service, stores the result as a detection (feeds DSS visual input).
- */
+// Accepts raw image bytes (max 5 MB) and forwards to Python AI service for DSS visual input.
 router.post('/analyze', authenticate, authorize('admin'), express.raw({ type: 'image/*', limit: '5mb' }), async (req, res) => {
   const nodeId = String(req.query.node_id || '').trim();
   if (!nodeId) return res.status(400).json({ error: 'node_id query param is required.' });
@@ -52,10 +48,6 @@ router.post('/analyze', authenticate, authorize('admin'), express.raw({ type: 'i
   }
 });
 
-/**
- * GET /api/ai/detections — LORA-12: getAIDetectionHistory
- * Riwayat deteksi AI dengan filter, ringkasan metrik, dan pagination
- */
 router.get('/detections', authenticate, async (req, res) => {
   try {
     const {
@@ -99,7 +91,6 @@ router.get('/detections', authenticate, async (req, res) => {
 
     const pool = getPool();
 
-    // Query data
     const query = `
       SELECT
         a.id, a.device_id, a.sensor_data_id, a.image_path,

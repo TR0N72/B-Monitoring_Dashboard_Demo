@@ -58,7 +58,6 @@ function testMQTTtoWSTLatency() {
     const fire = () => {
       if (!wsReady || !mqttReady || startTime) return;
       console.log('✓ WebSocket + MQTT Terhubung. Mengirim payload dummy...');
-      // Data pemicu alert (suhu sangat tinggi)
       const payload = { suhu: 40.0, salinitas: 15.0, baterai: 95, rssi: -72 };
       startTime = Date.now();
       mqttClient.publish('tambak/ESP32-NODE-01/sensor', JSON.stringify(payload));

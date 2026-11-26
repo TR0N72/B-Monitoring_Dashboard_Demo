@@ -1,20 +1,8 @@
 'use strict';
-/**
- * End-to-End Integration Testing — B-Monitor API
- * ==============================================
- * Menguji integrasi alur sistem dari hulu ke hilir:
- *
- * Skenario 1: Admin meregistrasikan perangkat IoT baru dan mengatur Threshold (Auth -> Devices -> Thresholds)
- * Skenario 2: Simulasi data Sensor yang memicu logika Fuzzy DSS (Sensors -> DSS)
- * Skenario 3: Sensor melewati batas, memicu Notifikasi, lalu Admin merespon via Aktuator (Sensors -> Notifications -> Actuator)
- *
- * Catatan: Menggunakan In-Memory Mock Database agar bisa mensimulasikan state.
- */
 
 const JWT_SECRET = 'bmonitor_dev_secret';
 process.env.JWT_SECRET = JWT_SECRET;
 
-// ── In-Memory State untuk Mock DB ────────────────────────────────────────────
 let mockDevices = [];
 let mockThresholds = [];
 let mockLogs = [];
@@ -23,18 +11,15 @@ let nextDeviceId = 1;
 let nextLogId = 1;
 let nextActuatorLogId = 1;
 
-// ── Custom Mock untuk pool.execute ───────────────────────────────────────────
 const mockExecute = jest.fn(async (query, params) => {
   const sql = query.trim().toUpperCase().replace(/\s+/g, ' ');
 
-  // AUTH (Selalu kembalikan 1 user admin dan 1 user biasa jika diminta)
   if (sql.startsWith('SELECT * FROM USERS WHERE USERNAME =')) {
     if (params[0] === 'admin') return [[{ id: 1, username: 'admin', password_hash: '$2a$10$abcdefghijklmnopqrstuuVmGKkZm7y6m7h4g1RFDUyYDM9wl8Ni', role: 'admin' }], {}];
     if (params[0] === 'user') return [[{ id: 2, username: 'user', password_hash: '$2a$10$abcdefghijklmnopqrstuuVmGKkZm7y6m7h4g1RFDUyYDM9wl8Ni', role: 'user' }], {}];
     return [[], {}];
   }
 
-  // DEVICES
   if (sql.startsWith('SELECT * FROM DEVICES') || sql.includes('FROM DEVICES WHERE NODE_ID =') || sql.includes('FROM DEVICES WHERE ID =') || sql.includes('FROM DEVICES WHERE DEVICE_ID =')) {
     if (sql.includes('WHERE NODE_ID =') || sql.includes('WHERE ID =') || sql.includes('WHERE DEVICE_ID =')) {
       const dev = mockDevices.find(d => d.node_id === params[0] || d.id === Number(params[0]));
@@ -48,12 +33,11 @@ const mockExecute = jest.fn(async (query, params) => {
     return [{ insertId: newDev.id }, {}];
   }
   if (sql.startsWith('UPDATE DEVICES')) {
-    const dev = mockDevices.find(d => d.id === params[2]); // params: [name, lokasi, id]
+    const dev = mockDevices.find(d => d.id === params[2]);
     if (dev) { dev.name = params[0]; dev.lokasi = params[1]; }
     return [{ affectedRows: 1 }, {}];
   }
 
-  // THRESHOLDS
   if (sql.startsWith('SELECT TC.ID, TC.PARAMETER')) {
     return [mockThresholds, {}];
   }
@@ -66,13 +50,11 @@ const mockExecute = jest.fn(async (query, params) => {
     return [{ affectedRows: 1 }, {}];
   }
   if (sql.startsWith('INSERT INTO THRESHOLD_CONFIG')) {
-    // device_id, user_id, parameter, batas_bawah, batas_atas
     const newT = { device_id: params[0], user_id: params[1], parameter: params[2], batas_bawah: params[3], batas_atas: params[4] };
     mockThresholds.push(newT);
     return [{ insertId: 999 }, {}];
   }
 
-  // LOGS (Alerts)
   if (sql.startsWith('INSERT INTO ALERT_LOGS')) {
     const newLog = { id: nextLogId++, device_id: params[0], parameter: params[1], measured_value: params[2], level_peringatan: params[5], pesan_notifikasi: params[6] };
     mockLogs.push(newLog);
@@ -85,7 +67,6 @@ const mockExecute = jest.fn(async (query, params) => {
     return [mockLogs, {}];
   }
 
-  // ACTUATOR
   if (sql.startsWith('INSERT INTO ACTUATOR_LOGS')) {
     const act = { id: nextActuatorLogId++, device_id: params[0], aksi: params[1], trigger_source: params[2], status: 'pending' };
     mockActuatorLogs.push(act);
@@ -96,10 +77,8 @@ const mockExecute = jest.fn(async (query, params) => {
     return [logs, {}];
   }
 
-  // TRANSACTION CONTROL
   if (sql === 'BEGIN' || sql === 'COMMIT' || sql === 'ROLLBACK') return [{}, {}];
 
-  // Default fallback for SELECT statements to return empty instead of breaking destructuring
   if (sql.startsWith('SELECT')) return [[], {}];
   
   console.log('[MOCK DB UNHANDLED]', sql);
@@ -108,7 +87,8 @@ const mockExecute = jest.fn(async (query, params) => {
 
 const mockPool = { execute: mockExecute, query: mockExecute, getConnection: jest.fn(() => ({ execute: mockExecute, beginTransaction: jest.fn(), commit: jest.fn(), rollback: jest.fn(), release: jest.fn() })) };
 
-jest.mock('../services/userGuard', () => ({ resolveUser: async (d) => d, invalidate: () => {} })); // akun diuji di userGuard.test.js
+// User account revocation is covered separately in userGuard.test.js.
+jest.mock('../services/userGuard', () => ({ resolveUser: async (d) => d, invalidate: () => {} }));
 jest.mock('../config/db', () => ({
   getPool: jest.fn(() => mockPool),
   initMySQL: jest.fn().mockResolvedValue(undefined),
@@ -129,7 +109,7 @@ const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const express = require('express');
 
-// Build Express app manually because server.js doesn't export app
+// Built manually because server.js starts background services and does not export app.
 const app = express();
 app.use(express.json());
 app.use('/api/auth', require('../routes/auth.routes'));
@@ -142,16 +122,12 @@ app.use('/api/actuator', require('../routes/actuator.routes'));
 app.use('/api/dss', require('../routes/fuzzy.routes'));
 app.use('/api/users', require('../routes/users.routes'));
 
-
-
-// Helper Token
 const adminToken = 'Bearer ' + jwt.sign({ id: 1, username: 'admin', role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '1h' });
 const userToken  = 'Bearer ' + jwt.sign({ id: 2, username: 'user', role: 'user' }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
 describe('🔗 E2E Integration Testing: B-Monitor (Mocked DB State)', () => {
   beforeEach(() => {
     mockExecute.mockClear();
-    // Reset state but keep initial structure empty
     mockDevices = [];
     mockThresholds = [];
     mockLogs = [];
@@ -161,9 +137,6 @@ describe('🔗 E2E Integration Testing: B-Monitor (Mocked DB State)', () => {
     nextActuatorLogId = 1;
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // SKENARIO 1: Setup Perangkat & Threshold
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('Skenario 1: Setup Node dan Batas Aman', () => {
     test('1.1 Admin dapat mendaftarkan perangkat baru', async () => {
       const res = await request(app)
@@ -177,7 +150,6 @@ describe('🔗 E2E Integration Testing: B-Monitor (Mocked DB State)', () => {
     });
 
     test('1.2 Admin mengatur konfigurasi threshold untuk node tersebut', async () => {
-      // Seed device
       mockDevices.push({ id: 1, node_id: 'INTEGRATION-NODE-01', name: 'Node Tambak Utama' });
       
       const res = await request(app)
@@ -209,9 +181,6 @@ describe('🔗 E2E Integration Testing: B-Monitor (Mocked DB State)', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // SKENARIO 2: Logika Cerdas (Fuzzy DSS)
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('Skenario 2: Simulasi DSS Fuzzy berdasar Data Sensor', () => {
     test('2.1 DSS memproses nilai aman (Suhu 25, Salinitas 20)', async () => {
       const res = await request(app)
@@ -228,7 +197,7 @@ describe('🔗 E2E Integration Testing: B-Monitor (Mocked DB State)', () => {
       const res = await request(app)
         .post('/api/dss/simulate')
         .set('Authorization', userToken)
-        .send({ suhu: 35.0, salinitas: 5.0 }); // Sangat tinggi, sangat rendah
+        .send({ suhu: 35.0, salinitas: 5.0 });
       
       expect(res.status).toBe(200);
       expect(res.body.recommendation).toBe('Bahaya');
@@ -236,9 +205,6 @@ describe('🔗 E2E Integration Testing: B-Monitor (Mocked DB State)', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // SKENARIO 3: Trigger Notifikasi dan Respon Aktuator
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('Skenario 3: Alur Kritis Notifikasi ke Aktuator', () => {
     test('3.0 Role user ditolak 403 di /trigger', async () => {
       const res = await request(app).post('/api/notifications/trigger').set('Authorization', userToken)

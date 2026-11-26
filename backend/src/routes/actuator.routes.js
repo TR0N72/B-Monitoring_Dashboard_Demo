@@ -1,15 +1,4 @@
 'use strict';
-/**
- * actuator.routes.js — API Routes untuk Kontrol Aktuator & Emergency Management
- * ==============================================================================
- * Endpoints:
- *   POST /api/actuator/command                — Kirim perintah aktuator manual (Admin only)
- *   GET  /api/actuator/logs                   — Riwayat semua log aktuator dengan filter
- *   GET  /api/actuator/emergency/status       — Status emergency state semua device
- *   POST /api/actuator/emergency/reset/:id    — Reset emergency state device (Admin only)
- *   GET  /api/actuator/status/:device_id      — Status aktuator dan engine terkini per device
- *   GET  /api/actuator/notifications/queue    — Status antrian notifikasi Telegram (Admin only)
- */
 
 const express    = require('express');
 const { getPool } = require('../config/db');
@@ -28,10 +17,6 @@ const { getQueueStatus }          = require('../config/telegramQueue');
 const router = express.Router();
 router.use(authenticate);
 
-// ─────────────────────────────────────────────────────────────────────────────
-// POST /api/actuator/command
-// Kirim perintah aktuator secara manual — hanya Admin.
-// ─────────────────────────────────────────────────────────────────────────────
 router.post('/command', authorize('admin'), async (req, res) => {
   try {
     const { device_id, aksi } = req.body;
@@ -40,7 +25,6 @@ router.post('/command', authorize('admin'), async (req, res) => {
       return res.status(400).json({ error: 'device_id and aksi are required' });
     }
 
-    // Validasi nama aksi
     const validActions = Object.values(ACTUATOR_ACTIONS);
     if (!validActions.includes(aksi)) {
       return res.status(400).json({
@@ -62,7 +46,7 @@ router.post('/command', authorize('admin'), async (req, res) => {
     }
     const { id: internalId, node_id: nodeId } = devices[0];
 
-    // Interlock: blokir perintah manual (kecuali EMERGENCY_STOP & reset) jika emergency aktif
+    // Safety interlock: block manual commands (except safe close/stop overrides) while emergency is active.
     const isSafeOverride = aksi === 'EMERGENCY_STOP' || aksi === 'CLOSE_FILL_VALVE' || aksi === 'CLOSE_DRAIN_VALVE';
     if (!isSafeOverride && isEmergencyActive(internalId)) {
       return res.status(403).json({
@@ -78,7 +62,6 @@ router.post('/command', authorize('admin'), async (req, res) => {
       [internalId, aksi, 'manual', triggerDetail, 'pending']
     );
 
-    // Jika EMERGENCY_STOP: batalkan sequence yang sedang berjalan seketika
     if (aksi === 'EMERGENCY_STOP') {
       abortSequence(internalId);
     }
@@ -97,10 +80,6 @@ router.post('/command', authorize('admin'), async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/actuator/logs
-// Riwayat semua log aktuator dengan filter device, tanggal, dan paginasi.
-// ─────────────────────────────────────────────────────────────────────────────
 router.get('/logs', async (req, res) => {
   try {
     const { device_id, start_date, end_date, trigger_source, page = 1, limit = 50 } = req.query;
@@ -153,15 +132,10 @@ router.get('/logs', async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/actuator/emergency/status
-// Ambil status Emergency State semua device yang sedang aktif.
-// ─────────────────────────────────────────────────────────────────────────────
 router.get('/emergency/status', async (req, res) => {
   try {
     const states = getAllEmergencyStates();
 
-    // Enrich dengan nama device dari DB
     if (states.length > 0) {
       const pool = getPool();
       const ids  = states.map(s => s.device_id);
@@ -186,11 +160,6 @@ router.get('/emergency/status', async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// POST /api/actuator/emergency/reset/:device_id
-// Reset emergency state setelah admin mengkonfirmasi kondisi aman.
-// Hanya Admin.
-// ─────────────────────────────────────────────────────────────────────────────
 router.post('/emergency/reset/:device_id', authorize('admin'), async (req, res) => {
   try {
     const deviceId = parseInt(req.params.device_id, 10);
@@ -198,7 +167,6 @@ router.post('/emergency/reset/:device_id', authorize('admin'), async (req, res) 
       return res.status(400).json({ error: 'device_id must be a valid integer' });
     }
 
-    // Verifikasi device ada
     const pool = getPool();
     const [[device]] = await pool.execute(
       'SELECT id, node_id, name FROM devices WHERE id = ?',
@@ -208,7 +176,6 @@ router.post('/emergency/reset/:device_id', authorize('admin'), async (req, res) 
       return res.status(404).json({ error: 'Device not found' });
     }
 
-    // Catat reset ke alert_logs
     await pool.execute(
       `INSERT INTO alert_logs
          (device_id, parameter, measured_value, threshold_min, threshold_max, level_peringatan, pesan_notifikasi, acknowledged)
@@ -223,7 +190,6 @@ router.post('/emergency/reset/:device_id', authorize('admin'), async (req, res) 
       ]
     );
 
-    // Reset state
     resetEmergencyState(deviceId);
 
     return res.json({
@@ -239,10 +205,6 @@ router.post('/emergency/reset/:device_id', authorize('admin'), async (req, res) 
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/actuator/status/:device_id
-// Status aktuator terkini per device: log terakhir, engine state, cooldown info.
-// ─────────────────────────────────────────────────────────────────────────────
 router.get('/status/:device_id', async (req, res) => {
   try {
     const deviceId = parseInt(req.params.device_id, 10);
@@ -259,7 +221,6 @@ router.get('/status/:device_id', async (req, res) => {
       return res.status(404).json({ error: 'Device not found' });
     }
 
-    // 5 log aktuator terakhir
     const [recentLogs] = await pool.execute(
       `SELECT id, aksi, trigger_source, status, trigger_detail, executed_at
        FROM actuator_logs
@@ -289,10 +250,6 @@ router.get('/status/:device_id', async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/actuator/notifications/queue
-// Status antrian notifikasi Telegram — untuk debugging dan monitoring Admin.
-// ─────────────────────────────────────────────────────────────────────────────
 router.get('/notifications/queue', authorize('admin'), (req, res) => {
   try {
     return res.json({

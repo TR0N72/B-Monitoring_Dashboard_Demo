@@ -1,12 +1,4 @@
 'use strict';
-/**
- * fuzzy.routes.js — API Routes untuk Fuzzy DSS Log & Konfigurasi
- * ==============================================================
- * Endpoints:
- *   GET  /api/dss/          — Riwayat keputusan Fuzzy DSS dengan filter
- *   GET  /api/dss/rules     — Daftar lengkap 27 aturan IF-THEN (untuk UI konfigurasi)
- *   POST /api/dss/simulate  — Simulasi DSS Fuzzy dengan nilai input manual
- */
 
 const express              = require('express');
 const { getPool }          = require('../config/db');
@@ -23,11 +15,6 @@ const toSets = (spec) => ['rendah', 'normal', 'tinggi'].map((k) => ({
 const router = express.Router();
 router.use(authenticate);
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/dss/rules
-// Kembalikan definisi lengkap 27 aturan Fuzzy IF-THEN untuk keperluan UI
-// halaman Admin Configuration (Fuzzy Logic Rule Editor).
-// ─────────────────────────────────────────────────────────────────────────────
 router.get('/rules', (req, res) => {
   try {
     const rules = getRuleDefinitions();
@@ -69,11 +56,7 @@ router.get('/rules', (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// POST /api/dss/simulate
-// Simulasi DSS Fuzzy dengan nilai input manual (untuk halaman konfigurasi).
-// Tidak menyimpan ke database.
-// ─────────────────────────────────────────────────────────────────────────────
+// Dry-run simulation for admin configuration; does not persist to DB.
 router.post('/simulate', (req, res) => {
   try {
     const { suhu, salinitas, visual_label, visualLabel } = req.body;
@@ -89,7 +72,6 @@ router.post('/simulate', (req, res) => {
       return res.status(400).json({ error: 'suhu and salinitas must be valid numbers.' });
     }
 
-    // Dukung input visual_label atau visualLabel (default: 'Normal')
     const rawVisual = visual_label || visualLabel || 'Normal';
     const validVisuals = ['Normal', 'Caution', 'Warning'];
     const matchedVisual = validVisuals.find(v => v.toLowerCase() === String(rawVisual).toLowerCase()) || 'Normal';
@@ -107,10 +89,6 @@ router.post('/simulate', (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/dss/
-// Riwayat keputusan DSS Fuzzy dengan filter (device, rentang waktu, paginasi).
-// ─────────────────────────────────────────────────────────────────────────────
 router.get('/', async (req, res) => {
   try {
     const { device_id, start_date, end_date, page = 1, limit = 50 } = req.query;
@@ -153,7 +131,6 @@ router.get('/', async (req, res) => {
     const pool   = getPool();
     const [rows] = await pool.query(query, params);
 
-    // Parse fired_rules JSON jika masih string
     const data = rows.map(row => ({
       ...row,
       fired_rules: typeof row.fired_rules === 'string'

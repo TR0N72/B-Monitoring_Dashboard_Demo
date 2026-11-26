@@ -8,17 +8,14 @@ if (!NEW_PASSWORD) {
 }
 
 async function resetAdminPassword() {
-  // Generate hash
   const hash = await bcrypt.hash(NEW_PASSWORD, 10);
 
-  // Verify hash dulu sebelum update
   const valid = await bcrypt.compare(NEW_PASSWORD, hash);
   if (!valid) {
     console.error('Hash generation failed, aborting.');
     process.exit(1);
   }
 
-  // Update ke database
   const pool = await mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
     port: Number(process.env.DB_PORT) || 3306,
