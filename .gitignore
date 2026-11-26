@@ -15,6 +15,7 @@ docs/
 .env
 
 # Dependencies & build/test outputs
+.venv/
 node_modules/
 npm-debug.log*
 coverage/
