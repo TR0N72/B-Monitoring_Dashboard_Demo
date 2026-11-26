@@ -24,7 +24,6 @@ function initSocket(httpServer) {
     path: '/ws',
   });
 
-  // ── Authentication Middleware pada Handshake ────────────────────────────
   io.use(async (socket, next) => {
     try {
       let token = null;

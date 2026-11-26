@@ -1,90 +1,31 @@
 'use strict';
-/**
- * telegramQueue.js — Telegram Notification Queue dengan Dynamic Routing & Retry
- * ==============================================================================
- * Modul ini menjadi pusat pengiriman semua notifikasi Telegram dalam sistem
- * B-Monitor. Menggantikan pengiriman langsung ke TELEGRAM_CHAT_ID global
- * dengan sistem yang:
- *
- *  1. DYNAMIC ROUTING
- *     Setiap alert dirutekan ke pengguna (pekerja/admin) yang relevan
- *     berdasarkan field `kontak_telegram` di tabel `users`.
- *     Prioritas routing (urutan):
- *       a. Pekerja yang terdaftar pada device (devices.user_id → users.kontak_telegram)
- *       b. Semua admin (role='admin' dengan kontak_telegram terisi)
- *       c. Fallback: TELEGRAM_CHAT_ID global dari environment variable
- *
- *  2. PRIORITY QUEUE
- *     Tiga level prioritas pesan:
- *       FAILSAFE  (3) — Darurat mesin gagal mati, dikirim segera, tidak pernah di-drop
- *       WARNING   (2) — Kondisi kritis/bahaya, dikirim segera
- *       CAUTION   (1) — Peringatan awal, bisa terlambat saat antrian penuh
- *
- *  3. PERSISTENT RETRY
- *     Jika pengiriman gagal (timeout, network down, rate limit):
- *       - Pesan kembali ke antrian dengan incremental backoff
- *       - Max retry: FAILSAFE=unlimited, WARNING=10, CAUTION=5
- *       - Backoff: 10s → 30s → 60s → 120s → 300s (cap)
- *       - Antrian max: MAX_QUEUE_SIZE item (oldest CAUTION di-drop jika penuh)
- *
- *  4. RATE LIMIT PROTECTION
- *     Telegram membatasi 30 pesan/detik per bot global dan 1 pesan/detik
- *     per chat_id. Worker memproses dengan delay minimum 1.1 detik per chat.
- *
- *  5. COOLDOWN PER ALERT TYPE
- *     Pesan jenis CAUTION/WARNING memiliki cooldown per (device, parameter)
- *     untuk mencegah spam. FAILSAFE tidak memiliki cooldown.
- *
- * Penggunaan:
- *   const tq = require('./telegramQueue');
- *   tq.enqueue({ priority: tq.PRIORITY.WARNING, deviceId: 1, alertData: {...} });
- */
 
 const { getPool } = require('./db');
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Constants
-// ─────────────────────────────────────────────────────────────────────────────
 
 const BOT_TOKEN    = process.env.TELEGRAM_BOT_TOKEN || '';
 const FALLBACK_ID  = process.env.TELEGRAM_CHAT_ID   || '';
 const API_BASE     = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
 const MAX_QUEUE_SIZE     = 500;
-const WORKER_INTERVAL_MS = 1100;   // ~1 pesan/detik per chat (aman untuk rate limit)
-const COOLDOWN_MS        = parseInt(process.env.ALERT_COOLDOWN_MS || '300000', 10); // 5 menit
+const WORKER_INTERVAL_MS = 1100;   // ~1 msg/s per chat to respect Telegram rate limits
+const COOLDOWN_MS        = parseInt(process.env.ALERT_COOLDOWN_MS || '300000', 10);
 
-/** Backoff delays (ms) untuk retry — index = attempt ke-n (0-based) */
 const BACKOFF_SCHEDULE = [10_000, 30_000, 60_000, 120_000, 300_000];
-
-/** Prioritas antrian */
 const PRIORITY = Object.freeze({ CAUTION: 1, WARNING: 2, FAILSAFE: 3 });
-
-/** Batas max retry per prioritas */
 const MAX_RETRY = { [PRIORITY.CAUTION]: 5, [PRIORITY.WARNING]: 10, [PRIORITY.FAILSAFE]: Infinity };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// In-Memory Queue & State
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** @type {Array<QueueItem>} */
 const queue         = [];
 let workerTimer     = null;
 let isProcessing    = false;
 let isInitialized   = false;
-let deadCount       = 0;  // item masuk DLQ karena semua chat_id invalid (sejak proses start)
+let deadCount       = 0;  // Items moved to DLQ after all chat_ids proved invalid since startup
 
-/** Cooldown map: key = `device_id:parameter` → timestamp */
 const cooldownMap   = new Map();
 
-/**
- * Persistensi write-through ke tabel telegram_queue (status 'pending' | 'dead').
- * 'dead' = Dead-Letter Queue: item yang gagal permanen, disimpan untuk inspeksi, tidak dikirim ulang.
- * Gagal DB tidak boleh memblokir pengiriman -> hanya log.
- */
+// Write-through persistence to telegram_queue; DB errors log only so delivery never blocks.
 function _db(sql, params) {
   let pool;
-  try { pool = getPool(); } catch { return; }  // pool belum siap (mis. tes)
+  try { pool = getPool(); } catch { return; }
   pool.execute(sql, params).catch((e) => console.error('[TelegramQueue] persist error:', e.message));
 }
 const _persistAdd    = (i) => _db(
@@ -94,7 +35,6 @@ const _persistRetry  = (i) => _db('UPDATE telegram_queue SET retry_count=?, next
 const _persistDelete = (id) => _db('DELETE FROM telegram_queue WHERE id=?', [id]);
 const _persistDead   = (id, why) => _db("UPDATE telegram_queue SET status='dead', last_error=? WHERE id=?", [String(why).slice(0, 255), id]);
 
-/** Pulihkan item 'pending' dari DB ke memori (panggil sekali saat startup). */
 async function loadPersisted() {
   const [rows] = await getPool().execute(
     "SELECT id, priority, device_id, alert_data, retry_count, next_attempt_at, created_at FROM telegram_queue WHERE status='pending' ORDER BY created_at");
@@ -113,27 +53,10 @@ async function loadPersisted() {
   return rows.length;
 }
 
-/** Cache resolusi routing: deviceId → [chatId, ...] TTL 5 menit */
 const routeCache    = new Map();
 const ROUTE_TTL_MS  = 5 * 60 * 1000;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Dynamic Routing: Resolve chat IDs dari database
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Resolve daftar Telegram chat_id yang harus menerima alert untuk device tertentu.
- *
- * Logika:
- *  1. Pekerja yang ditugaskan ke device (devices.user_id → users.kontak_telegram)
- *  2. Semua admin dengan kontak_telegram terisi
- *  3. Fallback: TELEGRAM_CHAT_ID global
- *
- * @param {number|null} deviceId - Internal DB device ID (null = broadcast ke admin saja)
- * @returns {Promise<string[]>} Array chat_id unik yang valid
- */
 async function resolveRecipients(deviceId) {
-  // Cek cache
   const cacheKey = `device:${deviceId}`;
   const cached   = routeCache.get(cacheKey);
   if (cached && (Date.now() - cached.at) < ROUTE_TTL_MS) {
@@ -145,7 +68,6 @@ async function resolveRecipients(deviceId) {
   try {
     const pool = getPool();
 
-    // ── 1. Pekerja yang ditugaskan ke device ini ─────────────────────────
     if (deviceId) {
       const [workers] = await pool.execute(
         `SELECT u.kontak_telegram
@@ -157,7 +79,6 @@ async function resolveRecipients(deviceId) {
       workers.forEach(w => chatIds.add(w.kontak_telegram.trim()));
     }
 
-    // ── 2. Semua admin dengan Telegram terdaftar ──────────────────────────
     const [admins] = await pool.execute(
       `SELECT kontak_telegram FROM users
        WHERE role = 'admin' AND kontak_telegram IS NOT NULL AND kontak_telegram != ''`
@@ -168,7 +89,6 @@ async function resolveRecipients(deviceId) {
     console.warn('[TelegramQueue] DB route resolution failed, using fallback:', dbErr.message);
   }
 
-  // ── 3. Fallback ke global TELEGRAM_CHAT_ID ────────────────────────────
   if (chatIds.size === 0 && FALLBACK_ID) {
     chatIds.add(FALLBACK_ID);
   }
@@ -178,16 +98,12 @@ async function resolveRecipients(deviceId) {
   return ids;
 }
 
-/**
- * Resolve penerima untuk FAILSAFE — selalu semua admin + fallback, tidak pakai cache.
- * @returns {Promise<string[]>}
- */
+// Failsafe bypasses cache and alerts every registered contact plus fallback.
 async function resolveEmergencyRecipients(deviceId) {
   const chatIds = new Set();
   try {
     const pool = getPool();
 
-    // Semua user dengan kontak_telegram (admin dan pekerja terdaftar)
     const [all] = await pool.execute(
       `SELECT u.kontak_telegram
        FROM users u
@@ -207,7 +123,6 @@ async function resolveEmergencyRecipients(deviceId) {
   return [...chatIds].filter(Boolean);
 }
 
-// Invalidasi cache routing saat user diperbarui
 function invalidateRouteCache(deviceId = null) {
   if (deviceId) {
     routeCache.delete(`device:${deviceId}`);
@@ -216,39 +131,17 @@ function invalidateRouteCache(deviceId = null) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Escaping Helpers for Telegram MarkdownV2 & HTML
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Escape karakter khusus MarkdownV2 Telegram.
- * Karakter yang wajib di-escape di luar entitas:
- * _ * [ ] ( ) ~ ` > # + - = | { } . ! \
- * @param {string|number|null|undefined} text
- * @returns {string}
- */
 function escapeMarkdownV2(text) {
   if (text === null || text === undefined) return '';
   return String(text).replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, '\\$&');
 }
 
-/**
- * Escape karakter khusus di dalam blok inline code (`...`).
- * Di dalam inline code MarkdownV2, hanya ` dan \ yang perlu di-escape.
- * @param {string|number|null|undefined} text
- * @returns {string}
- */
+// Inside MarkdownV2 inline code, only backtick and backslash need escaping.
 function escapeCode(text) {
   if (text === null || text === undefined) return '';
   return String(text).replace(/[`\\]/g, '\\$&');
 }
 
-/**
- * Escape karakter khusus HTML (<, >, &).
- * Digunakan untuk alert dengan parse_mode: 'HTML'.
- * @param {string|number|null|undefined} text
- * @returns {string}
- */
 function escapeHtml(text) {
   if (text === null || text === undefined) return '';
   return String(text)
@@ -257,11 +150,6 @@ function escapeHtml(text) {
     .replace(/>/g, '&gt;');
 }
 
-/**
- * Hapus escape backslash dan markdown markers dasar untuk fallback plain-text jika parsing gagal.
- * @param {string} text
- * @returns {string}
- */
 function stripMarkdownEscapes(text) {
   if (!text) return '';
   return String(text)
@@ -270,11 +158,6 @@ function stripMarkdownEscapes(text) {
     .replace(/`([^`]+)`/g, '$1');
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Message Formatting
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Buat teks pesan Telegram dari alertData. */
 function formatAlertMessage(alertData, priority) {
   const level = (alertData.level_peringatan || 'warning').toLowerCase();
 
@@ -333,16 +216,6 @@ function formatAlertMessage(alertData, priority) {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Telegram HTTP Sender
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Kirim satu pesan ke satu chat_id. Lempar error jika gagal.
- * @param {string} chatId
- * @param {string} text
- * @param {string} parseMode
- */
 async function sendToChat(chatId, text, parseMode = 'MarkdownV2') {
   if (!BOT_TOKEN) throw new Error('TELEGRAM_BOT_TOKEN not configured');
 
@@ -365,7 +238,6 @@ async function sendToChat(chatId, text, parseMode = 'MarkdownV2') {
     const data = await res.json();
 
     if (!data.ok) {
-      // 1. Rate limit — Telegram mengembalikan 429
       if (res.status === 429) {
         const retryAfter = data.parameters?.retry_after || 10;
         throw new RateLimitError(`Rate limited. Retry after ${retryAfter}s`, retryAfter);
@@ -373,7 +245,6 @@ async function sendToChat(chatId, text, parseMode = 'MarkdownV2') {
 
       const desc = data.description || '';
 
-      // 2. Format / Entity parsing error (HTTP 400 "can't parse entities...")
       if (data.error_code === 400 && desc.toLowerCase().includes("can't parse entities")) {
         console.warn(`[TelegramQueue] MarkdownV2 parse failed for chat=${chatId} (${desc}) — attempting plain text fallback`);
         try {
@@ -395,11 +266,10 @@ async function sendToChat(chatId, text, parseMode = 'MarkdownV2') {
         } catch (fallbackErr) {
           console.error(`[TelegramQueue] Plain-text fallback failed for chat=${chatId}:`, fallbackErr.message);
         }
-        // Jika fallback juga gagal, lempar TelegramParseError (BUKAN InvalidChatError)
+        // Throw TelegramParseError (not InvalidChatError) so parse failures still retry.
         throw new TelegramParseError(`Formatting parse error for chat '${chatId}': ${desc}`);
       }
 
-      // 3. Chat tidak ditemukan / diblokir / tidak valid
       const isInvalidChat = data.error_code === 403 ||
         (data.error_code === 400 && (
           desc.toLowerCase().includes('chat not found') ||
@@ -415,7 +285,6 @@ async function sendToChat(chatId, text, parseMode = 'MarkdownV2') {
         throw new InvalidChatError(`Invalid chat_id '${chatId}': ${desc}`);
       }
 
-      // 4. Error umum lainnya
       throw new Error(`Telegram API error: ${desc}`);
     }
 
@@ -447,10 +316,6 @@ class TelegramParseError extends Error {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Cooldown Check
-// ─────────────────────────────────────────────────────────────────────────────
-
 function isCooldown(deviceId, parameter) {
   if (!parameter || !deviceId) return false;
   const key  = `${deviceId}:${parameter}`;
@@ -464,40 +329,14 @@ function setCooldown(deviceId, parameter) {
   cooldownMap.set(`${deviceId}:${parameter}`, Date.now());
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Queue Management
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * @typedef {object} QueueItem
- * @property {number}   priority        - PRIORITY.CAUTION | WARNING | FAILSAFE
- * @property {number}   deviceId        - Internal DB device ID
- * @property {object}   alertData       - Data alert (parameter, measured_value, dll)
- * @property {string[]} [recipients]    - Jika sudah resolve, simpan di sini
- * @property {number}   retryCount      - Jumlah percobaan gagal
- * @property {number}   nextAttemptAt   - Timestamp minimum sebelum retry
- * @property {number}   createdAt       - Timestamp pertama kali dimasukkan
- * @property {string}   id              - UUID item untuk tracking
- */
-
 let _itemCounter = 0;
 
-/**
- * Masukkan pesan ke antrian notifikasi.
- *
- * @param {object} opts
- * @param {number}  opts.priority    - Gunakan PRIORITY.CAUTION/WARNING/FAILSAFE
- * @param {number}  opts.deviceId    - Device ID sumber alert
- * @param {object}  opts.alertData   - Objek data alert
- * @param {boolean} [opts.forceSend] - Abaikan cooldown (untuk FAILSAFE)
- */
 function enqueue({ priority = PRIORITY.CAUTION, deviceId, alertData, forceSend = false }) {
   if (!BOT_TOKEN) {
     console.warn('[TelegramQueue] Bot token not set — message dropped.');
     return;
   }
 
-  // Cek cooldown (kecuali FAILSAFE atau forceSend)
   if (priority < PRIORITY.FAILSAFE && !forceSend) {
     if (isCooldown(deviceId, alertData?.parameter)) {
       console.log(`[TelegramQueue] Cooldown active for device=${deviceId} param=${alertData?.parameter} — skipped`);
@@ -506,7 +345,7 @@ function enqueue({ priority = PRIORITY.CAUTION, deviceId, alertData, forceSend =
     setCooldown(deviceId, alertData?.parameter);
   }
 
-  // Tangani antrian penuh: drop item CAUTION terlama
+  // Drop oldest CAUTION item when queue reaches MAX_QUEUE_SIZE so WARNING/FAILSAFE stay queued.
   if (queue.length >= MAX_QUEUE_SIZE) {
     const dropIdx = queue.findIndex(i => i.priority === PRIORITY.CAUTION);
     if (dropIdx >= 0) {
@@ -519,19 +358,17 @@ function enqueue({ priority = PRIORITY.CAUTION, deviceId, alertData, forceSend =
     }
   }
 
-  /** @type {QueueItem} */
   const item = {
     id           : `tq-${Date.now()}-${++_itemCounter}`,
     priority,
     deviceId,
     alertData    : { ...alertData },
-    recipients   : null,  // Akan di-resolve saat processing
+    recipients   : null,
     retryCount   : 0,
     nextAttemptAt: 0,
     createdAt    : Date.now(),
   };
 
-  // Insert dengan urutan prioritas (FAILSAFE dulu, dst)
   const insertIdx = queue.findIndex(q => q.priority < priority);
   if (insertIdx === -1) {
     queue.push(item);
@@ -547,10 +384,6 @@ function enqueue({ priority = PRIORITY.CAUTION, deviceId, alertData, forceSend =
 function _priorityName(p) {
   return Object.entries(PRIORITY).find(([, v]) => v === p)?.[0] || String(p);
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Queue Worker
-// ─────────────────────────────────────────────────────────────────────────────
 
 function _startWorker() {
   if (workerTimer || isProcessing) return;
@@ -573,12 +406,11 @@ async function _processNext() {
 
   const now  = Date.now();
   const item = queue.find(i => i.nextAttemptAt <= now);
-  if (!item) return;  // Semua item masih dalam backoff
+  if (!item) return;
 
   isProcessing = true;
 
   try {
-    // ── Resolve recipients jika belum ada ──────────────────────────────
     if (!item.recipients) {
       if (item.priority === PRIORITY.FAILSAFE) {
         item.recipients = await resolveEmergencyRecipients(item.deviceId);
@@ -596,7 +428,6 @@ async function _processNext() {
 
     const { text, parse_mode } = formatAlertMessage(item.alertData, item.priority);
 
-    // ── Kirim ke semua penerima ────────────────────────────────────────
     let allSuccess = true;
     let sent = 0;
     const invalid = [];
@@ -607,35 +438,32 @@ async function _processNext() {
         console.log(`[TelegramQueue] ✓ Sent [${_priorityName(item.priority)}] to chat=${chatId} (device=${item.deviceId})`);
       } catch (err) {
         if (err instanceof InvalidChatError) {
-          // Chat ID tidak valid — log dan skip, jangan retry untuk ID ini
           console.error(`[TelegramQueue] Invalid chat_id ${chatId} — skipping permanently:`, err.message);
           invalid.push(chatId);
           continue;
         }
         if (err instanceof RateLimitError) {
-          // Rate limited — requeue dengan delay khusus
           allSuccess        = false;
           item.nextAttemptAt = now + err.retryAfterMs;
           console.warn(`[TelegramQueue] Rate limited for chat=${chatId} — retry after ${err.retryAfterMs}ms`);
           break;
         }
         if (err instanceof TelegramParseError) {
-          // Format error — tandai allSuccess = false agar dicoba ulang dan tidak dibuang diam-diam
+          // Keep allSuccess=false so formatting errors retry instead of being silently dropped.
           allSuccess = false;
           console.error(`[TelegramQueue] Format parse error for chat=${chatId}:`, err.message);
           continue;
         }
-        // Network error / timeout — requeue dengan backoff
         allSuccess = false;
         console.error(`[TelegramQueue] Failed to send to chat=${chatId}:`, err.message);
       }
     }
 
-    // Chat id basi: buang cache routing agar di-resolve ulang.
+    // Clear stale route cache so invalid chat_ids are re-resolved on next alert.
     if (invalid.length) invalidateRouteCache(item.deviceId);
 
     if (allSuccess && sent === 0 && invalid.length) {
-      // Semua penerima invalid = tak ada yang menerima -> DLQ, bukan "terkirim".
+      // Every recipient was invalid: move to DLQ instead of treating as delivered.
       console.error(`[TelegramQueue] ✗ DLQ: all recipients invalid for item ${item.id} (${invalid.join(',')})`);
       _persistDead(item.id, 'invalid chat_id: ' + invalid.join(','));
       _removeFromQueue(item.id);
@@ -645,7 +473,6 @@ async function _processNext() {
       _persistDelete(item.id);
       _removeFromQueue(item.id);
     } else {
-      // Hitung retry
       item.retryCount++;
       const maxRetry = MAX_RETRY[item.priority] ?? 5;
 
@@ -656,7 +483,6 @@ async function _processNext() {
         return;
       }
 
-      // Backoff schedule
       if (item.nextAttemptAt <= now) {
         const backoffIdx = Math.min(item.retryCount - 1, BACKOFF_SCHEDULE.length - 1);
         item.nextAttemptAt = now + BACKOFF_SCHEDULE[backoffIdx];
@@ -676,18 +502,6 @@ function _removeFromQueue(id) {
   if (idx >= 0) queue.splice(idx, 1);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Public API — Convenience Functions
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Kirim alert sensor threshold (Caution/Warning).
- * Equivalent dari sendTelegramAlert() lama, dengan routing dinamis.
- *
- * @param {object} alertData - { device_id, node_id, parameter, measured_value,
- *                               threshold_min, threshold_max,
- *                               level_peringatan, pesan_notifikasi }
- */
 function sendAlert(alertData) {
   const level    = (alertData.level_peringatan || 'warning').toLowerCase();
   const priority = level === 'critical' || level === 'failsafe'
@@ -701,17 +515,6 @@ function sendAlert(alertData) {
   });
 }
 
-/**
- * Kirim notifikasi DSS Waspada/Bahaya dari aktuator controller.
- *
- * @param {object} opts
- * @param {number} opts.deviceId
- * @param {string} opts.nodeId
- * @param {number} opts.dssScore
- * @param {string} opts.recommendation
- * @param {object} opts.readings - { suhu, salinitas }
- * @param {'waspada'|'bahaya'} opts.level
- */
 function sendDssAlert({ deviceId, nodeId, dssScore, recommendation, readings, level }) {
   const isBahaya = level === 'bahaya';
   const msg = isBahaya
@@ -731,19 +534,10 @@ function sendDssAlert({ deviceId, nodeId, dssScore, recommendation, readings, le
       level_peringatan: isBahaya ? 'critical' : 'warning',
       pesan_notifikasi: msg,
     },
-    forceSend: isBahaya, // Kondisi bahaya selalu dikirim meski cooldown
+    forceSend: isBahaya,
   });
 }
 
-/**
- * Kirim emergency alert (Failsafe SW-420) ke SEMUA penerima terdaftar.
- * Tidak ada cooldown, selalu retry sampai berhasil.
- *
- * @param {object} opts
- * @param {number} opts.deviceId
- * @param {string} opts.nodeId
- * @param {string} opts.message
- */
 function sendEmergency({ deviceId, nodeId, message }) {
   enqueue({
     priority : PRIORITY.FAILSAFE,
@@ -758,10 +552,6 @@ function sendEmergency({ deviceId, nodeId, message }) {
   });
 }
 
-/**
- * Status antrian saat ini — untuk endpoint health check.
- * @returns {object}
- */
 function getQueueStatus() {
   const now = Date.now();
   return {
@@ -777,10 +567,9 @@ function getQueueStatus() {
   };
 }
 
-// Antrean dipulihkan dari DB lewat loadPersisted() (dipanggil server.js setelah MySQL siap).
+// Persisted items are restored by loadPersisted() from server.js once MySQL is ready.
 if (!isInitialized) {
   isInitialized = true;
-  // Worker akan di-start otomatis saat ada item pertama
   console.log('[TelegramQueue] Initialized. Bot:', BOT_TOKEN ? 'configured' : 'NOT configured');
 }
 
@@ -794,7 +583,6 @@ module.exports = {
   loadPersisted,
   invalidateRouteCache,
   PRIORITY,
-  // Helper & Error Classes
   escapeMarkdownV2,
   escapeCode,
   escapeHtml,

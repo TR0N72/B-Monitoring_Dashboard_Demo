@@ -1,82 +1,20 @@
 'use strict';
-/**
- * emergencyState.js — State Machine Failsafe Darurat (Sensor Getar SW-420)
- * =========================================================================
- * Modul ini menangani logika pemantauan darurat berbasis sensor getaran SW-420
- * yang dipasang pada mesin pompa diesel tambak.
- *
- * Protokol Failsafe:
- * ──────────────────────────────────────────────────────────────────
- *  Kondisi Normal :  Mesin diesel beroperasi → SW-420 mendeteksi getaran
- *  Perintah Stop  :  Backend mengirim PUMP_ENGINE_STOP via MQTT
- *  Verifikasi     :  Backend menunggu FAILSAFE_VERIFY_WINDOW_MS
- *  Berhasil       :  Getaran berhenti → status 'engine_stopped'
- *  GAGAL (Failsafe):  Getaran MASIH terdeteksi setelah PUMP_ENGINE_STOP →
- *                     Flag Emergency State aktif → risiko overfilling!
- *
- * Topic MQTT yang disubscribe:
- *   tambak/<node_id>/sensor/vibration
- *   Payload: { vibration: boolean, intensity: float, timestamp: string }
- *
- * Emergency State Flag:
- *   Jika aktif, sistem:
- *   1. Mencatat ke tabel alert_logs dengan level 'failsafe'
- *   2. Mengirim Telegram Emergency dengan prioritas maksimum
- *   3. Emit WebSocket event 'system:emergency'
- *   4. Memblokir perintah pengisian air (OPEN_FILL_VALVE) sampai direset manual
- *
- * Reset:
- *   Emergency state direset HANYA jika:
- *   - Admin mengkonfirmasi manual via API: POST /api/actuator/emergency/reset
- *   - Getaran benar-benar berhenti dan diverifikasi oleh operator
- */
 
 const db = require('../config/db');
 const tq = require('../config/telegramQueue');
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Constants
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Waktu tunggu verifikasi setelah PUMP_ENGINE_STOP dikirim (ms) */
 const FAILSAFE_VERIFY_WINDOW_MS = parseInt(
-  process.env.FAILSAFE_VERIFY_WINDOW_MS || '15000', 10  // 15 detik
+  process.env.FAILSAFE_VERIFY_WINDOW_MS || '15000', 10
 );
-
-/** Ambang batas intensitas getaran yang dianggap "masih bergetar" */
 const VIBRATION_THRESHOLD = parseFloat(process.env.VIBRATION_THRESHOLD || '0.3');
+const EMERGENCY_NOTIFY_COOLDOWN_MS = 2 * 60 * 1000;
 
-/** Cooldown notifikasi emergency agar tidak spam (ms) */
-const EMERGENCY_NOTIFY_COOLDOWN_MS = 2 * 60 * 1000; // 2 menit
-
-// ─────────────────────────────────────────────────────────────────────────────
-// In-Memory State
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * State per device:
- * {
- *   [deviceId]: {
- *     engineStopPending    : boolean,   // Menunggu konfirmasi berhenti
- *     engineStopSentAt     : number,    // Timestamp PUMP_ENGINE_STOP dikirim
- *     engineStopCommandId  : number,    // ID actuator_log command
- *     emergencyActive      : boolean,   // Flag emergency state aktif
- *     emergencyActivatedAt : number,    // Timestamp emergency aktif
- *     lastVibratingAt      : number,    // Timestamp terakhir getaran terdeteksi
- *     lastNotifiedAt       : number,    // Timestamp notifikasi terakhir
- *   }
- * }
- */
 const deviceStates = new Map();
 
-/**
- * Simpan state durable device ke tabel emergency_state (fire-and-forget).
- * Gagal DB = log keras, tidak pernah throw / memblokir perubahan state in-memory.
- * lastVibratingAt & isCurrentlyVibrating sengaja tidak dipersist (frekuensi tinggi, dihitung ulang).
- */
+// Fire-and-forget durable persistence; skips high-frequency vibration timestamps.
 function _persist(deviceId) {
   let pool;
-  try { pool = db.getPool(); } catch { return; } // pool belum siap (mis. tes)
+  try { pool = db.getPool(); } catch { return; }
   const s = deviceStates.get(deviceId);
   if (!s) return;
   const p = [deviceId, s.emergencyActive ? 1 : 0, s.emergencyActivatedAt ?? null, s.engineStopPending ? 1 : 0,
@@ -97,12 +35,7 @@ function _persist(deviceId) {
   }
 }
 
-/**
- * Pulihkan state failsafe dari DB saat startup (sebelum initMQTT).
- * emergencyActive hasil restore tetap memblokir OPEN_FILL_VALVE sampai reset admin (arah fail-safe).
- * ponytail: bila load gagal (server.js menangkap), state failsafe mulai kosong = fail-open; pantau log.
- * @returns {Promise<number>} jumlah baris dipulihkan
- */
+// Restores failsafe state before initMQTT; if DB load fails in server.js, state starts fail-open.
 async function loadEmergencyStates() {
   const [rows] = await db.getPool().execute(
     'SELECT * FROM emergency_state WHERE emergency_active = 1 OR engine_stop_pending = 1'
@@ -120,10 +53,6 @@ async function loadEmergencyStates() {
   return rows.length;
 }
 
-/**
- * Inisialisasi state untuk device baru.
- * @param {number} deviceId
- */
 function initDeviceState(deviceId) {
   if (!deviceStates.has(deviceId)) {
     deviceStates.set(deviceId, {
@@ -139,32 +68,15 @@ function initDeviceState(deviceId) {
   return deviceStates.get(deviceId);
 }
 
-/**
- * Ambil state device saat ini.
- * @param {number} deviceId
- * @returns {object}
- */
 function getDeviceState(deviceId) {
   return deviceStates.get(deviceId) || initDeviceState(deviceId);
 }
 
-/**
- * Apakah Emergency State aktif untuk device ini?
- * Digunakan oleh actuatorController untuk memblokir OPEN_FILL_VALVE.
- * @param {number} deviceId
- * @returns {boolean}
- */
 function isEmergencyActive(deviceId) {
   const state = deviceStates.get(deviceId);
   return state ? state.emergencyActive : false;
 }
 
-/**
- * Tandai bahwa PUMP_ENGINE_STOP telah dikirim ke device.
- * Mulai jendela verifikasi failsafe.
- * @param {number} deviceId
- * @param {number} commandId - ID dari actuator_logs
- */
 function markEngineStopSent(deviceId, commandId) {
   const state = initDeviceState(deviceId);
   state.engineStopPending   = true;
@@ -174,15 +86,10 @@ function markEngineStopSent(deviceId, commandId) {
   console.log(`[Failsafe] Engine stop sent for device ${deviceId}, command_id=${commandId}. Monitoring vibration for ${FAILSAFE_VERIFY_WINDOW_MS / 1000}s...`);
 }
 
-/**
- * Reset emergency state setelah konfirmasi manual admin.
- * @param {number} deviceId
- */
 function resetEmergencyState(deviceId, force = false) {
   const state = getDeviceState(deviceId);
   const now = Date.now();
-  // Hanya blokir reset jika getaran terakhir kurang dari 5 detik lalu DAN
-  // status terbaru TIDAK menegaskan bahwa mesin telah berhenti.
+  // Block reset if vibration was seen within 5s unless latest reading explicitly confirms stopped.
   if (!force && state.isCurrentlyVibrating !== false && state.lastVibratingAt && (now - state.lastVibratingAt < 5000)) {
     throw new Error('Mesin masih terdeteksi bergetar (SW-420 aktif). Pastikan mesin diesel benar-benar mati sebelum melakukan reset darurat.');
   }
@@ -195,22 +102,6 @@ function resetEmergencyState(deviceId, force = false) {
   console.log(`[Failsafe] Emergency state RESET for device ${deviceId}`);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Core Failsafe Handler
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Proses pembacaan sensor getaran SW-420 dari MQTT.
- * Dipanggil dari mqtt.js ketika topik tambak/+/sensor/vibration diterima.
- *
- * @param {object} opts
- * @param {number} opts.deviceId     - Internal DB device ID
- * @param {string} opts.nodeId       - Hardware node ID
- * @param {object} opts.payload      - { vibration: boolean, intensity: float }
- * @param {object} opts.io           - Socket.io instance
- * @param {object} opts.telegramFns  - { sendEmergencyAlert }
- * @param {object} opts.mqttClient   - MQTT client instance
- */
 async function handleVibrationData({ deviceId, nodeId, payload, io, mqttClient }) {
   const state       = initDeviceState(deviceId);
   const isVibrating = payload.vibration === true ||
@@ -222,9 +113,7 @@ async function handleVibrationData({ deviceId, nodeId, payload, io, mqttClient }
     state.lastVibratingAt = Date.now();
   }
 
-  // ── Tidak dalam mode verifikasi — catat saja ─────────────────────────────
   if (!state.engineStopPending) {
-    // Update status mesin di frontend jika getaran diterima
     if (io && isVibrating) {
       io.emit('sensor:vibration', {
         device_id : deviceId,
@@ -237,17 +126,15 @@ async function handleVibrationData({ deviceId, nodeId, payload, io, mqttClient }
     return;
   }
 
-  // ── Dalam mode verifikasi pasca PUMP_ENGINE_STOP ──────────────────────────
   const elapsed = Date.now() - state.engineStopSentAt;
 
   if (!isVibrating) {
-    // ── Mesin berhasil berhenti — verifikasi sukses ───────────────────────
-    if (elapsed >= 2000) { // Minimal 2 detik tenang sebelum konfirmasi
+    // Require 2s of quiet after PUMP_ENGINE_STOP before confirming stop.
+    if (elapsed >= 2000) {
       state.engineStopPending = false;
       _persist(deviceId);
       console.log(`[Failsafe] ✓ Engine STOPPED confirmed for device ${deviceId} (elapsed: ${elapsed}ms)`);
 
-      // Update actuator_log status → executed
       if (state.engineStopCommandId) {
         try {
           const pool = db.getPool();
@@ -274,17 +161,14 @@ async function handleVibrationData({ deviceId, nodeId, payload, io, mqttClient }
     return;
   }
 
-  // ── Masih bergetar setelah window verifikasi → FAILSAFE AKTIF ────────────
   if (elapsed >= FAILSAFE_VERIFY_WINDOW_MS && isVibrating) {
-    state.engineStopPending = false; // Hentikan monitoring
+    state.engineStopPending = false;
 
     if (state.emergencyActive) {
-      // Sudah dalam emergency — throttle notifikasi
       const timeSinceLastNotify = Date.now() - (state.lastNotifiedAt || 0);
       if (timeSinceLastNotify < EMERGENCY_NOTIFY_COOLDOWN_MS) return;
     }
 
-    // ── Aktifkan Emergency State ──────────────────────────────────────────
     state.emergencyActive      = true;
     state.emergencyActivatedAt = Date.now();
     state.lastNotifiedAt       = Date.now();
@@ -292,7 +176,6 @@ async function handleVibrationData({ deviceId, nodeId, payload, io, mqttClient }
 
     console.error(`[Failsafe] 🆘 EMERGENCY STATE ACTIVATED for device ${deviceId} (${nodeId}) — engine still vibrating after STOP command!`);
 
-    // ── Kirim EMERGENCY_STOP sebagai perintah cadangan ──────────────────
     if (mqttClient && mqttClient.connected) {
       mqttClient.publish(
         `tambak/${nodeId}/actuator/command`,
@@ -301,7 +184,6 @@ async function handleVibrationData({ deviceId, nodeId, payload, io, mqttClient }
       );
     }
 
-    // ── Catat audit EMERGENCY_STOP ke actuator_logs ──────────────────────
     try {
       const pool = db.getPool();
       await pool.execute(
@@ -312,7 +194,6 @@ async function handleVibrationData({ deviceId, nodeId, payload, io, mqttClient }
       console.error('[Failsafe] Failed to write EMERGENCY_STOP to actuator_logs:', actLogErr.message);
     }
 
-    // ── BATALKAN SEQUENCE YANG SEDANG BERJALAN ────────────────────────────
     try {
       const { abortSequence } = require('./actuatorController');
       abortSequence(deviceId);
@@ -320,7 +201,6 @@ async function handleVibrationData({ deviceId, nodeId, payload, io, mqttClient }
       console.error(`[Failsafe] Failed to abort sequence:`, e.message);
     }
 
-    // ── Catat ke alert_logs ──────────────────────────────────────────────
     const emergencyMsg = `🆘 FAILSAFE DARURAT: Mesin diesel pada node ${nodeId} gagal mati setelah perintah PUMP_ENGINE_STOP! Risiko LUAPAN AIR (overfilling). Segera periksa secara fisik!`;
 
     try {
@@ -332,7 +212,6 @@ async function handleVibrationData({ deviceId, nodeId, payload, io, mqttClient }
         [deviceId, 'vibration_failsafe', payload.intensity ?? 1, 0, VIBRATION_THRESHOLD, 'failsafe', emergencyMsg]
       );
 
-      // Tandai actuator_log sebagai failed
       if (state.engineStopCommandId) {
         await pool.execute(
           'UPDATE actuator_logs SET status = ?, trigger_detail = ? WHERE id = ?',
@@ -343,7 +222,6 @@ async function handleVibrationData({ deviceId, nodeId, payload, io, mqttClient }
       console.error('[Failsafe] Failed to write emergency alert to DB:', dbErr.message);
     }
 
-    // ── Broadcast emergency ke semua klien WebSocket ─────────────────────
     if (io) {
       io.emit('system:emergency', {
         device_id        : deviceId,
@@ -361,7 +239,6 @@ async function handleVibrationData({ deviceId, nodeId, payload, io, mqttClient }
       });
     }
 
-    // ── Kirim notifikasi Telegram Emergency via queue (FAILSAFE priority) ──
     tq.sendEmergency({
       deviceId,
       nodeId,
@@ -370,11 +247,6 @@ async function handleVibrationData({ deviceId, nodeId, payload, io, mqttClient }
   }
 }
 
-/**
- * Ambil snapshot semua emergency states saat ini.
- * Digunakan oleh endpoint GET /api/actuator/emergency/status.
- * @returns {Array<object>}
- */
 function getAllEmergencyStates() {
   const result = [];
   for (const [deviceId, state] of deviceStates.entries()) {

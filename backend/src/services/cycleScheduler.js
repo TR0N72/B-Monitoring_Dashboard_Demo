@@ -1,6 +1,4 @@
-// Scheduler siklus ukur: kirim START_CYCLE ke node tiap CYCLE_INTERVAL_MIN menit.
-// Mati bila CYCLE_INTERVAL_MIN kosong/0. CYCLE_NODES = daftar node_id dipisah koma (default N1).
-// ponytail: interval global satu nilai, tanpa jadwal per node atau jam kerja; tambah tabel bila perlu.
+// Sends periodic START_CYCLE to CYCLE_NODES every CYCLE_INTERVAL_MIN (global interval; disabled when empty/0).
 const { getPool } = require('../config/db');
 const { publishMQTT } = require('../config/mqtt');
 const { ACTION_CMD } = require('./actuatorController');

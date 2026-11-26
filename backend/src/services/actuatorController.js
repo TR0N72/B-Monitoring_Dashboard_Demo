@@ -1,149 +1,66 @@
 'use strict';
-/**
- * actuatorController.js — Logika Kontrol Aktuator Closed-Loop
- * ============================================================
- * Modul ini mengimplementasikan logika otomasi siklus tertutup (closed-loop)
- * untuk mengontrol aktuator tambak bandeng berdasarkan keputusan DSS Fuzzy
- * dan pembacaan nilai sensor fisik.
- *
- * Diagram alir (Closed-Loop):
- *
- *  ┌─────────────────────────────────────────────────────────────┐
- *  │  Data Sensor MQTT (suhu, salinitas, visual_label)           │
- *  │           ↓                                                 │
- *  │  DSS Fuzzy → Skor & Rekomendasi                             │
- *  │           ↓                                                 │
- *  │  [Aman]      → Tidak ada aksi                               │
- *  │  [Waspada]   → Notifikasi Telegram (Caution), aktifkan      │
- *  │                monitoring intensif                          │
- *  │  [Bahaya]    → Sequence otomatis:                           │
- *  │    1. PUMP_ENGINE_STOP  → Hentikan pompa diesel             │
- *  │    2. (verifikasi SW-420, 15 dtk) → Konfirmasi mesin mati   │
- *  │    3. OPEN_DRAIN_VALVE  → Buka katup kuras                  │
- *  │    4. (delay 30 dtk)   → Estimasi air turun ~10 cm          │
- *  │    5. CLOSE_DRAIN_VALVE → Tutup katup kuras                 │
- *  │    6. OPEN_FILL_VALVE   → Buka katup pengisian air bersih   │
- *  │    7. (delay 30 dtk)   → Estimasi air naik ~3 cm            │
- *  │    8. CLOSE_FILL_VALVE  → Tutup katup pengisian             │
- *  └─────────────────────────────────────────────────────────────┘
- *
- * Setiap aksi dicatat ke tabel actuator_logs dan dikirim via MQTT
- * ke topik: tambak/<node_id>/actuator/command
- *
- * Anti-Spam Cooldown:
- *   Aktuator tidak akan dipicu ulang jika dalam cooldown window
- *   (default: 10 menit per device) untuk menghindari perintah berulang.
- */
 
 const db = require('../config/db');
 const tq = require('../config/telegramQueue');
 const { isEmergencyActive, markEngineStopSent, FAILSAFE_VERIFY_WINDOW_MS } = require('./emergencyState');
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Constants & State
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Nama-nama aksi aktuator — sama persis dengan yang dikirim ke ESP32 */
 const ACTUATOR_ACTIONS = {
-  OPEN_DRAIN_VALVE  : 'OPEN_DRAIN_VALVE',    // Buka katup kuras
-  CLOSE_DRAIN_VALVE : 'CLOSE_DRAIN_VALVE',   // Tutup katup kuras
-  OPEN_FILL_VALVE   : 'OPEN_FILL_VALVE',     // Buka katup pengisian air bersih
-  CLOSE_FILL_VALVE  : 'CLOSE_FILL_VALVE',    // Tutup katup pengisian
-  PUMP_ENGINE_START : 'PUMP_ENGINE_START',   // Nyalakan pompa sirkulasi
-  PUMP_ENGINE_STOP  : 'PUMP_ENGINE_STOP',    // Matikan pompa diesel
-  EMERGENCY_STOP    : 'EMERGENCY_STOP',      // Hentikan semua sistem (darurat)
-  START_MEASURE     : 'START_MEASURE',       // Gateway: 1x siklus ukur salinitas
-  FILL_AND_MEASURE  : 'FILL_AND_MEASURE',    // Gateway: isi lalu ukur
-  START_CYCLE       : 'START_CYCLE',         // Gateway: siklus penuh isi, ukur, kuras
+  OPEN_DRAIN_VALVE  : 'OPEN_DRAIN_VALVE',
+  CLOSE_DRAIN_VALVE : 'CLOSE_DRAIN_VALVE',
+  OPEN_FILL_VALVE   : 'OPEN_FILL_VALVE',
+  CLOSE_FILL_VALVE  : 'CLOSE_FILL_VALVE',
+  PUMP_ENGINE_START : 'PUMP_ENGINE_START',
+  PUMP_ENGINE_STOP  : 'PUMP_ENGINE_STOP',
+  EMERGENCY_STOP    : 'EMERGENCY_STOP',
+  START_MEASURE     : 'START_MEASURE',
+  FILL_AND_MEASURE  : 'FILL_AND_MEASURE',
+  START_CYCLE       : 'START_CYCLE',
 };
 
-/** Kode 1 karakter untuk Gateway (dikirim di field `cmd`); aksi tanpa kode tidak punya field cmd */
+// 1-char gateway commands; actions omitted here carry no cmd field.
 const ACTION_CMD = {
   OPEN_FILL_VALVE: 'f', OPEN_DRAIN_VALVE: 'k', START_MEASURE: 'm',
   FILL_AND_MEASURE: 'x', START_CYCLE: 'c', EMERGENCY_STOP: 's',
 };
 
-/** DSS Score thresholds untuk penentuan level tindakan */
-/** Node chamber ukur: BAHAYA hanya notifikasi, tanpa rantai aktuator kolam */
+// Measurement-chamber nodes notify only on BAHAYA instead of triggering pond actuators.
 const CHAMBER_NODES = (process.env.CHAMBER_NODES || 'N1').split(',').map(s => s.trim()).filter(Boolean);
 
 const DSS_THRESHOLD_WASPADA = 36;
 const DSS_THRESHOLD_BAHAYA  = 66;
 
-/** Cooldown antar trigger otomatis per device (ms) */
-const COOLDOWN_MS = parseInt(process.env.ACTUATOR_COOLDOWN_MS || '600000', 10); // 10 menit
-
-/** Cooldown khusus WASPADA (ms) — 3 menit */
+const COOLDOWN_MS = parseInt(process.env.ACTUATOR_COOLDOWN_MS || '600000', 10);
 const WASPADA_COOLDOWN_MS = 3 * 60 * 1000;
+const SEQUENCE_STEP_DELAY_MS = parseInt(process.env.ACTUATOR_STEP_DELAY_MS || '30000', 10);
 
-/** Delay antar perintah dalam sequence (ms) */
-const SEQUENCE_STEP_DELAY_MS = parseInt(process.env.ACTUATOR_STEP_DELAY_MS || '30000', 10); // 30 detik
-
-/** Map cooldown terpisah: WASPADA vs BAHAYA agar Waspada tidak memblokir Bahaya */
+// Separate cooldown maps keep WASPADA alerts from blocking BAHAYA sequences.
 const waspadaCooldowns = new Map();
 const bahayaCooldowns = new Map();
-
-/** Map abort controllers: deviceId → AbortController (sequence aktif) */
 const activeAbortControllers = new Map();
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Periksa apakah device masih dalam cooldown period untuk BAHAYA.
- * @param {number} deviceId
- * @returns {boolean}
- */
 function isInBahayaCooldown(deviceId) {
   const last = bahayaCooldowns.get(deviceId);
   if (!last) return false;
   return (Date.now() - last) < COOLDOWN_MS;
 }
 
-/**
- * Periksa apakah device masih dalam cooldown period untuk WASPADA.
- * @param {number} deviceId
- * @returns {boolean}
- */
 function isInWaspadaCooldown(deviceId) {
   const last = waspadaCooldowns.get(deviceId);
   if (!last) return false;
   return (Date.now() - last) < WASPADA_COOLDOWN_MS;
 }
 
-/**
- * Set cooldown BAHAYA untuk device.
- * @param {number} deviceId
- */
 function setBahayaCooldown(deviceId) {
   bahayaCooldowns.set(deviceId, Date.now());
 }
 
-/**
- * Set cooldown WASPADA untuk device.
- * @param {number} deviceId
- */
 function setWaspadaCooldown(deviceId) {
   waspadaCooldowns.set(deviceId, Date.now());
 }
 
-/**
- * Kirim perintah aktuator ke node ESP32 via MQTT dan catat ke database.
- *
- * @param {object}   opts
- * @param {object}   opts.mqttClient    - MQTT client yang sudah terhubung
- * @param {number}   opts.deviceId      - Internal DB ID perangkat
- * @param {string}   opts.nodeId        - Hardware node_id (misal: ESP32-NODE-01)
- * @param {string}   opts.aksi          - Nama aksi aktuator (lihat ACTUATOR_ACTIONS)
- * @param {string}   opts.triggerSource - 'auto_dss' | 'auto_threshold' | 'failsafe' | 'manual'
- * @param {string}   opts.triggerDetail - Deskripsi penyebab trigger
- * @returns {Promise<number>} ID log yang dibuat
- */
 async function dispatchActuatorCommand({ mqttClient, deviceId, nodeId, aksi, triggerSource, triggerDetail }) {
   const pool = db.getPool();
 
-  // Simpan ke actuator_logs
   const [result] = await pool.execute(
     `INSERT INTO actuator_logs (device_id, aksi, trigger_source, trigger_detail, status)
      VALUES (?, ?, ?, ?, ?)`,
@@ -151,7 +68,6 @@ async function dispatchActuatorCommand({ mqttClient, deviceId, nodeId, aksi, tri
   );
   const commandId = result.insertId;
 
-  // Publish ke MQTT broker → ESP32 mendengarkan topik ini
   if (mqttClient && mqttClient.connected) {
     mqttClient.publish(
       `tambak/${nodeId}/actuator/command`,
@@ -161,7 +77,6 @@ async function dispatchActuatorCommand({ mqttClient, deviceId, nodeId, aksi, tri
     console.log(`[AutoActuator] ✓ Sent ${aksi} → ${nodeId} (cmd_id: ${commandId})`);
   } else {
     console.warn(`[AutoActuator] ⚠ MQTT not connected — command ${aksi} logged but NOT sent`);
-    // Update status menjadi 'mqtt_offline'
     await pool.execute(
       'UPDATE actuator_logs SET status = ? WHERE id = ?',
       ['mqtt_offline', commandId]
@@ -171,17 +86,9 @@ async function dispatchActuatorCommand({ mqttClient, deviceId, nodeId, aksi, tri
   return commandId;
 }
 
-/**
- * Kirim serangkaian perintah dengan delay antar perintah.
- * Mendukung pembatalan seketika via AbortSignal.
- *
- * @param {Array<{aksi, delayAfterMs}>} steps   - Array langkah sequence
- * @param {object}                      baseOpts - Opsi dasar (mqttClient, deviceId, nodeId, triggerSource)
- */
 async function executeSequence(steps, baseOpts) {
   const { onStepDispatched, signal, ...dispatchOpts } = baseOpts;
   for (let i = 0; i < steps.length; i++) {
-    // Periksa abort sebelum setiap langkah
     if (signal && signal.aborted) {
       console.warn(`[AutoActuator] ⛔ Sequence aborted at step ${i + 1} (${steps[i].aksi}) for device ${dispatchOpts.deviceId}`);
       break;
@@ -200,14 +107,13 @@ async function executeSequence(steps, baseOpts) {
       console.error(`[AutoActuator] Sequence step ${i + 1} (${step.aksi}) failed:`, err.message);
     }
 
-    // Delay yang dapat dibatalkan
     if (i < steps.length - 1 && step.delayAfterMs > 0) {
       await new Promise((resolve, reject) => {
         const timer = setTimeout(resolve, step.delayAfterMs);
         if (signal) {
           signal.addEventListener('abort', () => {
             clearTimeout(timer);
-            resolve(); // Lanjut ke iterasi berikutnya (akan diperiksa abort di atas)
+            resolve();
           }, { once: true });
         }
       });
@@ -215,11 +121,6 @@ async function executeSequence(steps, baseOpts) {
   }
 }
 
-/**
- * Batalkan sequence yang sedang berjalan untuk device tertentu.
- * Dipanggil saat EMERGENCY_STOP diterima.
- * @param {number} deviceId
- */
 function abortSequence(deviceId) {
   const ctrl = activeAbortControllers.get(deviceId);
   if (ctrl) {
@@ -229,42 +130,20 @@ function abortSequence(deviceId) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Core Closed-Loop Logic
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Evaluasi hasil DSS Fuzzy dan putuskan apakah perlu aksi aktuator otomatis.
- * Dipanggil dari mqtt.js setelah processFuzzy() selesai.
- *
- * @param {object} opts
- * @param {object} opts.mqttClient  - Instance MQTT client aktif
- * @param {number} opts.deviceId    - Internal DB ID
- * @param {string} opts.nodeId      - Hardware node_id
- * @param {object} opts.fuzzyResult - Hasil dari processFuzzy()
- * @param {object} opts.readings    - { suhu, salinitas }
- * @param {object} opts.io          - Socket.io instance untuk broadcast
- * Notifikasi Telegram ditangani oleh telegramQueue (dynamic routing + retry).
- */
 async function evaluateAndActuate({ mqttClient, deviceId, nodeId, fuzzyResult, readings, io }) {
   const score          = fuzzyResult.score;
   const recommendation = fuzzyResult.recommendation;
 
-  // ── Level: AMAN — tidak ada aksi (cooldown kedaluwarsa secara alami) ─────
   if (score < DSS_THRESHOLD_WASPADA) {
-    // Note: cooldown sengaja tidak di-reset di sini untuk mencegah
-    // flapping/spamming notifikasi jika pembacaan sensor berosilasi
-    // di sekitar ambang batas (contoh: 35.8 <-> 36.1).
+    // Do not reset cooldown on normal readings to avoid alert flapping near the threshold.
     return;
   }
 
-  // ── Level: WASPADA — notifikasi dini tanpa aktivasi fisik ─────────────────
   if (score >= DSS_THRESHOLD_WASPADA && score < DSS_THRESHOLD_BAHAYA) {
     if (!isInWaspadaCooldown(deviceId)) {
       setWaspadaCooldown(deviceId);
       console.log(`[AutoActuator] WASPADA on ${nodeId} (score: ${score}) — notifying only`);
 
-      // Dynamic routing: kirim ke pekerja device + admin via queue
       tq.sendDssAlert({
         deviceId,
         nodeId,
@@ -289,14 +168,12 @@ async function evaluateAndActuate({ mqttClient, deviceId, nodeId, fuzzyResult, r
     return;
   }
 
-  // ── Level: BAHAYA — eksekusi sequence aktuator otomatis ──────────────────
   if (score >= DSS_THRESHOLD_BAHAYA) {
     if (isInBahayaCooldown(deviceId)) {
       console.log(`[AutoActuator] BAHAYA on ${nodeId} — skipping (in cooldown)`);
       return;
     }
 
-    // ── Node chamber ukur (mis. N1): relay hanya isi/kuras chamber, bukan kolam → notifikasi saja ──
     if (CHAMBER_NODES.includes(nodeId)) {
       setBahayaCooldown(deviceId);
       console.log(`[AutoActuator] BAHAYA on ${nodeId} (score: ${score}) — chamber node, notifying only`);
@@ -311,7 +188,6 @@ async function evaluateAndActuate({ mqttClient, deviceId, nodeId, fuzzyResult, r
       return;
     }
 
-    // ── Interlock: blokir sekuens jika Emergency State aktif (SW-420) ────────
     if (isEmergencyActive(deviceId)) {
       console.warn(`[AutoActuator] ⛔ BAHAYA on ${nodeId} — sequence BLOCKED (emergency state active). Manual reset required.`);
       return;
@@ -322,7 +198,6 @@ async function evaluateAndActuate({ mqttClient, deviceId, nodeId, fuzzyResult, r
     const triggerDetail = `Auto trigger: DSS Score=${score}, Suhu=${readings.suhu}°C, Salinitas=${readings.salinitas}ppt, Rekomendasi=${recommendation}`;
     console.log(`[AutoActuator] 🚨 BAHAYA on ${nodeId} — executing closed-loop sequence`);
 
-    // ── Broadcast status darurat ke frontend ─────────────────────────────
     if (io) {
       io.emit('system:status', {
         device_id  : deviceId,
@@ -336,33 +211,27 @@ async function evaluateAndActuate({ mqttClient, deviceId, nodeId, fuzzyResult, r
       });
     }
 
-    // ── Sequence aktuator: stop engine → drain → fill ────────────────────
-    // Langkah 1: Hentikan mesin diesel TERLEBIH DAHULU
-    // Langkah 2 (verifikasi SW-420, FAILSAFE_VERIFY_WINDOW_MS): Konfirmasi mesin mati
-    // Langkah 3: Buka katup kuras
-    // Langkah 4 (setelah delay 30 dtk): Tutup katup kuras (air turun ~10 cm)
-    // Langkah 5 (transisi): Buka katup pengisian air bersih
-    // Langkah 6 (setelah delay 30 dtk): Tutup katup pengisian (air naik ~3 cm)
+    // Safety interlock order: stop diesel pump and verify SW-420 before opening drain or fill valves.
     const sequence = [
       {
         aksi        : ACTUATOR_ACTIONS.PUMP_ENGINE_STOP,
         detail      : `${triggerDetail} | Langkah 1: Hentikan pompa diesel (sebelum buka katup)`,
-        delayAfterMs: FAILSAFE_VERIFY_WINDOW_MS,     // 15 detik — jeda verifikasi SW-420
+        delayAfterMs: FAILSAFE_VERIFY_WINDOW_MS,
       },
       {
         aksi        : ACTUATOR_ACTIONS.OPEN_DRAIN_VALVE,
         detail      : `${triggerDetail} | Langkah 2: Buka katup kuras`,
-        delayAfterMs: SEQUENCE_STEP_DELAY_MS,        // 30 detik — estimasi air turun 10 cm
+        delayAfterMs: SEQUENCE_STEP_DELAY_MS,
       },
       {
         aksi        : ACTUATOR_ACTIONS.CLOSE_DRAIN_VALVE,
         detail      : `${triggerDetail} | Langkah 3: Tutup katup kuras (level turun ~10 cm)`,
-        delayAfterMs: 5000,                           // 5 detik transisi sebelum buka isi
+        delayAfterMs: 5000,
       },
       {
         aksi        : ACTUATOR_ACTIONS.OPEN_FILL_VALVE,
         detail      : `${triggerDetail} | Langkah 4: Buka katup pengisian air bersih`,
-        delayAfterMs: SEQUENCE_STEP_DELAY_MS,        // 30 detik — estimasi air naik ~3 cm
+        delayAfterMs: SEQUENCE_STEP_DELAY_MS,
       },
       {
         aksi        : ACTUATOR_ACTIONS.CLOSE_FILL_VALVE,
@@ -371,12 +240,10 @@ async function evaluateAndActuate({ mqttClient, deviceId, nodeId, fuzzyResult, r
       },
     ];
 
-    // Buat AbortController baru, batalkan sequence lama jika ada
     abortSequence(deviceId);
     const abortCtrl = new AbortController();
     activeAbortControllers.set(deviceId, abortCtrl);
 
-    // Jalankan sequence secara asinkron (tidak memblokir MQTT handler)
     executeSequence(sequence, {
       mqttClient,
       deviceId,
@@ -389,13 +256,11 @@ async function evaluateAndActuate({ mqttClient, deviceId, nodeId, fuzzyResult, r
         }
       },
     }).finally(() => {
-      // Bersihkan controller setelah sequence selesai/dibatalkan
       activeAbortControllers.delete(deviceId);
     }).catch(err => {
       console.error(`[AutoActuator] Sequence execution error:`, err.message);
     });
 
-    // ── Kirim notifikasi Telegram Bahaya — dynamic routing via queue ─────
     tq.sendDssAlert({
       deviceId,
       nodeId,

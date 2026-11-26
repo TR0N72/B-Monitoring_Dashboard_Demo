@@ -1,16 +1,4 @@
 'use strict';
-/**
- * mqtt.js — MQTT Client & Data Ingestion Pipeline
- * ================================================
- * Menangani koneksi ke Eclipse Mosquitto broker, subscribe topik telemetri,
- * memproses payload sensor, menjalankan DSS Fuzzy, dan mengeksekusi aktuator
- * closed-loop secara otomatis.
- *
- * Topik yang disubscribe:
- *   tambak/+/sensor              — Data telemetri utama (suhu, salinitas, dll.)
- *   tambak/+/actuator/status     — Konfirmasi eksekusi perintah dari ESP32
- *   tambak/+/sensor/vibration    — Pembacaan sensor getar SW-420 (Failsafe)
- */
 
 const mqtt = require('mqtt');
 const db   = require('./db');
@@ -20,11 +8,9 @@ const { sendTelegramAlert }                                              = requi
 
 let client = null;
 
-// ── Node ID cache untuk menghindari query DB berulang ────────────────────────
+// Alert cooldown is centralized in telegramQueue.js (ALERT_COOLDOWN_MS).
 const nodeIdCache    = new Map();
 const NODE_CACHE_TTL = 5 * 60 * 1000;
-
-// Debounce/cooldown alert Telegram dipusatkan di telegramQueue.js (ALERT_COOLDOWN_MS).
 
 async function resolveNodeId(connection, nodeId) {
   const cached = nodeIdCache.get(nodeId);
@@ -38,9 +24,6 @@ async function resolveNodeId(connection, nodeId) {
   return internalId;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MQTT Initialization
-// ─────────────────────────────────────────────────────────────────────────────
 function initMQTT() {
   return new Promise((resolve) => {
     const host     = process.env.MQTT_HOST || 'mqtt://localhost';
@@ -93,7 +76,7 @@ function initMQTT() {
         } else if (msgType === 'camera' && msgSubtype === 'result') {
           await require('../services/aiDetection').saveDetection({ ...payload, node_id: nodeId });
         } else if (msgType === 'vision' && !msgSubtype) {
-          // Hasil visi tim hardware {node,kelas,kondisi,confidence,ts}: node dari topik, ts diabaikan (waktu simpan = backend).
+          // Hardware vision payload: node comes from topic and backend assigns timestamp.
           await require('../services/aiDetection').saveDetection({
             node_id: nodeId, label: payload.kondisi, confidence: payload.confidence,
             model_version: 'hw-vision', hsv_metadata: { predicted_class: payload.kelas == null ? null : String(payload.kelas).slice(0, 40), source: 'mqtt' },
@@ -110,22 +93,7 @@ function initMQTT() {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Sanitasi & Validasi Input Sensor (Sensor Anomaly Trap Protection)
-// ─────────────────────────────────────────────────────────────────────────────
-/**
- * Konversi nilai ke Float yang valid.
- * Mencegah String non-angka/Object/NaN/Infinity masuk ke database.
- * Jika nilai berada di luar batas fisik wajar [min, max], tandai sebagai anomali
- * namun TETAP kembalikan angka riilnya agar sistem dapat membangkitkan alarm
- * bahaya / kegagalan sensor (Sensor Anomaly / Hardware Failure).
- *
- * @param {*} value - Nilai mentah dari payload sensor
- * @param {number} min - Batas bawah fisik wajar
- * @param {number} max - Batas atas fisik wajar
- * @param {Function} [onAnomaly] - Callback opsional jika nilai melampaui rentang [min, max]
- * @returns {number|null}
- */
+// Preserve out-of-range numbers so anomaly alerts and hardware failure detection still trigger.
 function sanitizeFloat(value, min = -Infinity, max = Infinity, onAnomaly = null) {
   const n = parseFloat(value);
   if (!isFinite(n)) return null;
@@ -134,17 +102,12 @@ function sanitizeFloat(value, min = -Infinity, max = Infinity, onAnomaly = null)
     if (typeof onAnomaly === 'function') {
       onAnomaly(n, min, max);
     }
-    // Nilai ekstrem di luar rentang wajar tetap dipertahankan sebagai angka riil
-    // agar alert threshold dan deteksi kegagalan sensor/hardware failure dapat dibangkitkan
     return n;
   }
 
   return n;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Handler: Data Sensor Utama (suhu, salinitas, kekeruhan, baterai, rssi, jarak_cm)
-// ─────────────────────────────────────────────────────────────────────────────
 async function handleSensorData(nodeId, payload) {
   try {
     const pool       = db.getPool();
@@ -158,7 +121,6 @@ async function handleSensorData(nodeId, payload) {
         [internalId]
       );
 
-      // ── Sanitasi & Validasi Payload dengan Deteksi Anomali ─────────────
       const anomalies = [];
       const recordAnomaly = (param, val, min, max) => {
         anomalies.push({
@@ -178,12 +140,11 @@ async function handleSensorData(nodeId, payload) {
       const baterai   = sanitizeFloat(payload.baterai,   0,  100, (v, min, max) => recordAnomaly('baterai', v, min, max));
       const rssi      = sanitizeFloat(payload.rssi,   -150,    0, (v, min, max) => recordAnomaly('rssi', v, min, max));
 
-      // Field siklus ukur dari Gateway (opsional)
       const siklus   = ['IDLE', 'FILL', 'SETTLE', 'MEASURE', 'DRAIN'].includes(payload.status) ? payload.status : null;
       const seq      = Number.isInteger(payload.seq) ? payload.seq : null;
       const adc      = Number.isInteger(payload.adc) ? payload.adc : null;
       const jarak_cm = sanitizeFloat(payload.jarak_cm, 0, 1000);
-      // Nilai salinitas baru final saat IDLE/DRAIN; selama FILL/SETTLE/MEASURE hanya disimpan
+      // Salinity is final only in IDLE/DRAIN; intermediate cycle states are stored without triggering DSS or alerts.
       const isFinal  = siklus === null || siklus === 'IDLE' || siklus === 'DRAIN';
 
       if (suhu === null && salinitas === null && baterai === null) {
@@ -191,9 +152,7 @@ async function handleSensorData(nodeId, payload) {
         return;
       }
 
-      // Dedup: Gateway menahan salinitas final dan mengirimnya berulang di paket IDLE/DRAIN.
-      // Paket ulang tetap disimpan (suhu dll), tetapi salinitas jadi NULL agar tidak dievaluasi ulang.
-      // Rantai putus oleh paket FILL/SETTLE/MEASURE, jadi siklus baru bernilai sama tetap tercatat.
+      // Gateway repeats the last final salinity in IDLE/DRAIN packets; null it on repeats so it is not re-evaluated.
       if (salinitas !== null && (siklus === 'IDLE' || siklus === 'DRAIN')) {
         const [prev] = await connection.execute(
           `SELECT salinitas, siklus_status FROM sensor_data
@@ -213,7 +172,6 @@ async function handleSensorData(nodeId, payload) {
       );
       const sensorDataId = insertResult.insertId;
 
-      // ── Broadcast Sensor Update ke Frontend (Dashboard Live Telemetry) ──
       const { getIo } = require('../socket/alerts');
       const io = getIo();
       if (io) {
@@ -234,7 +192,6 @@ async function handleSensorData(nodeId, payload) {
         });
       }
 
-      // ── Tangani Sensor Anomaly / Hardware Failure ─────────────────────
       if (anomalies.length > 0 && isFinal) {
         const { getIo } = require('../socket/alerts');
         const io = getIo();
@@ -276,16 +233,14 @@ async function handleSensorData(nodeId, payload) {
         }
       }
 
-      // ── DSS Fuzzy + Closed-Loop Actuator ──────────────────────────────
-      // Hanya jalankan DSS & Actuator jika BUKAN hardware failure/anomali ekstrem pada sensor utama
+      // Skip DSS and actuator automation when primary sensors report extreme hardware anomalies.
       const mainSensorAnomaly = anomalies.some(a => ['suhu', 'salinitas'].includes(a.parameter));
       if (isFinal && suhu !== null && salinitas !== null && !mainSensorAnomaly) {
         const { processFuzzy } = require('../services/fuzzyDSS');
         
-        // Ekstrak label visual dari MQTT Edge Computing (jika ada), default ke 'Normal'
         let visualLabel = payload.visual_label || payload.visualLabel;
         if (!visualLabel) {
-          // fallback: latest AI detection for this node within 30 min, else 'Normal'
+          // Fall back to latest high-confidence AI detection within 30 min, else 'Normal'.
           const [vis] = await connection.execute(
             `SELECT label FROM ai_detection_logs WHERE device_id = ? AND confidence >= ? AND created_at >= (NOW() - INTERVAL 30 MINUTE)
              ORDER BY created_at DESC LIMIT 1`, [internalId, require('../services/aiDetection').MIN_CONFIDENCE]);
@@ -322,7 +277,6 @@ async function handleSensorData(nodeId, payload) {
           });
         }
 
-        // ── CLOSED-LOOP: Evaluasi DSS dan eksekusi aktuator jika perlu ──
         await evaluateAndActuate({
           mqttClient  : client,
           deviceId    : internalId,
@@ -333,7 +287,6 @@ async function handleSensorData(nodeId, payload) {
         });
       }
 
-      // ── Cek threshold statis dan kirim alert ──────────────────────────
       if (isFinal) {
         await checkThresholds(connection, internalId, sensorDataId, { suhu, salinitas, turbidity }, nodeId);
       }
@@ -346,9 +299,6 @@ async function handleSensorData(nodeId, payload) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Handler: Sensor Getaran SW-420 (Failsafe)
-// ─────────────────────────────────────────────────────────────────────────────
 async function handleVibrationMessage(nodeId, payload) {
   try {
     const pool       = db.getPool();
@@ -376,10 +326,6 @@ async function handleVibrationMessage(nodeId, payload) {
     console.error('[MQTT] handleVibrationMessage error:', err.message);
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Evaluasi Threshold Statis
-// ─────────────────────────────────────────────────────────────────────────────
 
 async function checkThresholds(connection, deviceId, sensorDataId, readings, nodeId) {
   try {
@@ -424,9 +370,6 @@ async function checkThresholds(connection, deviceId, sensorDataId, readings, nod
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Handler: Konfirmasi Status Aktuator dari ESP32
-// ─────────────────────────────────────────────────────────────────────────────
 async function handleActuatorStatus(nodeId, payload) {
   try {
     const pool       = db.getPool();
@@ -447,7 +390,6 @@ async function handleActuatorStatus(nodeId, payload) {
         );
       }
 
-      // ── Jika ini konfirmasi PUMP_ENGINE_STOP → aktifkan monitoring failsafe
       if (payload.aksi === ACTUATOR_ACTIONS.PUMP_ENGINE_STOP && payload.command_id) {
         markEngineStopSent(internalId, payload.command_id);
       }
@@ -469,13 +411,9 @@ async function handleActuatorStatus(nodeId, payload) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Publish Helper
-// ─────────────────────────────────────────────────────────────────────────────
+// Default QoS 1 prevents dropped commands on unstable coastal networks; callers may pass qos: 2.
 function publishMQTT(topic, message, options = {}) {
   if (client && client.connected) {
-    // Default QoS 1 (at-least-once) untuk memastikan perintah tidak hilang
-    // di jaringan pesisir yang fluktuatif. Caller dapat override dengan qos: 2.
     client.publish(topic, JSON.stringify(message), { qos: options.qos ?? 1 });
   } else {
     console.warn('[MQTT] Client not connected — cannot publish.');

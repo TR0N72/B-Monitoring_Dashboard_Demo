@@ -1,4 +1,4 @@
-// ponytail: aturan minimal tanpa paket tambahan (@eslint/js/globals). Naikkan ke recommended bila perlu.
+// Minimal rule set without extra eslint packages; expand to recommended if needed.
 const nodeGlobals = Object.fromEntries([
   'require', 'module', 'exports', '__dirname', '__filename', 'process', 'console', 'Buffer',
   'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'setImmediate', 'URL', 'URLSearchParams',

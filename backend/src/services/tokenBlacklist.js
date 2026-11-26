@@ -1,6 +1,5 @@
 'use strict';
-// Blacklist JWT yang sudah logout. Cek sinkron dari memori; DB (revoked_tokens) agar bertahan saat restart.
-// ponytail: satu proses backend. Banyak instance -> pindah ke Redis.
+// In-memory JWT revocation list backed by DB for restarts; move to Redis for multi-instance deployments.
 const crypto = require('crypto');
 const { getPool } = require('../config/db');
 

@@ -1,7 +1,5 @@
 'use strict';
-// Validasi akun per request: user dihapus -> ditolak, role diambil dari DB, token terbit sebelum
-// perubahan akun terakhir (password/role/kontak, kolom updated_at) ditolak. Cache 30 dtk per user.
-// ponytail: cache per proses; banyak instance -> perubahan baru terlihat paling lama 30 dtk. DB error -> pakai klaim token (fail-open).
+// Per-process 30s user cache (updated_at invalidation); DB errors fail open to token claims.
 const { getPool } = require('../config/db');
 
 const TTL_MS = 30 * 1000;
@@ -18,7 +16,6 @@ async function lookup(id) {
   return row;
 }
 
-/** Klaim token terverifikasi -> user efektif, atau null bila akun sudah tidak berlaku. */
 async function resolveUser(decoded) {
   let row;
   try {

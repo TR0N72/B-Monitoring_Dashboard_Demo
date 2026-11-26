@@ -81,7 +81,7 @@ async function start() {
     }
     await loadRevoked().then((n) => console.log(`✓ Token blacklist: ${n} entri`)).catch((e) => console.warn('⚠ Token blacklist load gagal:', e.message));
     await loadPersisted().then((n) => console.log(`✓ Antrean Telegram: ${n} pending dipulihkan`)).catch((e) => console.warn('⚠ Antrean Telegram load gagal:', e.message));
-    // ponytail: gagal restore = state failsafe kosong (fail-open); admin harus cek manual.
+    // Failed restore starts failsafe state empty (fail-open); check logs on startup.
     await loadEmergencyStates().then((n) => console.log(`✓ Failsafe: ${n} state darurat dipulihkan`)).catch((e) => console.warn('⚠ Failsafe state load gagal:', e.message));
     initMQTT().then(() => {}).catch((err) => {
       console.warn('⚠ MQTT not available:', err.message);

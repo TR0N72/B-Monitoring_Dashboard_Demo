@@ -4,9 +4,8 @@ const { JWT_SECRET } = require('./auth');
 
 const posInt = (v, d) => (Number(v) > 0 ? Math.floor(Number(v)) : d);
 
-// Kunci per user (JWT terverifikasi), selain itu per IP. Klaim token tak terverifikasi & XFF mentah tak pernah dipercaya.
-// ponytail: di Docker Desktop (Windows) semua trafik anonim = satu bucket (172.18.0.1) karena IP asli hilang sebelum nginx;
-// user login tetap terisolasi. Host Linux yang menjaga source IP + TRUST_PROXY memberi bucket per-IP sungguhan.
+// Key by verified JWT user ID, falling back to req.ip; raw unverified claims and raw XFF are ignored.
+// Note: under Docker Desktop (Windows), anonymous traffic shares 172.18.0.1; authenticated users remain isolated.
 function keyGenerator(req) {
   let token = req.cookies?.bmonitor_token;
   const h = req.headers.authorization;
@@ -20,7 +19,7 @@ function keyGenerator(req) {
   return `ip:${ipKeyGenerator(req.ip)}`;
 }
 
-// ponytail: store in-memory per proses, pindah ke Redis bila backend diskalakan.
+// In-memory store per process; move to Redis if the backend scales horizontally.
 const apiLimiter = rateLimit({
   windowMs: posInt(process.env.RATE_LIMIT_WINDOW_MS, 60000),
   limit: posInt(process.env.RATE_LIMIT_MAX, 300),

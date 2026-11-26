@@ -100,9 +100,7 @@ async function initMySQL() {
     await conn.query("ALTER TABLE threshold_config MODIFY parameter ENUM('suhu','salinitas','turbidity') NOT NULL COMMENT 'Sensor parameter name'");
     await conn.query(
       "INSERT IGNORE INTO devices (node_id, name, type, lokasi, status) VALUES ('N1', 'Gateway Node N1', 'sensor_node', 'Expo', 'offline')");
-    // Ambang default (sama dengan default UI /config). Tanpa baris, checkThresholds tidak pernah membuat alert.
-    // INSERT IGNORE + unique(device_id,parameter): hanya mengisi yang kosong, tidak menimpa ubahan user.
-    // ponytail: dijalankan saat startup; device baru yang dibuat via API baru terisi pada restart berikutnya.
+    // Default thresholds match /config UI; runs only at startup so API-created devices populate on next restart.
     await conn.query(`
       INSERT IGNORE INTO threshold_config (device_id, user_id, parameter, batas_bawah, batas_atas)
       SELECT d.id, u.id, p.parameter, p.lo, p.hi
