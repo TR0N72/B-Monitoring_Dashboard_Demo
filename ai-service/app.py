@@ -21,7 +21,7 @@ MAX_PIXELS = 12_000_000  # ESP32-CAM tops out at 2 MP; reject decompression bomb
 FEATURES = ["glcm_contrast", "glcm_correlation", "glcm_energy", "h_mean", "h_std", "h_var",
             "h_hist_0", "h_hist_1", "h_hist_4", "s_mean", "s_hist_0", "s_hist_1", "v_mean",
             "v_std", "v_var", "v_hist_4", "v_hist_5", "h_hist_5"]
-# 5 TSS classes -> backend labels. ponytail: mapping from AI team's Streamlit app, confirm with them.
+# 5 TSS classes -> backend labels (from AI team's Streamlit app).
 CLASS_TO_LABEL = {1: "Normal", 2: "Normal", 3: "Caution", 4: "Caution", 5: "Warning"}
 
 with warnings.catch_warnings():

@@ -3,7 +3,7 @@
 Password root dibaca container dari env-nya sendiri, tidak pernah lewat host/argumen.
 Pakai:  python scripts/backup_db.py            (backup + pruning)
         python scripts/backup_db.py --verify   (backup + uji restore ke DB sementara)
-ponytail: satu salinan lokal di laptop yang sama; salin folder ke disk/cloud lain untuk tahan kerusakan disk.
+Copy backup directory to external or cloud storage for off-laptop redundancy.
 """
 import gzip, os, shutil, subprocess, sys, time
 from pathlib import Path
