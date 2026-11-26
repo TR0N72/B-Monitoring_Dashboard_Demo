@@ -108,7 +108,7 @@ export default function TopAppBar() {
         <div className="profile-dropdown-wrapper" ref={alertsRef}>
           <button className="action-btn" aria-label="Alerts" onClick={handleAlertsOpen}>
             <div className="action-icon" style={{ position: 'relative' }}>
-              <img src="/assets/7ed9ac62cbae16769d27d1e63b1feb45ae3e97ed.svg" alt="Alerts" />
+              <img src="/icons/alerts.svg" alt="Alerts" />
               {hasNew && <span className="alert-badge" />}
             </div>
           </button>
@@ -149,7 +149,7 @@ export default function TopAppBar() {
             onClick={() => setIsProfileOpen(prev => !prev)}
           >
             <div className="action-icon">
-              <img src="/assets/8f60a37f8bb6bc407fdd3dfb8a0649c83400b182.svg" alt="User" />
+              <img src="/icons/user.svg" alt="User" />
             </div>
           </button>
 

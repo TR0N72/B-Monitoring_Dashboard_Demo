@@ -129,7 +129,7 @@ export default function DashboardPage() {
                 </div>
                 <button className="control-btn outline" onClick={toggleDarkMode}>
                   <div className="btn-icon">
-                    <img src="/assets/78ae8b57bff3076f255b8b5e1fec2ccd53b32508.svg" alt="Color Mode" />
+                    <img src="/icons/theme-mode.svg" alt="Color Mode" />
                   </div>
                   <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
                 </button>

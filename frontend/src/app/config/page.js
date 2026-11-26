@@ -129,9 +129,9 @@ export default function SystemConfigPage() {
   if (authLoading || !isAuthenticated) return null;
 
   const cards = [
-    { key: 'temperature', label: 'Temperature (°C)', icon: '/assets/6f3510a1dbb99babca2e52252df845e0f6a7941e.svg', minMax: [0, 50] },
-    { key: 'salinity', label: 'Salinity (ppt)', icon: '/assets/8ceabc24f95c1ef1a379cf49d24d68a56493acb4.svg', minMax: [0, 50] },
-    { key: 'turbidity', label: 'Turbidity (NTU)', icon: '/assets/90dd09ce6d6dcf0865ad04a71caf4c1138acf2b1.svg', minMax: [0, 1000] },
+    { key: 'temperature', label: 'Temperature (°C)', icon: '/icons/temperature.svg', minMax: [0, 50] },
+    { key: 'salinity', label: 'Salinity (ppt)', icon: '/icons/salinity.svg', minMax: [0, 50] },
+    { key: 'turbidity', label: 'Turbidity (NTU)', icon: '/icons/turbidity.svg', minMax: [0, 1000] },
   ];
 
   return (
@@ -202,7 +202,7 @@ export default function SystemConfigPage() {
               </div>
               <div className="config-footer">
                 <button className="save-config-btn" onClick={handleSave} disabled={saving}>
-                  <img src="/assets/5a5d656219161cc693e96194e2cc39a73ff24e64.svg" alt="Save Icon" />
+                  <img src="/icons/save.svg" alt="Save Icon" />
                   <span>{saving ? 'Saving...' : 'Save Configuration'}</span>
                 </button>
               </div>

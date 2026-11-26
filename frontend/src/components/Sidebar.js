@@ -7,15 +7,15 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
 const baseNavItems = [
-  { href: '/', label: 'Dashboard', icon: '/assets/17d6b01bbfda0584d2308aa4f506bfe509938f0f.svg' },
-  { href: '/sensors', label: 'Sensor Nodes', icon: '/assets/af67b97eb2179670ffc08ddbb7d9cf1c70b126d9.svg' },
-  { href: '/analytics', label: 'Analytics', icon: '/assets/a3cf9e83a6d2c6bae4c1e1b26c4f0b60ca53a101.svg' },
+  { href: '/', label: 'Dashboard', icon: '/icons/dashboard.svg' },
+  { href: '/sensors', label: 'Sensor Nodes', icon: '/icons/sensor-nodes.svg' },
+  { href: '/analytics', label: 'Analytics', icon: '/icons/analytics.svg' },
   { href: '/dss', label: 'DSS Engine', iconSvg: 'brain' },
   { href: '/ai-vision', label: 'AI Vision', iconSvg: 'eye' },
   { href: '/actuator', label: 'Actuator', iconSvg: 'zap' },
 
-  { href: '/export', label: 'Export Logs', icon: '/assets/9d40389f2a1880afd833b2f14daebc6e3ce6bbf0.svg' },
-  { href: '/config', label: 'System Config', icon: '/assets/f2c53fa4859da524365e8bda2fd717f3946f2e8a.svg' },
+  { href: '/export', label: 'Export Logs', icon: '/icons/export.svg' },
+  { href: '/config', label: 'System Config', icon: '/icons/config.svg' },
 ];
 
 export default function Sidebar() {
@@ -121,13 +121,13 @@ export default function Sidebar() {
       <div className="sidebar-footer">
         <Link href="/support" className={`nav-item ${isActive('/support') ? 'active' : ''}`}>
           <div className="nav-icon">
-            <img src="/assets/c2f399cbc92673b4678734c1efe5796b00a9f725.svg" alt="Support" />
+            <img src="/icons/support.svg" alt="Support" />
           </div>
           <p>Support</p>
         </Link>
         <a href="#" className="nav-item" onClick={handleSignOut}>
           <div className="nav-icon">
-            <img src="/assets/c64a15be25be00edb87b8a12e60383d8ea3306ce.svg" alt="Sign Out" />
+            <img src="/icons/sign-out.svg" alt="Sign Out" />
           </div>
           <p>Sign Out</p>
         </a>
