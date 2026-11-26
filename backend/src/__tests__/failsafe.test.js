@@ -30,7 +30,7 @@ afterEach(() => { jest.useRealTimers(); jest.restoreAllMocks(); });
 const vib = (extra, at) => { nowSpy.mockReturnValue(t0 + at); return es.handleVibrationData({ deviceId: 1, nodeId: 'P1', payload: extra, ...vib.ctx }); };
 
 describe('emergencyState', () => {
-  beforeEach(() => { vib.ctx = { io: io(), mqttClient: mqtt() }; es.markEngineStopSent(1, 99); });
+  beforeEach(() => { vib.ctx = { io: io(), mqttClient: mqtt() }; es.markEngineStopSent(1, 99); mockExecute.mockClear(); });
 
   test('masih bergetar setelah jendela verifikasi -> emergency, EMERGENCY_STOP qos2, WS, Telegram, alert_logs', async () => {
     await vib({ vibration: true }, 25);
@@ -62,13 +62,13 @@ describe('emergencyState', () => {
   test('berhenti >= 2 dtk -> terkonfirmasi, log executed, tanpa emergency', async () => {
     await vib({ vibration: false }, 2500);
     expect(es.isEmergencyActive(1)).toBe(false);
-    expect(mockExecute.mock.calls[0][1][0]).toBe('executed');
+    expect(mockExecute.mock.calls.find(([sql]) => /UPDATE actuator_logs/.test(sql))[1][0]).toBe('executed');
     expect(vib.ctx.io.emit).toHaveBeenCalledWith('actuator:confirmed', expect.any(Object));
   });
 
   test('berhenti < 2 dtk -> belum dikonfirmasi', async () => {
     await vib({ vibration: false }, 500);
-    expect(mockExecute).not.toHaveBeenCalled();
+    expect(mockExecute.mock.calls.filter(([sql]) => /actuator_logs/.test(sql))).toHaveLength(0);
   });
 
   test('reset ditolak bila baru bergetar (<5 dtk); force dan mesin-berhenti lolos', async () => {

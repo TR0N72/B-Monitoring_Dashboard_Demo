@@ -72,6 +72,7 @@ const queue         = [];
 let workerTimer     = null;
 let isProcessing    = false;
 let isInitialized   = false;
+let deadCount       = 0;  // item masuk DLQ karena semua chat_id invalid (sejak proses start)
 
 /** Cooldown map: key = `device_id:parameter` → timestamp */
 const cooldownMap   = new Map();
@@ -597,14 +598,18 @@ async function _processNext() {
 
     // ── Kirim ke semua penerima ────────────────────────────────────────
     let allSuccess = true;
+    let sent = 0;
+    const invalid = [];
     for (const chatId of item.recipients) {
       try {
         await sendToChat(chatId, text, parse_mode);
+        sent++;
         console.log(`[TelegramQueue] ✓ Sent [${_priorityName(item.priority)}] to chat=${chatId} (device=${item.deviceId})`);
       } catch (err) {
         if (err instanceof InvalidChatError) {
           // Chat ID tidak valid — log dan skip, jangan retry untuk ID ini
           console.error(`[TelegramQueue] Invalid chat_id ${chatId} — skipping permanently:`, err.message);
+          invalid.push(chatId);
           continue;
         }
         if (err instanceof RateLimitError) {
@@ -626,7 +631,17 @@ async function _processNext() {
       }
     }
 
-    if (allSuccess) {
+    // Chat id basi: buang cache routing agar di-resolve ulang.
+    if (invalid.length) invalidateRouteCache(item.deviceId);
+
+    if (allSuccess && sent === 0 && invalid.length) {
+      // Semua penerima invalid = tak ada yang menerima -> DLQ, bukan "terkirim".
+      console.error(`[TelegramQueue] ✗ DLQ: all recipients invalid for item ${item.id} (${invalid.join(',')})`);
+      _persistDead(item.id, 'invalid chat_id: ' + invalid.join(','));
+      _removeFromQueue(item.id);
+      deadCount++;
+    } else if (allSuccess) {
+      if (invalid.length) console.error(`[TelegramQueue] item ${item.id} delivered, invalid chat_id skipped: ${invalid.join(',')}`);
       _persistDelete(item.id);
       _removeFromQueue(item.id);
     } else {
@@ -758,6 +773,7 @@ function getQueueStatus() {
     },
     pending_retry : queue.filter(i => i.nextAttemptAt > now).length,
     worker_active : workerTimer !== null,
+    dead_since_start: deadCount,
   };
 }
 

@@ -70,6 +70,57 @@ const EMERGENCY_NOTIFY_COOLDOWN_MS = 2 * 60 * 1000; // 2 menit
 const deviceStates = new Map();
 
 /**
+ * Simpan state durable device ke tabel emergency_state (fire-and-forget).
+ * Gagal DB = log keras, tidak pernah throw / memblokir perubahan state in-memory.
+ * lastVibratingAt & isCurrentlyVibrating sengaja tidak dipersist (frekuensi tinggi, dihitung ulang).
+ */
+function _persist(deviceId) {
+  let pool;
+  try { pool = db.getPool(); } catch { return; } // pool belum siap (mis. tes)
+  const s = deviceStates.get(deviceId);
+  if (!s) return;
+  const p = [deviceId, s.emergencyActive ? 1 : 0, s.emergencyActivatedAt ?? null, s.engineStopPending ? 1 : 0,
+    s.engineStopSentAt ?? null, s.engineStopCommandId ?? null, s.lastNotifiedAt ?? null];
+  try {
+    Promise.resolve(pool.execute(
+      `INSERT INTO emergency_state
+         (device_id, emergency_active, emergency_activated_at, engine_stop_pending, engine_stop_sent_at, engine_stop_command_id, last_notified_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         emergency_active = VALUES(emergency_active), emergency_activated_at = VALUES(emergency_activated_at),
+         engine_stop_pending = VALUES(engine_stop_pending), engine_stop_sent_at = VALUES(engine_stop_sent_at),
+         engine_stop_command_id = VALUES(engine_stop_command_id), last_notified_at = VALUES(last_notified_at)`,
+      p
+    )).catch((e) => console.error(`[Failsafe] persist FAILED device=${deviceId}: ${e.message}`));
+  } catch (e) {
+    console.error(`[Failsafe] persist FAILED device=${deviceId}: ${e.message}`);
+  }
+}
+
+/**
+ * Pulihkan state failsafe dari DB saat startup (sebelum initMQTT).
+ * emergencyActive hasil restore tetap memblokir OPEN_FILL_VALVE sampai reset admin (arah fail-safe).
+ * ponytail: bila load gagal (server.js menangkap), state failsafe mulai kosong = fail-open; pantau log.
+ * @returns {Promise<number>} jumlah baris dipulihkan
+ */
+async function loadEmergencyStates() {
+  const [rows] = await db.getPool().execute(
+    'SELECT * FROM emergency_state WHERE emergency_active = 1 OR engine_stop_pending = 1'
+  );
+  const num = (v) => (v == null ? null : Number(v));
+  for (const r of rows) {
+    const s = initDeviceState(Number(r.device_id));
+    s.emergencyActive      = !!r.emergency_active;
+    s.emergencyActivatedAt = num(r.emergency_activated_at);
+    s.engineStopPending    = !!r.engine_stop_pending;
+    s.engineStopSentAt     = num(r.engine_stop_sent_at);
+    s.engineStopCommandId  = num(r.engine_stop_command_id);
+    s.lastNotifiedAt       = num(r.last_notified_at);
+  }
+  return rows.length;
+}
+
+/**
  * Inisialisasi state untuk device baru.
  * @param {number} deviceId
  */
@@ -119,6 +170,7 @@ function markEngineStopSent(deviceId, commandId) {
   state.engineStopPending   = true;
   state.engineStopSentAt    = Date.now();
   state.engineStopCommandId = commandId;
+  _persist(deviceId);
   console.log(`[Failsafe] Engine stop sent for device ${deviceId}, command_id=${commandId}. Monitoring vibration for ${FAILSAFE_VERIFY_WINDOW_MS / 1000}s...`);
 }
 
@@ -139,6 +191,7 @@ function resetEmergencyState(deviceId, force = false) {
   state.engineStopPending    = false;
   state.engineStopSentAt     = null;
   state.engineStopCommandId  = null;
+  _persist(deviceId);
   console.log(`[Failsafe] Emergency state RESET for device ${deviceId}`);
 }
 
@@ -191,6 +244,7 @@ async function handleVibrationData({ deviceId, nodeId, payload, io, mqttClient }
     // ── Mesin berhasil berhenti — verifikasi sukses ───────────────────────
     if (elapsed >= 2000) { // Minimal 2 detik tenang sebelum konfirmasi
       state.engineStopPending = false;
+      _persist(deviceId);
       console.log(`[Failsafe] ✓ Engine STOPPED confirmed for device ${deviceId} (elapsed: ${elapsed}ms)`);
 
       // Update actuator_log status → executed
@@ -234,6 +288,7 @@ async function handleVibrationData({ deviceId, nodeId, payload, io, mqttClient }
     state.emergencyActive      = true;
     state.emergencyActivatedAt = Date.now();
     state.lastNotifiedAt       = Date.now();
+    _persist(deviceId);
 
     console.error(`[Failsafe] 🆘 EMERGENCY STATE ACTIVATED for device ${deviceId} (${nodeId}) — engine still vibrating after STOP command!`);
 
@@ -347,6 +402,7 @@ module.exports = {
   handleVibrationData,
   markEngineStopSent,
   resetEmergencyState,
+  loadEmergencyStates,
   isEmergencyActive,
   getAllEmergencyStates,
   getDeviceState,

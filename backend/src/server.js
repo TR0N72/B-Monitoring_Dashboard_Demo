@@ -26,6 +26,8 @@ const aiRoutes = require('./routes/ai.routes');
 const { verifyBot } = require('./config/telegram');
 const { dateGuard } = require('./services/dateRange');
 const { errorHandler } = require('./middleware/errorHandler');
+const { apiLimiter } = require('./middleware/rateLimit');
+const { loadEmergencyStates } = require('./services/emergencyState');
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3001;
@@ -40,8 +42,7 @@ app.use(morgan('dev'));
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-// ponytail: limiter in-memory per proses, pindah ke store Redis bila backend diskalakan.
-app.use('/api', require('express-rate-limit')({ windowMs: 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false, message: { error: 'Terlalu banyak permintaan.' } }));
+app.use('/api', apiLimiter);
 app.use('/api', dateGuard);
 app.use('/api/auth', authRoutes);
 app.use('/api/devices', devicesRoutes);
@@ -80,6 +81,8 @@ async function start() {
     }
     await loadRevoked().then((n) => console.log(`✓ Token blacklist: ${n} entri`)).catch((e) => console.warn('⚠ Token blacklist load gagal:', e.message));
     await loadPersisted().then((n) => console.log(`✓ Antrean Telegram: ${n} pending dipulihkan`)).catch((e) => console.warn('⚠ Antrean Telegram load gagal:', e.message));
+    // ponytail: gagal restore = state failsafe kosong (fail-open); admin harus cek manual.
+    await loadEmergencyStates().then((n) => console.log(`✓ Failsafe: ${n} state darurat dipulihkan`)).catch((e) => console.warn('⚠ Failsafe state load gagal:', e.message));
     initMQTT().then(() => {}).catch((err) => {
       console.warn('⚠ MQTT not available:', err.message);
     });
