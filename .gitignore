@@ -1,42 +1,35 @@
-
+# Local / academic folders (not tracked)
 laporan/
 document/
-scripts/
 docs/
+.worktrees/
 
-*.md
-
-
-.env
-.env.example
-
-node_modules/
-npm-debug.log*
-
-
-docker/mysql/data/
-docker/influxdb/data/
-docker/grafana/data/
-docker/rabbitmq/data/
-
-
-.DS_Store
-Thumbs.db
-
-
-.vscode/
-.idea/
-# Mosquitto runtime & credentials
-docker/mosquitto/passwd
-docker/mosquitto/data/
-docker/mosquitto/log/
-__pycache__/
-*.pyc
-
-# Dokumentasi tidak boleh masuk git
+# Markdown & compiled docs (keep README and ops runbook)
 *.md
 *.docx
 *.pdf
 !/README.md
-docs/
+!/docker/ops/RUNBOOK.md
+
+# Secrets & environment
+.env
+
+# Dependencies & build/test outputs
+node_modules/
+npm-debug.log*
 coverage/
+__pycache__/
+*.pyc
+
+# Docker runtime data & broker credentials
+docker/mysql/data/
+docker/grafana/data/
+docker/mosquitto/passwd
+docker/mosquitto/data/
+docker/mosquitto/log/
+
+# OS & editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

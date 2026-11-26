@@ -108,7 +108,7 @@ const mockExecute = jest.fn(async (query, params) => {
 
 const mockPool = { execute: mockExecute, query: mockExecute, getConnection: jest.fn(() => ({ execute: mockExecute, beginTransaction: jest.fn(), commit: jest.fn(), rollback: jest.fn(), release: jest.fn() })) };
 
-jest.mock('../services/userGuard', () => ({ resolveUser: async (d) => d, invalidate: () => {} })); // akun diuji di user-guard.test.js
+jest.mock('../services/userGuard', () => ({ resolveUser: async (d) => d, invalidate: () => {} })); // akun diuji di userGuard.test.js
 jest.mock('../config/db', () => ({
   getPool: jest.fn(() => mockPool),
   initMySQL: jest.fn().mockResolvedValue(undefined),

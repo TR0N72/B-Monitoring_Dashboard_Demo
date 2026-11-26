@@ -42,7 +42,6 @@
   "devDependencies": {
     "axios": "^1.20.0",
     "jest": "^30.5.1",
-    "marked": "^18.0.13",
     "socket.io-client": "^4.8.3",
     "supertest": "^7.2.2"
   },

@@ -2,7 +2,7 @@
 process.env.JWT_SECRET = 'bmonitor_dev_secret';
 const mockQuery = jest.fn();
 jest.mock('../config/db', () => ({ getPool: jest.fn(() => ({ query: mockQuery, execute: jest.fn() })) }));
-jest.mock('../services/userGuard', () => ({ resolveUser: async (d) => d, invalidate: () => {} })); // akun diuji di user-guard.test.js
+jest.mock('../services/userGuard', () => ({ resolveUser: async (d) => d, invalidate: () => {} })); // akun diuji di userGuard.test.js
 jest.mock('../socket/alerts', () => ({ getIo: () => null }));
 
 const request = require('supertest');
