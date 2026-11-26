@@ -106,8 +106,7 @@ services:
         NEXT_PUBLIC_GRAFANA_URL: /grafana
     container_name: bmonitor-frontend
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:3002:3000"
+    # internal only: reached by nginx at http://frontend:3000. No host port: bare Next.js has no /api routing.
     depends_on:
       - backend
 

@@ -26,7 +26,7 @@ This repo holds the **software**: backend, frontend, AI service, database, broke
 | Service | Container | Host port | Notes |
 |---|---|---|---|
 | Reverse proxy (nginx) | `bmonitor-nginx` | 8080 | Single entry point: `/` dashboard, `/api`, `/ws`, `/grafana` (login required) |
-| Frontend (Next.js 16, React 19) | `bmonitor-frontend` | 127.0.0.1:3002 | Dashboard, vanilla CSS. Use port 8080, not this one |
+| Frontend (Next.js 16, React 19) | `bmonitor-frontend` | internal only | Dashboard, vanilla CSS. Reached through nginx on 8080 |
 | Backend (Express) | `bmonitor-backend` | 127.0.0.1:3001 | REST, Socket.IO, MQTT client. Health: `/api/health` |
 | MySQL 8 | `bmonitor-mysql` | none | Reach it with `docker exec` |
 | Mosquitto 2 | `bmonitor-mosquitto` | 1883, 9001 | Auth and ACL required |
@@ -59,7 +59,7 @@ docker compose up -d --build
 curl http://localhost:3001/api/health
 ```
 
-Open http://localhost:8080/login (from another device on the LAN: `http://<laptop-IP>:8080/login`). Do not use port 3002: it has no `/api` routing, so login fails with `Unexpected token '<'`. The first run seeds one admin user, `admin`, from `docker/mysql/init.sql`. The seed stores only a bcrypt hash, so set your own password:
+Open http://localhost:8080/login (from another device on the LAN: `http://<laptop-IP>:8080/login`). The frontend has no host port of its own, so always go through 8080. The first run seeds one admin user, `admin`, from `docker/mysql/init.sql`. The seed stores only a bcrypt hash, so set your own password:
 
 ```bash
 docker exec -e NEWPW='YourNewPassword' bmonitor-backend node -e "const b=require('bcryptjs');process.stdout.write(b.hashSync(process.env.NEWPW,10))" > hash.txt
