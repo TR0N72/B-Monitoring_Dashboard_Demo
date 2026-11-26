@@ -121,6 +121,18 @@ CREATE TABLE IF NOT EXISTS ai_detection_logs (
     INDEX idx_ai_device_created (device_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS emergency_state (
+  device_id INT NOT NULL PRIMARY KEY,
+  emergency_active TINYINT(1) NOT NULL DEFAULT 0,
+  emergency_activated_at BIGINT NULL COMMENT 'epoch ms',
+  engine_stop_pending TINYINT(1) NOT NULL DEFAULT 0,
+  engine_stop_sent_at BIGINT NULL COMMENT 'epoch ms',
+  engine_stop_command_id BIGINT NULL,
+  last_notified_at BIGINT NULL COMMENT 'epoch ms',
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 INSERT INTO users (name, username, email, password_hash, role) VALUES
     ('Administrator', 'admin', 'admin@bmonitor.local', '$2a$10$API01k8gd.67sulVeDaEJOJc3zFNHbFry7J1A5qaGN0y7okAniCTG', 'admin')
 ON DUPLICATE KEY UPDATE name = VALUES(name);
