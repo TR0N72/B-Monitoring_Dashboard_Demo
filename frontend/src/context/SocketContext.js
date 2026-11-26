@@ -6,11 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 
 const SocketContext = createContext(null);
 
-/**
- * SocketProvider — mengelola SATU koneksi WebSocket untuk seluruh aplikasi.
- * Semua komponen yang memanggil useSocket() berbagi koneksi yang sama.
- * Ini mencegah terciptanya multiple koneksi yang menyebabkan runtime.lastError flooding.
- */
+// Single shared WebSocket connection for the app to prevent duplicate connections and runtime.lastError flooding.
 export function SocketProvider({ children }) {
   const { isAuthenticated, API_URL } = useAuth();
   const socketRef = useRef(null);
@@ -18,11 +14,9 @@ export function SocketProvider({ children }) {
   const [connected, setConnected] = useState(false);
   const [lastAlert, setLastAlert] = useState(null);
 
-  // Map<event, Set<handler>> — mendukung banyak subscriber per event secara independen
   const listenersRef = useRef(new Map());
 
   useEffect(() => {
-    // Jangan buat koneksi jika belum login
     if (!isAuthenticated) {
       if (socketRef.current) {
         socketRef.current.removeAllListeners();
@@ -34,10 +28,9 @@ export function SocketProvider({ children }) {
       return;
     }
 
-    // Hindari duplikasi koneksi jika sudah ada yang aktif
     if (socketRef.current?.connected) return;
 
-    const socketUrl = API_URL || undefined; // kosong = origin halaman (lewat nginx)
+    const socketUrl = API_URL || undefined; // empty = same-origin via nginx
 
     const socket = io(socketUrl, {
       path: '/ws',
@@ -57,7 +50,7 @@ export function SocketProvider({ children }) {
       setConnected(true);
       socket.emit('request_status');
 
-      // Re-attach semua subscriber aktif setelah reconnect
+      // Re-attach active subscribers after reconnect.
       listenersRef.current.forEach((handlers, event) => {
         handlers.forEach((handler) => {
           socket.off(event, handler);
@@ -80,7 +73,6 @@ export function SocketProvider({ children }) {
       setLastAlert(data);
     });
 
-    // ── Bind hardware emergency ke AlertBanner global ─────────────────
     socket.on('system:emergency', (data) => {
       setLastAlert({
         level_peringatan: 'critical',
@@ -88,7 +80,6 @@ export function SocketProvider({ children }) {
       });
     });
 
-    // ── Bind closed-loop status DSS ke AlertBanner ────────────────────
     socket.on('system:status', (data) => {
       setLastAlert({
         level_peringatan: data.level === 'bahaya' ? 'critical' : 'warning',
@@ -96,7 +87,6 @@ export function SocketProvider({ children }) {
       });
     });
 
-    // ── Bind sensor getaran SW-420 ke AlertBanner ─────────────────────
     socket.on('sensor:vibration', (data) => {
       if (data.vibrating) {
         setLastAlert({
@@ -115,38 +105,23 @@ export function SocketProvider({ children }) {
     };
   }, [isAuthenticated, API_URL]);
 
-  /**
-   * Subscribe ke event tertentu.
-   *
-   * listenersRef menyimpan Map<event, Set<handler>> sehingga banyak komponen
-   * bisa subscribe ke event yang sama secara independen. Setiap panggilan
-   * subscribe() mengembalikan fungsi unsubscribe yang hanya menghapus handler
-   * miliknya sendiri — tidak mengganggu subscriber lain pada event yang sama.
-   *
-   * @param {string} event    - Nama event Socket.IO
-   * @param {Function} handler - Callback yang dipanggil saat event diterima
-   * @returns {Function} unsubscribe — panggil saat komponen unmount
-   */
+  // Returns an unsubscribe function that removes only this handler without affecting other subscribers.
   const subscribe = useCallback((event, handler) => {
     const map = listenersRef.current;
 
-    // Pastikan Set untuk event ini sudah ada
     if (!map.has(event)) {
       map.set(event, new Set());
     }
     map.get(event).add(handler);
 
-    // Pasang handler ke socket yang sudah aktif (jika ada)
     if (socketRef.current) {
       socketRef.current.on(event, handler);
     }
 
-    // Kembalikan fungsi unsubscribe yang presisi: hanya hapus handler ini
     return () => {
       const handlers = map.get(event);
       if (handlers) {
         handlers.delete(handler);
-        // Bersihkan entry Map jika Set sudah kosong
         if (handlers.size === 0) {
           map.delete(event);
         }
@@ -157,9 +132,6 @@ export function SocketProvider({ children }) {
     };
   }, []);
 
-  /**
-   * Emit event ke server via socket yang aktif.
-   */
   const emit = useCallback((event, data) => {
     if (socketRef.current?.connected) {
       socketRef.current.emit(event, data);

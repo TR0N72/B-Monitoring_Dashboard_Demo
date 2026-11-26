@@ -9,7 +9,6 @@ import Sidebar from '@/components/Sidebar';
 import TopAppBar from '@/components/TopAppBar';
 import Toast from '@/components/Toast';
 
-// ─── Definisi aktuator riil sesuai ACTUATOR_ACTIONS di backend ───────────────
 const ACTUATOR_GROUPS = [
   {
     groupKey: 'drain',
@@ -64,7 +63,6 @@ const ACTUATOR_GROUPS = [
   },
 ];
 
-// ─── Modal Konfirmasi Emergency Stop ─────────────────────────────────────────
 function EmergencyConfirmModal({ onConfirm, onCancel }) {
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="emg-modal-title">
@@ -95,7 +93,6 @@ function EmergencyConfirmModal({ onConfirm, onCancel }) {
   );
 }
 
-// ─── Halaman Utama ────────────────────────────────────────────────────────────
 export default function ActuatorPage() {
   const { isAuthenticated, loading: authLoading, user } = useAuth();
   const { apiFetch } = useApi();
@@ -105,22 +102,18 @@ export default function ActuatorPage() {
   const [logs, setLogs] = useState([]);
   const [devices, setDevices] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
-  // Map<aksi, boolean> — true jika perintah sedang dikirim / menunggu ACK
   const [pendingCommands, setPendingCommands] = useState({});
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('success');
   const [selectedDevice, setSelectedDevice] = useState('');
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
-  // Ref untuk menyimpan aksi yang sedang dikonfirmasi di modal
   const pendingEmergencyRef = useRef(null);
 
-  // ── Auth guard ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/login');
   }, [authLoading, isAuthenticated, router]);
 
-  // ── Fetch devices ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isAuthenticated) return;
     let ignore = false;
@@ -143,7 +136,6 @@ export default function ActuatorPage() {
     return () => { ignore = true; };
   }, [isAuthenticated, apiFetch]);
 
-  // ── Fetch log aktuator saat mount ───────────────────────────────────────────
   useEffect(() => {
     if (!isAuthenticated) return;
     let ignore = false;
@@ -164,17 +156,14 @@ export default function ActuatorPage() {
     return () => { ignore = true; };
   }, [isAuthenticated, apiFetch]);
 
-  // ── WebSocket: real-time ACK dari perangkat ─────────────────────────────────
   useEffect(() => {
     if (!isAuthenticated) return;
     const unsub = subscribe('actuator:status', (data) => {
-      // Prepend entri baru ke log tabel
       setLogs((prev) => [{
         ...data,
         executed_at: data.executed_at || new Date().toISOString(),
       }, ...prev].slice(0, 100));
 
-      // Hapus loading state perintah yang sudah di-ACK
       if (data.aksi) {
         setPendingCommands((prev) => {
           const next = { ...prev };
@@ -200,7 +189,6 @@ export default function ActuatorPage() {
     return () => { unsub(); unsubConfirmed(); };
   }, [isAuthenticated, subscribe]);
 
-  // ── Kirim perintah ke backend ───────────────────────────────────────────────
   const sendCommand = useCallback(async (aksi) => {
     setPendingCommands((prev) => ({ ...prev, [aksi]: true }));
     try {
@@ -213,7 +201,7 @@ export default function ActuatorPage() {
         const json = await res.json();
         setToastType('success');
         setToastMessage(`✓ "${aksi}" dikirim (ID: ${json.command_id})`);
-        // Langsung tambahkan entry optimistik ke log sementara ACK belum datang
+        // Optimistic entry while waiting for WebSocket ACK.
         setLogs((prev) => [{
           id: json.command_id,
           node_id: selectedDevice,
@@ -223,7 +211,7 @@ export default function ActuatorPage() {
           executed_at: new Date().toISOString(),
         }, ...prev].slice(0, 100));
 
-        // Fallback timeout (10 detik) jika konfirmasi via WebSocket tidak pernah sampai
+        // Fallback timeout in case WebSocket ACK never arrives.
         setTimeout(() => {
           setPendingCommands((prev) => {
             if (prev[aksi]) {
@@ -241,7 +229,6 @@ export default function ActuatorPage() {
     } catch (err) {
       setToastType('error');
       setToastMessage(`✕ Gagal: ${err.message}`);
-      // Hapus loading state karena gagal
       setPendingCommands((prev) => {
         const next = { ...prev };
         delete next[aksi];
@@ -252,7 +239,6 @@ export default function ActuatorPage() {
     }
   }, [apiFetch, selectedDevice]);
 
-  // ── Handler tombol Emergency Stop (butuh konfirmasi modal) ──────────────────
   const handleEmergencyClick = useCallback(() => {
     pendingEmergencyRef.current = 'EMERGENCY_STOP';
     setShowEmergencyModal(true);
@@ -295,7 +281,6 @@ export default function ActuatorPage() {
           <TopAppBar />
           <div className="scrollable-content">
 
-            {/* ── Header ── */}
             <div className="page-header-controls">
               <div className="page-title-section">
                 <div className="heading-1"><h1>Actuator Control</h1></div>
@@ -326,7 +311,6 @@ export default function ActuatorPage() {
               </div>
             </div>
 
-            {/* ── Notice untuk non-admin ── */}
             {!isAdmin && (
               <div className="actuator-notice">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -337,7 +321,6 @@ export default function ActuatorPage() {
               </div>
             )}
 
-            {/* ── Command Cards — Aktuator Riil ── */}
             <div className="actuator-grid">
               {ACTUATOR_GROUPS.map((cmd) => (
                 <div key={cmd.groupKey} className="actuator-card">
@@ -349,7 +332,6 @@ export default function ActuatorPage() {
                     <p>{cmd.description}</p>
                   </div>
                   <div className="actuator-card-actions">
-                    {/* ON / OPEN / START */}
                     <button
                       className="actuator-btn actuator-btn-on"
                       disabled={!isAdmin || !!pendingCommands[cmd.onAction]}
@@ -367,7 +349,6 @@ export default function ActuatorPage() {
                         </>
                       )}
                     </button>
-                    {/* OFF / CLOSE / STOP */}
                     <button
                       className="actuator-btn actuator-btn-off"
                       disabled={!isAdmin || !!pendingCommands[cmd.offAction]}
@@ -390,7 +371,6 @@ export default function ActuatorPage() {
               ))}
             </div>
 
-            {/* ── Emergency Stop ── */}
             <div className="emergency-section">
               <div className="emergency-card">
                 <div className="emergency-card-icon">
@@ -429,7 +409,6 @@ export default function ActuatorPage() {
               </div>
             </div>
 
-            {/* ── Activity Log ── */}
             <div className="data-table-container">
               <div className="table-header-section">
                 <h2>Command Activity Log</h2>
@@ -477,13 +456,12 @@ export default function ActuatorPage() {
               </div>
             </div>
 
-          </div>{/* /scrollable-content */}
+          </div>
 
           <Toast message={toastMessage} type={toastType} show={showToast} onClose={hideToast} />
         </div>
       </main>
 
-      {/* ── Modal Emergency Stop ── */}
       {showEmergencyModal && (
         <EmergencyConfirmModal onConfirm={confirmEmergency} onCancel={cancelEmergency} />
       )}

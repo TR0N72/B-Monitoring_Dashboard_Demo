@@ -43,7 +43,6 @@ export default function SupportPage() {
           <TopAppBar />
           <div className="scrollable-content">
 
-            {/* Header */}
             <div className="page-header-controls">
               <div className="page-title-section">
                 <div className="heading-1">
@@ -56,7 +55,6 @@ export default function SupportPage() {
               </div>
             </div>
 
-            {/* Kontak */}
             <div className="support-section">
               <h2 className="support-section-title">Kontak Kami</h2>
               <div className="support-cards-grid">
@@ -78,7 +76,6 @@ export default function SupportPage() {
               </div>
             </div>
 
-            {/* Langkah menjadi anggota */}
             <div className="support-section">
               <h2 className="support-section-title">Cara Menjadi Anggota</h2>
               <div className="support-steps">

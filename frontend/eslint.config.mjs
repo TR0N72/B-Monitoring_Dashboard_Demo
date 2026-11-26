@@ -5,9 +5,7 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   // Ikon SVG statis kecil: next/image tidak memberi optimasi untuk SVG, hanya menambah wrapper.
   { rules: { "@next/next/no-img-element": "off" } },
-  // Override default ignores of eslint-config-next.
   globalIgnores([
-    // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
     "build/**",

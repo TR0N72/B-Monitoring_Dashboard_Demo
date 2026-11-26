@@ -221,7 +221,7 @@ h1, h2, h3, .brand-title {
     height: 100%;
 }
 
-/* Profile Dropdown */
+
 .profile-dropdown-wrapper {
     position: relative;
 }
@@ -272,7 +272,7 @@ h1, h2, h3, .brand-title {
     background-color: #fef2f2;
 }
 
-/* Alerts Dropdown */
+
 .alerts-dropdown {
     min-width: 280px;
 }
@@ -324,7 +324,7 @@ h1, h2, h3, .brand-title {
     color: var(--text-muted);
     margin-top: 2px;
 }
-/* Badge merah di atas ikon lonceng */
+
 .alert-badge {
     position: absolute;
     top: -2px;
@@ -346,7 +346,7 @@ h1, h2, h3, .brand-title {
 }
 .scrollable-content > * { flex-shrink: 0; }
 
-/* Support Page */
+
 .support-section {
     display: flex;
     flex-direction: column;
@@ -1480,7 +1480,7 @@ h1, h2, h3, .brand-title {
     margin: 0;
 }
 
-/* ========== DSS Dashboard ========== */
+/* DSS Dashboard */
 .dss-top-grid {
     display: grid;
     grid-template-columns: 280px 1fr 1fr;
@@ -1663,7 +1663,7 @@ h1, h2, h3, .brand-title {
     color: var(--text-heading);
 }
 
-/* ========== Actuator Control ========== */
+/* Actuator Control */
 .actuator-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -1801,7 +1801,7 @@ h1, h2, h3, .brand-title {
 .status-pending { background: #fef3c7; color: #92400e; }
 .status-failed { background: #fee2e2; color: #991b1b; }
 
-/* ── Emergency Stop Section ── */
+
 .emergency-section {
     margin-top: 8px;
 }
@@ -1871,7 +1871,7 @@ h1, h2, h3, .brand-title {
     cursor: not-allowed;
 }
 
-/* ── Emergency Confirmation Modal ── */
+
 .modal-overlay {
     position: fixed;
     inset: 0;
@@ -1960,7 +1960,7 @@ h1, h2, h3, .brand-title {
 }
 
 
-/* ========== AI Detection ========== */
+/* AI Detection */
 .ai-stats-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
@@ -2049,7 +2049,7 @@ h1, h2, h3, .brand-title {
     font-size: 11px !important;
 }
 
-/* ========== Responsive for new pages ========== */
+
 @media (max-width: 1200px) {
     .dss-top-grid {
         grid-template-columns: 1fr 1fr;
@@ -2072,7 +2072,7 @@ h1, h2, h3, .brand-title {
         grid-template-columns: repeat(2, 1fr);
     }
 }
-/* Modal Styles */
+
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
 .modal-content { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
 .modal-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
@@ -2081,7 +2081,7 @@ h1, h2, h3, .brand-title {
 .close-btn:hover { color: var(--text-primary); }
 .modal-body { padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
 .modal-footer { padding: 1.25rem 1.5rem; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 0.75rem; }
-/* Skeleton Loading Rows */
+
 .skeleton-row td { padding: 10px 12px; }
 .skeleton-cell {
     display: inline-block;
@@ -2127,7 +2127,7 @@ h1, h2, h3, .brand-title {
     .sidebar { transition: none; }
 }
 
-/* ========== Node cards (homepage) ========== */
+/* Node cards (homepage) */
 .node-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
 .node-card { display: flex; flex-direction: column; gap: 10px; background-color: var(--bg-card); border: 1px solid var(--border-dark); border-radius: 4px; padding: 16px; color: inherit; text-decoration: none; transition: border-color 0.15s; }
 .node-card:hover, .node-card:focus-visible { border-color: var(--accent-blue); outline: none; }
@@ -2166,7 +2166,7 @@ h1, h2, h3, .brand-title {
 @media (max-width: 1100px) { .dashboard-grid-12 { grid-template-columns: 1fr; } .col-span-4, .col-span-8 { grid-column: span 1; } }
 @media (max-width: 520px) { .metrics-main, .metrics-secondary { grid-template-columns: repeat(2, 1fr); } }
 
-/* ponytail fixes: kartu & detail */
+
 .node-card.stale { opacity: 1; }
 .node-card.stale .last-seen { color: #b45309; font-weight: 600; }
 .node-card.no-data { justify-content: flex-start; min-height: 0; }

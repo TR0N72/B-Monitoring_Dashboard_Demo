@@ -158,7 +158,6 @@ export default function DSSPage() {
               </div>
             </div>
 
-            {/* DSS Score + Status */}
             <div className="dss-top-grid">
               <div className="dss-score-card">
                 <ScoreGauge score={score} recommendation={recommendation} />
@@ -252,7 +251,6 @@ export default function DSSPage() {
               </div>
             </div>
 
-            {/* DSS History Table */}
             <div className="data-table-container">
               <div className="table-header-section">
                 <h2>DSS Evaluation History</h2>

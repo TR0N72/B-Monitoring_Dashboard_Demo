@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 
-const POLL_INTERVAL_MS = 10000; // 10 detik
+const POLL_INTERVAL_MS = 10000;
 
 const LEVEL_COLORS = {
   bahaya: '#dc2626',
@@ -14,17 +14,14 @@ const LEVEL_COLORS = {
 export default function TopAppBar() {
   const { user, logout, API_URL } = useAuth();
 
-  // --- Profile state ---
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const profileRef = useRef(null);
 
-  // --- Alerts state ---
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
   const [alerts, setAlerts] = useState([]);
   const [hasNew, setHasNew] = useState(false);
   const alertsRef = useRef(null);
 
-  // Tutup dropdown saat klik di luar
   useEffect(() => {
     function handleClickOutside(e) {
       if (profileRef.current && !profileRef.current.contains(e.target)) {
@@ -38,13 +35,12 @@ export default function TopAppBar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Polling alert dengan Exponential Backoff
   useEffect(() => {
     if (!user) return;
 
     let timeoutId = null;
-    let delay = 10000;        // mulai 10 detik
-    const MAX_DELAY = 300000; // cap 5 menit
+    let delay = 10000;
+    const MAX_DELAY = 300000;
     let cancelled = false;
 
     async function fetchAlerts() {
@@ -57,9 +53,9 @@ export default function TopAppBar() {
         const newAlerts = data.logs || [];
         setAlerts(newAlerts);
         setHasNew(newAlerts.some(a => a.level_peringatan !== 'normal'));
-        delay = 10000; // reset ke normal jika berhasil
+        delay = 10000;
       } catch (_) {
-        delay = Math.min(delay * 2, MAX_DELAY); // backoff eksponensial
+        delay = Math.min(delay * 2, MAX_DELAY);
       } finally {
         if (!cancelled) timeoutId = setTimeout(fetchAlerts, delay);
       }
@@ -72,7 +68,6 @@ export default function TopAppBar() {
     };
   }, [user, API_URL]);
 
-
   async function handleSignOut() {
     await logout();
     window.location.href = '/login';
@@ -80,7 +75,7 @@ export default function TopAppBar() {
 
   function handleAlertsOpen() {
     setIsAlertsOpen(prev => !prev);
-    setHasNew(false); // Bersihkan badge saat dibuka
+    setHasNew(false);
   }
 
   function formatTime(dateStr) {
@@ -104,7 +99,6 @@ export default function TopAppBar() {
       </div>
       <div className="header-actions">
 
-        {/* Alerts Dropdown */}
         <div className="profile-dropdown-wrapper" ref={alertsRef}>
           <button className="action-btn" aria-label="Alerts" onClick={handleAlertsOpen}>
             <div className="action-icon" style={{ position: 'relative' }}>
@@ -141,7 +135,6 @@ export default function TopAppBar() {
           )}
         </div>
 
-        {/* User Profile Dropdown */}
         <div className="profile-dropdown-wrapper" ref={profileRef}>
           <button
             className="action-btn"
@@ -171,4 +164,3 @@ export default function TopAppBar() {
     </header>
   );
 }
-

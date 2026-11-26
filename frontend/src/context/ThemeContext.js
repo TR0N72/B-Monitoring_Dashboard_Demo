@@ -12,7 +12,6 @@ export function ThemeProvider({ children }) {
     return false;
   });
 
-  // Apply class ke document.body setiap kali berubah
   useEffect(() => {
     if (isDarkMode) {
       document.body.classList.add('dark-theme');
